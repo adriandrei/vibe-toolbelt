@@ -9,7 +9,7 @@ import {
     X,
     Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
-    Search, Star
+    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 
@@ -30,6 +30,8 @@ export const TOOL_CATEGORIES = [
             { to: '/formatters', icon: Braces, label: 'Formatters' },
             { to: '/converter', icon: ArrowRightLeft, label: 'JSON <> YAML' },
             { to: '/markdown', icon: FileText, label: 'Markdown' },
+            { to: '/cron', icon: Clock, label: 'Cron Parser' },
+            { to: '/svg', icon: Image, label: 'SVG Compressor' },
         ]
     },
     {
@@ -41,6 +43,8 @@ export const TOOL_CATEGORIES = [
             { to: '/uuid', icon: Fingerprint, label: 'UUID Gen' },
             { to: '/username', icon: User, label: 'Username' },
             { to: '/hash', icon: Hash, label: 'Hash Gen' },
+            { to: '/hmac', icon: Shield, label: 'HMAC Gen' },
+            { to: '/rsa', icon: Lock, label: 'RSA Key Gen' },
             { to: '/password', icon: Shield, label: 'Password Audit' },
         ]
     },
@@ -49,6 +53,8 @@ export const TOOL_CATEGORIES = [
         icon: Globe,
         items: [
             { to: '/url', icon: Link2, label: 'URL Parser' },
+            { to: '/ua', icon: Monitor, label: 'User Agent' },
+            { to: '/curl', icon: Terminal, label: 'Curl to Fetch' },
             { to: '/meta', icon: Globe, label: 'Meta Tags' },
         ]
     },
@@ -65,6 +71,8 @@ export const TOOL_CATEGORIES = [
         icon: Palette,
         items: [
             { to: '/css', icon: Palette, label: 'Glassmorphism' },
+            { to: '/gradient', icon: Pipette, label: 'Gradient' },
+            { to: '/triangle', icon: Triangle, label: 'Triangle' },
             { to: '/color-blindness', icon: Eye, label: 'Color Blindness' },
             { to: '/box-shadow', icon: Layers, label: 'Box Shadow' },
         ]
