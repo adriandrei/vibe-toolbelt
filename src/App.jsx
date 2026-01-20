@@ -27,6 +27,8 @@ import Gradient from './pages/Gradient'
 import Triangle from './pages/Triangle'
 import UserAgent from './pages/UserAgent'
 import Curl from './pages/Curl'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 
 function App() {
   return (
@@ -59,6 +61,8 @@ function App() {
           <Route path="/svg" element={<SvgCompressor />} />
           <Route path="/cron" element={<CronParser />} />
           <Route path="/markdown" element={<Markdown />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
         </Routes>
       </Layout>
     </BrowserRouter>

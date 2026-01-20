@@ -1,24 +1,26 @@
 :root {
   /* Dynamic Hue for easy theming */
-  --hue: 250; /* Deep Purple/Indigo vibe */
-  
+  --hue: 250;
+  /* Deep Purple/Indigo vibe */
+
   /* Colors - Dark Mode Default */
   --bg-app: hsl(var(--hue), 20%, 8%);
   --bg-panel: hsl(var(--hue), 25%, 12%);
   --bg-card: hsla(var(--hue), 25%, 15%, 0.6);
-  
+
   --text-main: hsl(var(--hue), 10%, 95%);
   --text-muted: hsl(var(--hue), 10%, 70%);
   --text-dim: hsl(var(--hue), 10%, 50%);
-  
+
   --primary: hsl(var(--hue), 90%, 65%);
   --primary-glow: hsla(var(--hue), 90%, 65%, 0.4);
-  
-  --accent: hsl(280, 90%, 60%); /* Purple/Pink accent */
-  
+
+  --accent: hsl(280, 90%, 60%);
+  /* Purple/Pink accent */
+
   --border: hsla(var(--hue), 20%, 80%, 0.1);
   --border-hover: hsla(var(--hue), 20%, 80%, 0.2);
-  
+
   /* Glassmorphism */
   --glass-bg: hsla(var(--hue), 25%, 12%, 0.5);
   --glass-border: hsla(var(--hue), 20%, 90%, 0.1);
@@ -38,7 +40,7 @@
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
-  
+
   /* Font */
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
@@ -48,9 +50,9 @@ body.light {
   --bg-app: hsl(var(--hue), 10%, 95%);
   --bg-panel: hsl(var(--hue), 10%, 90%);
   --bg-card: hsla(var(--hue), 10%, 100%, 0.7);
-  
+
   --text-main: hsl(var(--hue), 30%, 10%);
   --text-muted: hsl(var(--hue), 20%, 40%);
-  
+
   --border: hsla(var(--hue), 20%, 20%, 0.1);
 }
