@@ -1,0 +1,20 @@
+/* Responsive Breakpoints */
+@media (min-width: 1025px) {
+    .mobile-only {
+        display: none !important;
+    }
+
+    .desktop-sidebar-open {
+        margin-left: 280px !important;
+    }
+
+    .sidebar-fixed {
+        transform: translateX(0) !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    .desktop-only {
+        display: none !important;
+    }
+}
