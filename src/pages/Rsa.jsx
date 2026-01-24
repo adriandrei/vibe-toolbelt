@@ -11,20 +11,24 @@ export default function Rsa() {
 
     const generateKeys = () => {
         setIsGenerating(true)
-        // Use setTimeout to allow UI to render the loading state
+        // Use setTimeout to allow UI to render the loading state before blocking
         setTimeout(() => {
             try {
-                const crypt = new JSEncrypt({ default_key_size: keySize })
-                crypt.getKey(() => {
-                    setKeys({
-                        public: crypt.getPublicKey(),
-                        private: crypt.getPrivateKey()
-                    })
-                    setIsGenerating(false)
+                const size = parseInt(keySize)
+                const crypt = new JSEncrypt({ default_key_size: size })
+
+                // JSEncrypt generation is blocking/synchronous in this build
+                crypt.getKey()
+
+                setKeys({
+                    public: crypt.getPublicKey(),
+                    private: crypt.getPrivateKey()
                 })
-            } catch (e) {
-                console.error(e)
                 setIsGenerating(false)
+            } catch (e) {
+                console.error('RSA Generation Error:', e)
+                setIsGenerating(false)
+                alert('Detailed error: ' + e.message)
             }
         }, 100)
     }
