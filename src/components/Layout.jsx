@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Menu, Search } from 'lucide-react'
 import Sidebar from './Sidebar'
+import SmartPaste from './SmartPaste'
 import CommandPalette from './CommandPalette'
 
 export default function Layout({ children }) {
@@ -41,6 +42,7 @@ export default function Layout({ children }) {
             />
 
             <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+            <SmartPaste />
 
             <div
                 className={isSidebarOpen ? 'desktop-sidebar-open' : ''}

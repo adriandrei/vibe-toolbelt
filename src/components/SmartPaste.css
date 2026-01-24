@@ -1,0 +1,110 @@
+.smart-toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.5rem;
+    padding: 2.5rem;
+    background: var(--bg-panel);
+    border: 1px solid var(--primary);
+    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 500px;
+    width: 90%;
+    border-radius: var(--radius-lg);
+}
+
+@keyframes fadeInUp {
+    from {
+        transform: translate(-50%, -40%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translate(-50%, -50%);
+        opacity: 1;
+    }
+}
+
+.smart-toast .icon-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: var(--bg-app);
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+}
+
+.smart-toast .content-area {
+    flex: unset;
+    width: 100%;
+}
+
+.smart-toast .title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.smart-toast .desc {
+    font-size: 1.2rem;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+
+.smart-toast .actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.smart-toast .btn-go {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.smart-toast .btn-go:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+}
+
+.smart-toast .btn-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    border-radius: 6px;
+}
+
+.smart-toast .btn-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+}
