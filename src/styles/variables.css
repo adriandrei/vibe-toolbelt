@@ -9,8 +9,8 @@
   --bg-card: hsla(var(--hue), 25%, 15%, 0.6);
 
   --text-main: hsl(var(--hue), 10%, 95%);
-  --text-muted: hsl(var(--hue), 10%, 70%);
-  --text-dim: hsl(var(--hue), 10%, 50%);
+  --text-muted: hsl(var(--hue), 10%, 80%);
+  --text-dim: hsl(var(--hue), 10%, 65%);
 
   --primary: hsl(var(--hue), 90%, 65%);
   --primary-glow: hsla(var(--hue), 90%, 65%, 0.4);

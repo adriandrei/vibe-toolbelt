@@ -97,7 +97,7 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'var(--space-sm)',
-                    padding: '8px 12px',
+                    padding: '12px', /* Increased from 8px 12px for touch target */
                     margin: '2px 0',
                     borderRadius: 'var(--radius-md)',
                     background: isActive ? 'var(--primary-glow)' : 'transparent',
@@ -106,7 +106,8 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
                     fontSize: '0.9rem',
                     fontWeight: isActive ? 500 : 400,
                     transition: 'all 0.2s',
-                    paddingRight: '30px' // Space for star
+                    paddingRight: '30px', // Space for star
+                    minHeight: '44px' /* Ensure min touch target height */
                 }}
             >
                 <item.icon size={16} />
@@ -115,6 +116,7 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
 
             {(isHovered || isFav) && (
                 <button
+                    aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
                     onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -129,7 +131,7 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
                         background: 'none',
                         color: isFav ? '#eab308' : 'var(--text-dim)',
                         cursor: 'pointer',
-                        padding: 2,
+                        padding: '8px', /* Increased from 2px */
                         opacity: isFav ? 1 : 0.5
                     }}
                 >
@@ -146,6 +148,7 @@ const CategoryGroup = ({ category, onMobileClick, favorites, toggleFavorite }) =
     return (
         <div style={{ marginBottom: 'var(--space-md)' }}>
             <button
+                aria-label={isOpen ? `Collapse ${category.name} category` : `Expand ${category.name} category`}
                 onClick={() => setIsOpen(!isOpen)}
                 style={{
                     display: 'flex',
@@ -160,7 +163,8 @@ const CategoryGroup = ({ category, onMobileClick, favorites, toggleFavorite }) =
                     letterSpacing: '0.05em',
                     cursor: 'pointer',
                     border: 'none',
-                    background: 'none'
+                    background: 'none',
+                    minHeight: '44px' /* Accessible height */
                 }}
             >
                 <category.icon size={14} />
@@ -255,13 +259,20 @@ export default function Sidebar({ isOpen, onClose }) {
                             <span className="text-gradient" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>DevTools</span>
                         </Link>
                         <button
+                            aria-label="Close sidebar"
                             className="mobile-only"
                             onClick={onClose}
                             style={{
                                 color: 'var(--text-muted)',
                                 background: 'none',
                                 border: 'none',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                padding: '8px', /* Better touch target */
+                                minWidth: '44px',
+                                minHeight: '44px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                         >
                             <X size={20} />

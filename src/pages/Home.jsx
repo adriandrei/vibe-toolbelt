@@ -34,7 +34,7 @@ const ToolCard = ({ to, icon: Icon, title, description, color }) => (
         }}>
             <Icon size={24} />
         </div>
-        <h3 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-sm)', color: 'var(--text-main)' }}>{title}</h3>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-sm)', color: 'var(--text-main)', marginTop: 0 }}>{title}</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-lg)', flexGrow: 1 }}>{description}</p>
 
         <div style={{ display: 'flex', alignItems: 'center', color: color, fontWeight: 500, fontSize: '0.9rem' }}>
