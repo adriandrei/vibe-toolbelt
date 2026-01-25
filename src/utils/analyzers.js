@@ -72,5 +72,24 @@ export const analyzeContent = (text) => {
         }
     }
 
+    // 7. Unix Timestamp Detection
+    // 10 digits (seconds) or 13 digits (ms)
+    // Starts with 1 (until 2033) like 17xxxxxxxxx or 16xxxxxxxxx
+    if (/^\d+$/.test(trimmed)) {
+        const ts = parseInt(trimmed, 10);
+        // Valid range: roughly 2000 to 2100 (seconds or ms)
+        // Seconds: 946684800 (year 2000) -> 4102444800 (year 2100)
+        // Ms: 946684800000 -> 4102444800000
+
+        // Seconds Check
+        if (ts > 946684800 && ts < 4102444800) {
+            return { tool: '/unix', label: 'Unix Timestamp', confidence: 0.95 };
+        }
+        // Ms Check
+        if (ts > 946684800000 && ts < 4102444800000) {
+            return { tool: '/unix', label: 'Unix Timestamp', confidence: 0.95 };
+        }
+    }
+
     return null;
 };

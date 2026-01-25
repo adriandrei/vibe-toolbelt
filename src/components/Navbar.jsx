@@ -50,7 +50,7 @@ export default function Navbar() {
                     color: 'var(--text-main)'
                 }}>
                     <Wand2 size={24} color="var(--primary)" />
-                    <span className="text-gradient">DevTools</span>
+                    <span className="text-gradient">Vibe Toolbelt</span>
                 </Link>
 
                 <div style={{

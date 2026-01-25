@@ -29,6 +29,8 @@ import UserAgent from './pages/UserAgent'
 import Curl from './pages/Curl'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import UnixTimestamp from './pages/UnixTimestamp'
+import CidrCalculator from './pages/CidrCalculator'
 
 function App() {
   return (
@@ -58,6 +60,8 @@ function App() {
           <Route path="/box-shadow" element={<BoxShadow />} />
           <Route path="/formatters" element={<Formatters />} />
           <Route path="/converter" element={<Converter />} />
+          <Route path="/unix" element={<UnixTimestamp />} />
+          <Route path="/cidr" element={<CidrCalculator />} />
           <Route path="/svg" element={<SvgCompressor />} />
           <Route path="/cron" element={<CronParser />} />
           <Route path="/markdown" element={<Markdown />} />
