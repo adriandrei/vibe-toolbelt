@@ -49,4 +49,47 @@ test.describe('Web Tools', () => {
         await expect(output).toContainText('name="description" content="Best description ever"');
     });
 
+    test('Unix Timestamp Converter shows current time', async ({ page }) => {
+        await page.goto('/unix');
+
+        // Should show current timestamp (10 digits for seconds)
+        const content = page.locator('body');
+        await expect(content).toContainText(/\d{10}/); // Unix timestamp in seconds
+
+        // Test input conversion
+        await page.getByPlaceholder(/Paste timestamp/).fill('1609459200');
+        await expect(content).toContainText('2021'); // Jan 1, 2021
+    });
+
+    test('Unix Timestamp handles milliseconds', async ({ page }) => {
+        await page.goto('/unix');
+
+        // Input milliseconds (13 digits)
+        await page.getByPlaceholder(/Paste timestamp/).fill('1609459200000');
+        await expect(page.locator('body')).toContainText('2021');
+    });
+
+    test('Unix Timestamp pause/resume works', async ({ page }) => {
+        await page.goto('/unix');
+
+        // Get initial timestamp
+        const initialTime = await page.locator('body').textContent();
+        const match = initialTime.match(/(\d{10})/);
+        const timestamp1 = match ? match[1] : '';
+
+        // Pause
+        await page.getByRole('button', { name: /Pause/i }).click();
+
+        // Wait a bit
+        await page.waitForTimeout(2000);
+
+        // Timestamp should not have changed much
+        const pausedTime = await page.locator('body').textContent();
+        const match2 = pausedTime.match(/(\d{10})/);
+        const timestamp2 = match2 ? match2[1] : '';
+
+        // Should be same or very close (within 1 second)
+        expect(Math.abs(parseInt(timestamp2) - parseInt(timestamp1))).toBeLessThan(2);
+    });
+
 });

@@ -30,4 +30,21 @@ test.describe('Visual Tools', () => {
         await expect(page.getByText(/Saved/)).toBeVisible();
     });
 
+    test('SVG Compressor reduces size', async ({ page }) => {
+        await page.goto('/svg');
+
+        const verboseSVG = '<svg>\n  <rect width="100" height="100" />\n  <!-- comment -->\n</svg>';
+        await page.getByPlaceholder(/Paste your/).fill(verboseSVG);
+        await page.getByRole('button', { name: 'Compress' }).click();
+
+        // Should show savings
+        await expect(page.getByText(/Saved/)).toBeVisible();
+
+        // Output should exist and be compressed
+        const output = await page.locator('textarea[readonly]').inputValue();
+        expect(output.length).toBeGreaterThan(0);
+        expect(output).not.toContain('comment'); // Comments removed
+        expect(output).not.toContain('\n  '); // Whitespace removed
+    });
+
 });

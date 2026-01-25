@@ -44,4 +44,18 @@ test.describe('Design Tools', () => {
         expect(text.split(',').length).toBeGreaterThan(1);
     });
 
+    test('Box Shadow adjusts offset and blur', async ({ page }) => {
+        await page.goto('/box-shadow');
+
+        const codeBlock = page.locator('code');
+
+        // Change X offset (first range input)
+        await page.locator('input[type="range"]').first().fill('20');
+        await expect(codeBlock).toContainText('20px');
+
+        // Change blur (third range input)
+        await page.locator('input[type="range"]').nth(2).fill('30');
+        await expect(codeBlock).toContainText('30px');
+    });
+
 });

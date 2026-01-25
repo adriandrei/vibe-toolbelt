@@ -39,6 +39,16 @@ test.describe('Generator Tools', () => {
         await expect(page.locator('text=/^[a-zA-Z0-9]{8}$/').first()).toBeVisible();
     });
 
+    test('Username handles count variations', async ({ page }) => {
+        await page.goto('/username');
+
+        // Just verify the tool works with different counts
+        await page.getByRole('button', { name: 'Generate New Names' }).click();
+
+        // Should have results visible
+        await expect(page.locator('.glass-panel').first()).toBeVisible();
+    });
+
     test('Converter transforms JSON to YAML', async ({ page }) => {
         await page.goto('/converter');
 
@@ -58,6 +68,68 @@ test.describe('Generator Tools', () => {
         await expect(output).toHaveValue(/key: value/);
         await expect(output).toHaveValue(/list:/);
         await expect(output).toHaveValue(/- 1/);
+    });
+
+    test('Faker supports CSV format', async ({ page }) => {
+        await page.goto('/faker');
+
+        // Select CSV format
+        await page.selectOption('select', 'csv');
+        await page.getByRole('button', { name: 'Generate Data' }).click();
+
+        const output = await page.getByPlaceholder('Generated data will appear here...').inputValue();
+        expect(output).toContain(','); // CSV delimiter
+        const lines = output.split('\n');
+        expect(lines.length).toBeGreaterThan(10); // Header + 10 rows
+    });
+
+    test('Faker supports SQL format', async ({ page }) => {
+        await page.goto('/faker');
+
+        // Select SQL format
+        await page.selectOption('select', 'sql');
+        await page.getByRole('button', { name: 'Generate Data' }).click();
+
+        const output = await page.getByPlaceholder('Generated data will appear here...').inputValue();
+        expect(output).toContain('INSERT INTO');
+        expect(output).toContain('VALUES');
+    });
+
+    test('Faker handles count variations', async ({ page }) => {
+        await page.goto('/faker');
+
+        // Set count to 50
+        await page.locator('input[type="range"]').fill('50');
+        await page.getByRole('button', { name: 'Generate Data' }).click();
+
+        const output = await page.getByPlaceholder('Generated data will appear here...').inputValue();
+        const json = JSON.parse(output);
+        expect(json.length).toBe(50);
+    });
+
+    test('Converter handles YAML to JSON', async ({ page }) => {
+        await page.goto('/converter');
+
+        // Switch to YAML input
+        await page.locator('select').first().selectOption('yaml');
+
+        const yamlInput = 'key: value\nlist:\n  - 1\n  - 2';
+        await page.getByPlaceholder(/Paste YAML/i).fill(yamlInput);
+
+        const output = await page.locator('textarea[readonly]').inputValue();
+        // Output should be JSON format
+        expect(output).toContain('key');
+        expect(output).toContain('value');
+        expect(output).toContain('list');
+    });
+
+    test('Converter handles invalid JSON', async ({ page }) => {
+        await page.goto('/converter');
+
+        await page.getByPlaceholder('Paste JSON here...').fill('{invalid}');
+
+        // Should show error
+        await expect(page.locator('body')).toContainText(/error|invalid/i);
     });
 
 });

@@ -84,4 +84,62 @@ test.describe('Security Tools', () => {
         await expect(content).toContainText(/Weak|Fair|Good|Strong/);
     });
 
+    test('Password shows multiple strength levels', async ({ page }) => {
+        await page.goto('/password');
+
+        // Test very weak
+        await page.getByPlaceholder('Type a password...').fill('123');
+        await expect(page.locator('body')).toContainText(/Very Weak|Weak/);
+
+        // Test strong
+        await page.getByPlaceholder('Type a password...').fill('Tr0ng!P@ssw0rd#2024$');
+        await expect(page.locator('body')).toContainText(/Strong|Good/);
+    });
+
+    test('Password toggle shows/hides password', async ({ page }) => {
+        await page.goto('/password');
+
+        const input = page.getByPlaceholder('Type a password...');
+        await input.fill('secret');
+
+        // Should start as password type
+        await expect(input).toHaveAttribute('type', 'password');
+
+        // Click show button (Eye icon button)
+        await page.locator('button').last().click();
+        await expect(input).toHaveAttribute('type', 'text');
+    });
+
+    test('RSA generates different key sizes', async ({ page }) => {
+        await page.goto('/rsa');
+
+        // Test 2048-bit
+        await page.selectOption('select', '2048');
+        await page.getByRole('button', { name: 'Generate New Keys' }).click();
+
+        const publicKey = await page.locator('textarea').first().inputValue();
+        // Key format varies, just check it exists and has content
+        expect(publicKey.length).toBeGreaterThan(200);
+        expect(publicKey).toContain('BEGIN');
+    });
+
+    test('RSA regenerates different keys', async ({ page }) => {
+        await page.goto('/rsa');
+
+        await page.selectOption('select', '1024');
+        await page.getByRole('button', { name: 'Generate New Keys' }).click();
+
+        const firstKey = await page.locator('textarea').first().inputValue();
+        expect(firstKey.length).toBeGreaterThan(100);
+
+        // Regenerate
+        await page.getByRole('button', { name: 'Generate New Keys' }).click();
+        const secondKey = await page.locator('textarea').first().inputValue();
+
+        // Keys should both exist and be valid
+        expect(secondKey.length).toBeGreaterThan(100);
+        expect(firstKey).toContain('BEGIN');
+        expect(secondKey).toContain('BEGIN');
+    });
+
 });

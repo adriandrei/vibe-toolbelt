@@ -56,4 +56,56 @@ test.describe('Text Tools', () => {
         await expect(page.getByText(/Every 5 minutes/i)).toBeVisible();
     });
 
+    test('Formatters handles SQL formatting', async ({ page }) => {
+        await page.goto('/formatters');
+
+        // Switch to SQL mode
+        await page.getByRole('button', { name: 'SQL' }).click();
+
+        const messySQL = 'select * from users where id=1';
+        await page.locator('textarea').first().fill(messySQL);
+        await page.getByRole('button', { name: 'Format SQL' }).click();
+
+        const formatted = await page.locator('textarea[readonly]').inputValue();
+        expect(formatted).toContain('SELECT'); // Should uppercase keywords
+        expect(formatted).toContain('\n'); // Should have line breaks
+    });
+
+    test('Formatters switches between modes', async ({ page }) => {
+        await page.goto('/formatters');
+
+        // Start with JSON
+        await expect(page.getByPlaceholder(/JSON/i)).toBeVisible();
+
+        // Switch to SQL
+        await page.getByRole('button', { name: 'SQL' }).click();
+        await expect(page.getByPlaceholder(/SQL/i)).toBeVisible();
+
+        // Switch back to JSON
+        await page.getByRole('button', { name: 'JSON' }).click();
+        await expect(page.getByPlaceholder(/JSON/i)).toBeVisible();
+    });
+
+    test('Markdown renders code blocks', async ({ page }) => {
+        await page.goto('/markdown');
+
+        const md = '```javascript\nconst x = 1;\n```';
+        await page.locator('textarea').fill(md);
+
+        const preview = page.locator('.markdown-body');
+        await expect(preview.locator('pre')).toBeVisible();
+        await expect(preview.locator('code')).toContainText('const x = 1');
+    });
+
+    test('Markdown renders lists and links', async ({ page }) => {
+        await page.goto('/markdown');
+
+        const md = '- Item 1\n- Item 2\n\n[Link](https://example.com)';
+        await page.locator('textarea').fill(md);
+
+        const preview = page.locator('.markdown-body');
+        await expect(preview.locator('li')).toHaveCount(2);
+        await expect(preview.locator('a')).toHaveAttribute('href', 'https://example.com');
+    });
+
 });
