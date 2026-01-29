@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { format as formatSql } from 'sql-formatter'
-import { Braces, Database, Copy, Check, Trash2, FileCode, FileJson, RefreshCw } from 'lucide-react'
+import jmespath from 'jmespath'
+import { Braces, Database, Copy, Check, Trash2, FileCode, FileJson, RefreshCw, Filter, AlignLeft, AlignJustify } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function Formatters() {
@@ -10,6 +11,8 @@ export default function Formatters() {
     const [output, setOutput] = useState('')
     const [error, setError] = useState(null)
     const [copied, setCopied] = useState(false)
+    const [indent, setIndent] = useState(2) // 0 for minify, 2 for prettify
+    const [jqQuery, setJqQuery] = useState('') // Default empty (identity)
 
     const handleFormat = () => {
         if (!input.trim()) return
@@ -17,8 +20,30 @@ export default function Formatters() {
         try {
             setError(null)
             if (mode === 'json') {
-                const parsed = JSON.parse(input)
-                setOutput(JSON.stringify(parsed, null, 2))
+                let parsed
+                try {
+                    parsed = JSON.parse(input)
+                } catch (e) {
+                    // Try to extract position from error message if possible
+                    setError(`JSON Syntax Error: ${e.message}`)
+                    return
+                }
+
+                // Apply JMESPath filter
+                let filtered = parsed
+                if (jqQuery && jqQuery.trim() !== '') {
+                    try {
+                        // jmespath.search(data, query)
+                        filtered = jmespath.search(parsed, jqQuery)
+                        // Handle null result (no match)
+                        if (filtered === null) filtered = null
+                    } catch (e) {
+                        setError(`Query Error: ${e.message}`)
+                        return
+                    }
+                }
+
+                setOutput(JSON.stringify(filtered, null, indent))
             } else {
                 setOutput(formatSql(input, { language: 'sql', tabWidth: 2, keywordCase: 'upper' }))
             }
@@ -27,6 +52,13 @@ export default function Formatters() {
             setOutput('')
         }
     }
+
+    // Auto-format when toggles change (if input exists)
+    useEffect(() => {
+        if (input && !error) {
+            handleFormat()
+        }
+    }, [indent, jqQuery])
 
     const handleCopy = () => {
         if (!output) return
@@ -39,10 +71,10 @@ export default function Formatters() {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
                 <h2 className="text-gradient">Code Formatters</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Prettify your JSON and SQL code.</p>
+                <p style={{ color: 'var(--text-muted)' }}>Prettify, Minify, and Query your JSON.</p>
             </div>
 
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)', display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)', display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                     <button
                         onClick={() => { setMode('json'); setInput(''); setOutput(''); setError(null); }}
@@ -71,6 +103,68 @@ export default function Formatters() {
                         SQL
                     </button>
                 </div>
+
+                {mode === 'json' && (
+                    <>
+                        <div style={{ width: 1, height: 24, background: 'var(--border)' }}></div>
+
+                        {/* Minify/Prettify Toggle */}
+                        <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                            <button
+                                onClick={() => setIndent(2)}
+                                title="Prettify (2 spaces)"
+                                style={{
+                                    padding: '8px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    background: indent === 2 ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: indent === 2 ? 'var(--primary)' : 'var(--text-muted)',
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <AlignLeft size={18} />
+                            </button>
+                            <button
+                                onClick={() => setIndent(0)}
+                                title="Minify (0 spaces)"
+                                style={{
+                                    padding: '8px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    background: indent === 0 ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: indent === 0 ? 'var(--primary)' : 'var(--text-muted)',
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <AlignJustify size={18} />
+                            </button>
+                        </div>
+
+                        <div style={{ width: 1, height: 24, background: 'var(--border)' }}></div>
+
+                        {/* JQ Query Input */}
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
+                            <Filter size={16} style={{ color: 'var(--text-muted)' }} />
+                            <input
+                                type="text"
+                                value={jqQuery}
+                                onChange={(e) => setJqQuery(e.target.value)}
+                                placeholder="JMESPath Filter (e.g. [].id or people[?age > `20`])"
+                                style={{
+                                    padding: '6px 10px',
+                                    fontSize: '0.9rem',
+                                    fontFamily: 'var(--font-mono)',
+                                    background: 'var(--bg-app)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    color: 'var(--text-main)',
+                                    width: '100%',
+                                    minWidth: '200px'
+                                }}
+                            />
+                        </div>
+                    </>
+                )}
             </div>
 
             <div className="split-pane">
@@ -98,6 +192,7 @@ export default function Formatters() {
                             color: 'var(--text-main)',
                             padding: 'var(--space-sm)'
                         }}
+                        spellCheck="false"
                     />
                     <button
                         onClick={handleFormat}
@@ -116,7 +211,7 @@ export default function Formatters() {
                             gap: 6
                         }}
                     >
-                        <RefreshCw size={16} /> Format {mode.toUpperCase()}
+                        <RefreshCw size={16} /> Process
                     </button>
                 </div>
 
@@ -155,7 +250,7 @@ export default function Formatters() {
                         minHeight: '300px'
                     }}>
                         {error ? (
-                            <div style={{ padding: 'var(--space-md)', color: '#ef4444' }}>
+                            <div style={{ padding: 'var(--space-md)', color: '#ef4444', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap' }}>
                                 <strong>Error:</strong> {error}
                             </div>
                         ) : (
@@ -173,6 +268,7 @@ export default function Formatters() {
                                     resize: 'none',
                                     color: mode === 'sql' ? '#a5b4fc' : '#86efac'
                                 }}
+                                spellCheck="false"
                             />
                         )}
                     </div>
