@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { format as formatSql } from 'sql-formatter'
-import { Braces, Database, Copy, Check, Trash2 } from 'lucide-react'
+import { Braces, Database, Copy, Check, Trash2, FileCode, FileJson, RefreshCw } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function Formatters() {
@@ -36,55 +36,48 @@ export default function Formatters() {
     }
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-                <button
-                    onClick={() => { setMode('json'); setInput(''); setOutput(''); setError(null); }}
-                    style={{
-                        flex: 1,
-                        padding: 'var(--space-md)',
-                        borderRadius: 'var(--radius-md)',
-                        background: mode === 'json' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                        color: mode === 'json' ? '#fff' : 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        fontWeight: 600,
-                        fontSize: '1.1rem',
-                        transition: 'all 0.2s',
-                        border: '1px solid var(--border)'
-                    }}
-                >
-                    <Braces size={20} /> JSON
-                </button>
-                <button
-                    onClick={() => { setMode('sql'); setInput(''); setOutput(''); setError(null); }}
-                    style={{
-                        flex: 1,
-                        padding: 'var(--space-md)',
-                        borderRadius: 'var(--radius-md)',
-                        background: mode === 'sql' ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
-                        color: mode === 'sql' ? '#fff' : 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        fontWeight: 600,
-                        fontSize: '1.1rem',
-                        transition: 'all 0.2s',
-                        border: '1px solid var(--border)'
-                    }}
-                >
-                    <Database size={20} /> SQL
-                </button>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
+                <h2 className="text-gradient">Code Formatters</h2>
+                <p style={{ color: 'var(--text-muted)' }}>Prettify your JSON and SQL code.</p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)', display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                    <button
+                        onClick={() => { setMode('json'); setInput(''); setOutput(''); setError(null); }}
+                        style={{
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-sm)',
+                            background: mode === 'json' ? 'var(--primary)' : 'transparent',
+                            color: mode === 'json' ? '#fff' : 'var(--text-muted)',
+                            border: '1px solid',
+                            borderColor: mode === 'json' ? 'var(--primary)' : 'var(--border)'
+                        }}
+                    >
+                        JSON
+                    </button>
+                    <button
+                        onClick={() => { setMode('sql'); setInput(''); setOutput(''); setError(null); }}
+                        style={{
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-sm)',
+                            background: mode === 'sql' ? 'var(--primary)' : 'transparent',
+                            color: mode === 'sql' ? '#fff' : 'var(--text-muted)',
+                            border: '1px solid',
+                            borderColor: mode === 'sql' ? 'var(--primary)' : 'var(--border)'
+                        }}
+                    >
+                        SQL
+                    </button>
+                </div>
             </div>
 
             <div className="split-pane">
                 {/* Input */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
-                        <label style={{ color: 'var(--text-muted)' }}>Input</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileCode size={16} /> Input</label>
                         <button onClick={() => setInput('')} style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'flex', gap: 4 }}>
                             <Trash2 size={12} /> Clear
                         </button>
@@ -93,7 +86,18 @@ export default function Formatters() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder={mode === 'json' ? 'Paste minified JSON...' : 'Paste messy SQL...'}
-                        style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.85rem', resize: 'none', background: 'rgba(0,0,0,0.2)', minHeight: '300px' }}
+                        style={{
+                            flex: 1,
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.85rem',
+                            resize: 'vertical',
+                            background: 'rgba(0,0,0,0.2)',
+                            minHeight: '300px',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--text-main)',
+                            padding: 'var(--space-sm)'
+                        }}
                     />
                     <button
                         onClick={handleFormat}
@@ -104,21 +108,36 @@ export default function Formatters() {
                             color: '#fff',
                             fontWeight: 600,
                             borderRadius: 'var(--radius-md)',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6
                         }}
                     >
-                        Format {mode.toUpperCase()}
+                        <RefreshCw size={16} /> Format {mode.toUpperCase()}
                     </button>
                 </div>
 
                 {/* Output */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
-                        <label style={{ color: 'var(--text-muted)' }}>Output</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileJson size={16} /> Output</label>
                         {output && (
                             <button
                                 onClick={handleCopy}
-                                style={{ color: copied ? 'var(--accent)' : 'var(--primary)', fontSize: '0.8rem', display: 'flex', gap: 4 }}
+                                style={{
+                                    color: copied ? '#10b981' : 'var(--primary)',
+                                    fontSize: '0.8rem',
+                                    display: 'flex',
+                                    gap: 4,
+                                    background: 'transparent',
+                                    border: `1px solid ${copied ? '#10b981' : 'var(--primary)'}`,
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
                             >
                                 {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Copied' : 'Copy'}
                             </button>
@@ -126,7 +145,7 @@ export default function Formatters() {
                     </div>
                     <div style={{
                         flex: 1,
-                        background: 'rgba(0,0,0,0.3)',
+                        background: 'rgba(0,0,0,0.2)',
                         borderRadius: 'var(--radius-md)',
                         border: error ? '1px solid #ef4444' : '1px solid var(--border)',
                         overflow: 'hidden',

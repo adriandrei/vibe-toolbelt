@@ -44,8 +44,8 @@ test.describe('Text Tools', () => {
 
     test('Lorem Ipsum generates text', async ({ page }) => {
         await page.goto('/lorem');
-        // Text is generated on mount, check that output div has content
-        const output = page.locator('.glass-panel').last().locator('div').first();
+        // Text is generated on mount - find the output div with pre-wrap styling
+        const output = page.locator('div[style*="pre-wrap"]');
         const text = await output.textContent();
         expect(text.length).toBeGreaterThan(10);
     });

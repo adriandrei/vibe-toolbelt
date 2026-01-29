@@ -72,10 +72,10 @@ test.describe('Web Tools', () => {
     test('Unix Timestamp pause/resume works', async ({ page }) => {
         await page.goto('/unix');
 
-        // Get initial timestamp
-        const initialTime = await page.locator('body').textContent();
-        const match = initialTime.match(/(\d{10})/);
-        const timestamp1 = match ? match[1] : '';
+        // Get initial timestamp from the big display (4rem font)
+        const bigDisplay = page.locator('div[style*="4rem"]');
+        const initialText = await bigDisplay.textContent();
+        const timestamp1 = parseInt(initialText);
 
         // Pause
         await page.getByRole('button', { name: /Pause/i }).click();
@@ -83,13 +83,12 @@ test.describe('Web Tools', () => {
         // Wait a bit
         await page.waitForTimeout(2000);
 
-        // Timestamp should not have changed much
-        const pausedTime = await page.locator('body').textContent();
-        const match2 = pausedTime.match(/(\d{10})/);
-        const timestamp2 = match2 ? match2[1] : '';
+        // Get paused timestamp
+        const pausedText = await bigDisplay.textContent();
+        const timestamp2 = parseInt(pausedText);
 
         // Should be same or very close (within 1 second)
-        expect(Math.abs(parseInt(timestamp2) - parseInt(timestamp1))).toBeLessThan(2);
+        expect(Math.abs(timestamp2 - timestamp1)).toBeLessThan(2);
     });
 
 });
