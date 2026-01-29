@@ -18,12 +18,13 @@ test.describe('Regex Tester', () => {
         await expect(page.locator('body')).toContainText('Check');
     });
 
-    // Skipped: Input interaction is flaky in automated tests
-    test.skip('Updates pattern and matches', async ({ page }) => {
-        const patternInputs = page.locator('input[type="text"]');
-        await patternInputs.first().clear();
-        await patternInputs.first().fill('is');
-        await page.waitForTimeout(300);
-        await expect(page.locator('body')).toContainText('Match Details (2)');
+    test('Updates pattern and matches', async ({ page }) => {
+        // Scope to main to avoid Sidebar search input which comes first in DOM
+        const regexInput = page.locator('main input[type="text"]').first();
+        await regexInput.clear();
+        await regexInput.type('is', { delay: 50 });
+
+        // Wait specifically for the text to appear
+        await expect(page.locator('body')).toContainText('Match Details (2)', { timeout: 5000 });
     });
 });

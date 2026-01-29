@@ -58,7 +58,7 @@ export const analyzeContent = (text) => {
     // 6. Base64 Detection
     // Must look like base64 and decode to something readable-ish or JSON
     // Regex for Base64 (alphanumeric + +/ + =)
-    if (/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed) && trimmed.length > 20) {
+    if (/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed) && trimmed.length > 8) {
         try {
             const decoded = atob(trimmed);
             // If it decodes to JSON, maybe it's Base64 encoded JSON
