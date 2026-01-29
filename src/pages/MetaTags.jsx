@@ -41,60 +41,63 @@ export default function MetaTags() {
     }
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                <h2 className="text-gradient">SEO Info</h2>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div className="split-pane">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                    <h2 className="text-gradient">SEO Info</h2>
 
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <label style={{ display: 'block', marginBottom: 4 }}>Page Title</label>
-                    <input type="text" name="title" value={data.title} onChange={handleChange} style={{ width: '100%' }} maxLength={60} />
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>{data.title.length}/60</div>
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>Page Title</label>
+                        <input type="text" name="title" value={data.title} onChange={handleChange} style={{ width: '100%' }} maxLength={60} />
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>{data.title.length}/60</div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>Description</label>
+                        <textarea name="description" value={data.description} onChange={handleChange} style={{ width: '100%', minHeight: '80px' }} maxLength={160} />
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>{data.description.length}/160</div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>Keywords (comma separated)</label>
+                        <input type="text" name="keywords" value={data.keywords} onChange={handleChange} style={{ width: '100%' }} />
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
+                        <label style={{ display: 'block', marginBottom: 4 }}>Image URL (OG/Twitter)</label>
+                        <input type="text" name="image" value={data.image} onChange={handleChange} style={{ width: '100%' }} placeholder="https://example.com/og-image.jpg" />
+                    </div>
                 </div>
 
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <label style={{ display: 'block', marginBottom: 4 }}>Description</label>
-                    <textarea name="description" value={data.description} onChange={handleChange} style={{ width: '100%', minHeight: '80px' }} maxLength={160} />
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>{data.description.length}/160</div>
-                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                    <h2 className="text-gradient">Generated HTML</h2>
 
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <label style={{ display: 'block', marginBottom: 4 }}>Keywords (comma separated)</label>
-                    <input type="text" name="keywords" value={data.keywords} onChange={handleChange} style={{ width: '100%' }} />
-                </div>
-
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <label style={{ display: 'block', marginBottom: 4 }}>Image URL (OG/Twitter)</label>
-                    <input type="text" name="image" value={data.image} onChange={handleChange} style={{ width: '100%' }} placeholder="https://example.com/og-image.jpg" />
-                </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                <h2 className="text-gradient">Generated HTML</h2>
-
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', flex: 1, position: 'relative' }}>
-                    <button
-                        onClick={() => navigator.clipboard.writeText(generateCode())}
-                        style={{
-                            position: 'absolute',
-                            top: 10,
-                            right: 10,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            color: 'var(--primary)'
-                        }}
-                    >
-                        <Copy size={14} /> Copy
-                    </button>
-                    <pre style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.85rem',
-                        color: 'var(--text-code)',
-                        whiteSpace: 'pre-wrap',
-                        marginTop: '20px'
-                    }}>
-                        {generateCode()}
-                    </pre>
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)', flex: 1, position: 'relative' }}>
+                        <button
+                            onClick={() => navigator.clipboard.writeText(generateCode())}
+                            style={{
+                                position: 'absolute',
+                                top: 10,
+                                right: 10,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                color: 'var(--primary)'
+                            }}
+                        >
+                            <Copy size={14} /> Copy
+                        </button>
+                        <pre style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.85rem',
+                            color: 'var(--text-code)',
+                            whiteSpace: 'pre-wrap',
+                            marginTop: '20px',
+                            overflowX: 'auto'
+                        }}>
+                            {generateCode()}
+                        </pre>
+                    </div>
                 </div>
             </div>
         </div>

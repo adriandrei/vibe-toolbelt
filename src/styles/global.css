@@ -10,10 +10,14 @@ body {
     color: var(--text-main);
     line-height: 1.6;
     min-height: 100vh;
+    font-size: clamp(14px, 1vw + 0.5rem, 16px);
+
     /* Subtle mesh gradient background */
     background-image:
         radial-gradient(circle at 10% 20%, hsla(var(--hue), 80%, 20%, 0.15) 0%, transparent 40%),
         radial-gradient(circle at 90% 80%, hsla(280, 80%, 20%, 0.15) 0%, transparent 40%);
+    background-size: 150% 150%;
+    /* Enhances the gradient effect */
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -106,4 +110,22 @@ textarea {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
+}
+
+/* Responsive Split Pane (Input / Output) */
+.split-pane {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* Default mobile: Stacked */
+    gap: var(--space-md);
+    min-height: 0;
+    /* Important for nested scrolling */
+    flex: 1;
+}
+
+@media (min-width: 1025px) {
+    .split-pane {
+        grid-template-columns: 1fr 1fr;
+        /* Desktop: Side by Side */
+    }
 }

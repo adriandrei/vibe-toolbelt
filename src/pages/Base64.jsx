@@ -46,42 +46,42 @@ export default function Base64() {
     }
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div className="glass-panel" style={{ padding: 'var(--space-xl)' }}>
+        <div style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
+            {/* Header & Tabs */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', marginBottom: 'var(--space-md)' }}>
+                <h2 className="text-gradient" style={{ fontSize: '1.8rem', marginBottom: 'var(--space-sm)' }}>Base64 Converter</h2>
 
-                {/* Header & Tabs */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)' }}>
-                    <h2 className="text-gradient" style={{ fontSize: '1.8rem' }}>Base64 Converter</h2>
-
-                    <div style={{
-                        background: 'var(--bg-app)',
-                        padding: '4px',
-                        borderRadius: 'var(--radius-md)',
-                        display: 'flex',
-                        border: '1px solid var(--border)'
-                    }}>
-                        {['encode', 'decode'].map((m) => (
-                            <button
-                                key={m}
-                                onClick={() => setMode(m)}
-                                style={{
-                                    padding: 'var(--space-xs) var(--space-md)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    backgroundColor: mode === m ? 'var(--primary)' : 'transparent',
-                                    color: mode === m ? '#fff' : 'var(--text-muted)',
-                                    fontWeight: mode === m ? 600 : 400,
-                                    textTransform: 'capitalize',
-                                    transition: 'all 0.2s ease'
-                                }}
-                            >
-                                {m}
-                            </button>
-                        ))}
-                    </div>
+                <div style={{
+                    background: 'var(--bg-app)',
+                    padding: '4px',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    border: '1px solid var(--border)'
+                }}>
+                    {['encode', 'decode'].map((m) => (
+                        <button
+                            key={m}
+                            onClick={() => setMode(m)}
+                            style={{
+                                padding: 'var(--space-xs) var(--space-md)',
+                                borderRadius: 'var(--radius-sm)',
+                                backgroundColor: mode === m ? 'var(--primary)' : 'transparent',
+                                color: mode === m ? '#fff' : 'var(--text-muted)',
+                                fontWeight: mode === m ? 600 : 400,
+                                textTransform: 'capitalize',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            {m}
+                        </button>
+                    ))}
                 </div>
+            </div>
 
+            {/* Split Pane */}
+            <div className="split-pane">
                 {/* Input */}
-                <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
                         <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                             {mode === 'encode' ? 'Text to Encode' : 'Base64 to Decode'}
@@ -99,17 +99,12 @@ export default function Base64() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder={mode === 'encode' ? 'Type something here...' : 'Paste Base64 here...'}
-                        style={{ minHeight: '150px' }}
+                        style={{ flex: 1, minHeight: '150px', background: 'rgba(0,0,0,0.2)', resize: 'none' }}
                     />
                 </div>
 
-                {/* Action Icon (Visual only) */}
-                <div className="flex-center" style={{ marginBottom: 'var(--space-lg)', opacity: 0.5 }}>
-                    <ArrowRightLeft size={24} color="var(--primary)" />
-                </div>
-
                 {/* Output */}
-                <div>
+                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
                         <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Result</label>
                         <button
@@ -134,13 +129,14 @@ export default function Base64() {
                         value={output}
                         placeholder="Result will appear here..."
                         style={{
+                            flex: 1,
                             minHeight: '150px',
                             backgroundColor: 'rgba(0,0,0,0.2)',
-                            borderColor: copied ? 'var(--accent)' : 'var(--border)'
+                            borderColor: copied ? 'var(--accent)' : 'var(--border)',
+                            resize: 'none'
                         }}
                     />
                 </div>
-
             </div>
         </div>
     )

@@ -17,7 +17,7 @@ export default function Gradient() {
                 <p style={{ color: 'var(--text-muted)' }}>Create beautiful CSS gradients.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
+            <div className="split-pane">
                 {/* Controls */}
                 <div className="glass-panel" style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                     <div>
@@ -61,7 +61,7 @@ export default function Gradient() {
                 <div
                     className="glass-panel"
                     style={{
-                        height: '400px',
+                        minHeight: '300px', // Use minHeight instead of fixed height
                         background: gradient,
                         borderRadius: 'var(--radius-lg)',
                         display: 'flex',

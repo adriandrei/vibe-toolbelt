@@ -83,7 +83,7 @@ export default function Rsa() {
             </div>
 
             {(keys.public || keys.private) && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)' }}>
+                <div className="split-pane">
                     <div className="glass-panel" style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-md)' }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, color: '#10b981' }}>
@@ -109,7 +109,8 @@ export default function Rsa() {
                                 color: 'var(--text-main)',
                                 fontFamily: 'var(--font-mono)',
                                 fontSize: '0.8rem',
-                                resize: 'none'
+                                resize: 'none',
+                                wordBreak: 'break-all'
                             }}
                         />
                     </div>
@@ -139,7 +140,8 @@ export default function Rsa() {
                                 color: 'var(--text-main)',
                                 fontFamily: 'var(--font-mono)',
                                 fontSize: '0.8rem',
-                                resize: 'none'
+                                resize: 'none',
+                                wordBreak: 'break-all'
                             }}
                         />
                     </div>

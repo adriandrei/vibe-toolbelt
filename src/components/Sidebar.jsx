@@ -211,7 +211,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <>
             {/* Mobile Backdrop */}
             <div
-                className="mobile-only"
+                className="tablet-down"
                 style={{
                     position: 'fixed',
                     inset: 0,
@@ -228,11 +228,11 @@ export default function Sidebar({ isOpen, onClose }) {
             <aside
                 className="glass-panel sidebar-fixed"
                 style={{
-                    position: 'fixed', // Fixed to ensure it stays in place
+                    position: 'fixed',
                     top: 0,
                     left: 0,
                     bottom: 0,
-                    width: '280px', // Slightly wider for comfort
+                    width: 'var(--sidebar-width)',
                     zIndex: 50,
                     borderRight: '1px solid var(--border)',
                     borderTop: 'none',
@@ -243,7 +243,6 @@ export default function Sidebar({ isOpen, onClose }) {
                     transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     display: 'flex',
                     flexDirection: 'column',
-                    // Use CSS variable or class for background to support themes
                     background: 'var(--bg-panel)',
                     backdropFilter: 'blur(20px)'
                 }}

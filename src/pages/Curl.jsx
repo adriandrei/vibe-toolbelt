@@ -69,7 +69,7 @@ export default function Curl() {
                 <p style={{ color: 'var(--text-muted)' }}>Convert Curl commands to JavaScript Fetch.</p>
             </div>
 
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)', minHeight: 0 }}>
+            <div className="split-pane">
                 {/* Input */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 'var(--space-sm)' }}>
@@ -88,7 +88,8 @@ export default function Curl() {
                             color: 'var(--text-main)',
                             fontFamily: 'var(--font-mono)',
                             fontSize: '0.85rem',
-                            resize: 'none'
+                            resize: 'none',
+                            minHeight: '150px'
                         }}
                     />
                 </div>
@@ -118,7 +119,8 @@ export default function Curl() {
                             color: '#d4d4d4',
                             fontFamily: 'var(--font-mono)',
                             fontSize: '0.85rem',
-                            resize: 'none'
+                            resize: 'none',
+                            minHeight: '150px'
                         }}
                     />
                 </div>

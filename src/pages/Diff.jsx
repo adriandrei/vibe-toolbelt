@@ -32,12 +32,7 @@ export default function Diff() {
                 </div>
             </div>
 
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 'var(--space-md)',
-                marginBottom: 'var(--space-lg)'
-            }}>
+            <div className="split-pane" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
                     <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>Original Text</label>
                     <textarea

@@ -58,8 +58,8 @@ export default function Hmac() {
                     />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-                    <div>
+                <div className="split-pane" style={{ marginBottom: 'var(--space-md)' }}>
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
                         <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Secret Key</label>
                         <div style={{ position: 'relative' }}>
                             <input
@@ -81,7 +81,7 @@ export default function Hmac() {
                         </div>
                     </div>
 
-                    <div>
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
                         <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Algorithm</label>
                         <select
                             value={algo}

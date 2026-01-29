@@ -47,7 +47,7 @@ export default function ColorBlindness() {
     }
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', minHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
             {/* Filters definitions */}
             <svg style={{ display: 'none' }}>
                 <defs>
@@ -65,7 +65,7 @@ export default function ColorBlindness() {
                 <h2 className="text-gradient" style={{ fontSize: '2rem' }}>Color Blindness Simulator</h2>
             </div>
 
-            <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center', marginBottom: 'var(--space-md)' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
                 {Object.keys(filters).map(f => (
                     <button
                         key={f}

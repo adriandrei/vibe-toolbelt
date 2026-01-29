@@ -1,20 +1,130 @@
-/* Responsive Breakpoints */
+/* 
+  Responsive Breakpoints & Utilities 
+  
+  Breakpoints:
+  - Mobile Portrait:  < 640px
+  - Mobile Landscape: 640px - 768px
+  - Tablet Portrait:  768px - 1024px
+  - Tablet Landscape: 1024px - 1280px
+  - Desktop:          1280px - 1920px
+  - Massive Desktop:  > 1920px
+*/
+
+:root {
+    /* Dynamic Spacing */
+    --space-xxs: clamp(2px, 0.5vw, 4px);
+    --space-xs: clamp(4px, 1vw, 8px);
+    --space-sm: clamp(8px, 1.5vw, 12px);
+    --space-md: clamp(16px, 2vw, 24px);
+    --space-lg: clamp(24px, 3vw, 32px);
+    --space-xl: clamp(32px, 5vw, 64px);
+
+    /* Sidebar Width */
+    --sidebar-width: 280px;
+}
+
+/* Base Container - Fluid with max bounds */
+.container-fluid {
+    width: 100%;
+    padding-right: var(--space-md);
+    padding-left: var(--space-md);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+/* Visible/Hidden Helpers */
+.mobile-only {
+    display: none !important;
+}
+
+.tablet-down {
+    display: none !important;
+}
+
+.desktop-only {
+    display: flex !important;
+}
+
+/* --- Mobile Portrait (< 640px) --- */
+@media (max-width: 639.98px) {
+    .mobile-only {
+        display: flex !important;
+    }
+
+    .desktop-only {
+        display: none !important;
+    }
+
+    .container-fluid {
+        padding-left: var(--space-sm);
+        padding-right: var(--space-sm);
+    }
+
+    /* Typography Scale Down */
+    h1 {
+        font-size: 1.75rem !important;
+    }
+
+    h2 {
+        font-size: 1.5rem !important;
+    }
+
+    h3 {
+        font-size: 1.25rem !important;
+    }
+}
+
+/* --- Mobile Landscape & Tablet Portrait (640px - 1024px) --- */
+@media (max-width: 1024px) {
+    .tablet-down {
+        display: flex !important;
+    }
+
+    .desktop-sidebar-open {
+        margin-left: 0 !important;
+    }
+
+    .sidebar-fixed {
+        transform: translateX(-100%);
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* --- Desktop (>= 1025px) --- */
 @media (min-width: 1025px) {
     .mobile-only {
         display: none !important;
     }
 
-    .desktop-sidebar-open {
-        margin-left: 280px !important;
+    .desktop-only {
+        display: flex !important;
     }
 
+    /* Persistent Sidebar */
     .sidebar-fixed {
         transform: translateX(0) !important;
     }
+
+    .desktop-sidebar-open {
+        margin-left: var(--sidebar-width) !important;
+    }
 }
 
-@media (max-width: 1024px) {
-    .desktop-only {
-        display: none !important;
+/* --- Massive Desktop (> 1920px) --- */
+@media (min-width: 1921px) {
+    :root {
+        --space-md: 32px;
+        /* More breathing room */
+        --sidebar-width: 320px;
+    }
+
+    body {
+        font-size: 18px;
+        /* Slightly larger base text */
+    }
+
+    /* Constrain content width so it doesn't stretch infinitely */
+    main {
+        max-width: 2400px !important;
     }
 }

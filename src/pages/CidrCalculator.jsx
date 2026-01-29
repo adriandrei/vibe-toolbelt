@@ -112,16 +112,18 @@ export default function CidrCalculator() {
             alignItems: 'center',
             padding: '12px',
             borderBottom: '1px solid var(--border)',
+            flexWrap: 'wrap', // Allow wrapping on small screens
+            gap: '8px'
         }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{label}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end', minWidth: '200px' }}>
                 <span style={{
                     fontFamily: 'var(--font-mono)',
                     color: 'var(--text-main)',
                     fontSize: '0.95rem',
                     textAlign: 'right',
                     wordBreak: 'break-all',
-                    maxWidth: '400px'
+                    maxWidth: '100%' // Fluid max width
                 }}>
                     {value || '-'}
                 </span>
@@ -130,7 +132,7 @@ export default function CidrCalculator() {
                         onClick={() => copyToClipboard(value)}
                         className="action-btn"
                         title="Copy"
-                        style={{ padding: 4 }}
+                        style={{ padding: 4, flexShrink: 0 }}
                     >
                         <Copy size={14} color="var(--primary)" />
                     </button>

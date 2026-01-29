@@ -78,7 +78,7 @@ ${borders}`
                 <p style={{ color: 'var(--text-muted)' }}>Pure CSS triangles generator.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 1fr', gap: 'var(--space-xl)' }}>
+            <div className="split-pane">
                 <div className="glass-panel" style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Direction</label>
@@ -133,7 +133,7 @@ ${borders}`
                 </div>
 
                 {/* Preview */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border)', minHeight: '300px' }}>
                     <div style={styleObj} />
                 </div>
             </div>

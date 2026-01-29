@@ -135,7 +135,7 @@ export default function Converter() {
                 </div>
             </div>
 
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', minHeight: 0 }}>
+            <div className="split-pane">
                 {/* Input */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
@@ -194,6 +194,6 @@ export default function Converter() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

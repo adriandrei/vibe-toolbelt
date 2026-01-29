@@ -80,127 +80,129 @@ export default function FakerTool() {
     }
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(350px, 1fr) 2fr', gap: 'var(--space-xl)' }}>
-            {/* Controls */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                <h2 className="text-gradient">Schema Builder</h2>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div className="split-pane">
+                {/* Controls */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                    <h2 className="text-gradient">Schema Builder</h2>
 
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <div style={{ marginBottom: 'var(--space-md)' }}>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Quantity ({count})</label>
-                        <input type="range" min="1" max="1000" value={count} onChange={e => setCount(Number(e.target.value))} style={{ width: '100%' }} />
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Quantity ({count})</label>
+                            <input type="range" min="1" max="1000" value={count} onChange={e => setCount(Number(e.target.value))} style={{ width: '100%' }} />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Format</label>
+                            <select value={format} onChange={e => setFormat(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 6 }}>
+                                <option value="json">JSON</option>
+                                <option value="csv">CSV</option>
+                                <option value="sql">SQL Insert</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Format</label>
-                        <select value={format} onChange={e => setFormat(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 6 }}>
-                            <option value="json">JSON</option>
-                            <option value="csv">CSV</option>
-                            <option value="sql">SQL Insert</option>
-                        </select>
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'block', marginBottom: 'var(--space-sm)', fontWeight: 600 }}>Fields</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: '400px', paddingRight: 4 }}>
+                            {fields.map((field) => (
+                                <div key={field.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <input
+                                        type="text"
+                                        value={field.name}
+                                        onChange={e => updateField(field.id, 'name', e.target.value)}
+                                        placeholder="Field Name"
+                                        style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
+                                    />
+                                    <select
+                                        value={field.type}
+                                        onChange={e => updateField(field.id, 'type', e.target.value)}
+                                        style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
+                                    >
+                                        {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                    </select>
+                                    <button
+                                        onClick={() => removeField(field.id)}
+                                        style={{ color: '#ef4444', padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            onClick={addField}
+                            style={{
+                                marginTop: 'var(--space-md)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 4,
+                                padding: 8,
+                                border: '1px dashed var(--border)',
+                                borderRadius: 6,
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <Plus size={14} /> Add Field
+                        </button>
                     </div>
-                </div>
 
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ display: 'block', marginBottom: 'var(--space-sm)', fontWeight: 600 }}>Fields</label>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: '400px', paddingRight: 4 }}>
-                        {fields.map((field) => (
-                            <div key={field.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                <input
-                                    type="text"
-                                    value={field.name}
-                                    onChange={e => updateField(field.id, 'name', e.target.value)}
-                                    placeholder="Field Name"
-                                    style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
-                                />
-                                <select
-                                    value={field.type}
-                                    onChange={e => updateField(field.id, 'type', e.target.value)}
-                                    style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
-                                >
-                                    {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                                </select>
-                                <button
-                                    onClick={() => removeField(field.id)}
-                                    style={{ color: '#ef4444', padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
                     <button
-                        onClick={addField}
+                        onClick={generate}
+                        className="glass-panel"
                         style={{
-                            marginTop: 'var(--space-md)',
+                            padding: '12px',
                             display: 'flex',
-                            alignItems: 'center',
                             justifyContent: 'center',
-                            gap: 4,
-                            padding: 8,
-                            border: '1px dashed var(--border)',
-                            borderRadius: 6,
-                            color: 'var(--text-muted)',
+                            alignItems: 'center',
+                            gap: 8,
+                            background: 'var(--primary)',
+                            color: '#fff',
+                            fontWeight: 600,
                             cursor: 'pointer'
                         }}
                     >
-                        <Plus size={14} /> Add Field
+                        <RefreshCw size={16} /> Generate Data
                     </button>
                 </div>
 
-                <button
-                    onClick={generate}
-                    className="glass-panel"
-                    style={{
-                        padding: '12px',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: 8,
-                        background: 'var(--primary)',
-                        color: '#fff',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                    }}
-                >
-                    <RefreshCw size={16} /> Generate Data
-                </button>
-            </div>
+                {/* Output */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                    <h2 className="text-gradient">Output</h2>
 
-            {/* Output */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                <h2 className="text-gradient">Output</h2>
-
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', flex: 1, position: 'relative' }}>
-                    <button
-                        onClick={() => navigator.clipboard.writeText(data)}
-                        style={{
-                            position: 'absolute',
-                            top: 10,
-                            right: 10,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            color: 'var(--primary)'
-                        }}
-                    >
-                        <Copy size={14} /> Copy
-                    </button>
-                    <textarea
-                        value={data}
-                        readOnly
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            minHeight: '600px',
-                            background: 'transparent',
-                            border: 'none',
-                            resize: 'none',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.85rem'
-                        }}
-                        placeholder="Generated data will appear here..."
-                    />
+                    <div className="glass-panel" style={{ padding: 'var(--space-md)', flex: 1, position: 'relative' }}>
+                        <button
+                            onClick={() => navigator.clipboard.writeText(data)}
+                            style={{
+                                position: 'absolute',
+                                top: 10,
+                                right: 10,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                color: 'var(--primary)'
+                            }}
+                        >
+                            <Copy size={14} /> Copy
+                        </button>
+                        <textarea
+                            value={data}
+                            readOnly
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                minHeight: '600px',
+                                background: 'transparent',
+                                border: 'none',
+                                resize: 'none',
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: '0.85rem'
+                            }}
+                            placeholder="Generated data will appear here..."
+                        />
+                    </div>
                 </div>
             </div>
         </div>

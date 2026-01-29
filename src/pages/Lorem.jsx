@@ -29,7 +29,7 @@ export default function Lorem() {
                 <h2 className="text-gradient" style={{ fontSize: '2rem' }}>Lorem Ipsum</h2>
             </div>
 
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1 }}>
                     <label style={{ display: 'block', marginBottom: 4, fontSize: '0.9rem' }}>Count</label>
                     <input type="number" min="1" max="100" value={count} onChange={e => setCount(Number(e.target.value))} style={{ width: '100%', padding: '8px' }} />

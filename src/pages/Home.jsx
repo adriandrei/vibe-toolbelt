@@ -73,7 +73,7 @@ export default function Home() {
             {/* Hero Section */}
             <div style={{ textAlign: 'center', margin: 'var(--space-xl) 0' }}>
                 <h1 style={{
-                    fontSize: '3.5rem',
+                    fontSize: 'clamp(2.5rem, 5vw + 1rem, 4.5rem)',
                     marginBottom: 'var(--space-md)',
                     letterSpacing: '-0.03em',
                     lineHeight: 1.1,
@@ -139,8 +139,9 @@ export default function Home() {
             {/* Featured Tools Grid */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: 'var(--space-lg)'
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: 'var(--space-lg)',
+                paddingBottom: 'var(--space-xl)'
             }}>
                 <ToolCard
                     to="/diff"

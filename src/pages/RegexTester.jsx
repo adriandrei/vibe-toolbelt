@@ -150,7 +150,7 @@ export default function RegexTester() {
             </div>
 
             {/* Test String & Highlight */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <div className="split-pane">
 
                 <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
                     <div style={{ marginBottom: 8, color: 'var(--text-muted)' }}>Test String</div>

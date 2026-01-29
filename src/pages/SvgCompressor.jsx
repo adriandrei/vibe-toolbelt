@@ -36,15 +36,15 @@ export default function SvgCompressor() {
     }
 
     return (
-        <div style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ minHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-md)' }}>
                 <h2 className="text-gradient">SVG Compressor</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Simple optimizer to remove whitespace, comments, and redundant data.</p>
             </div>
 
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', minHeight: 0 }}>
+            <div className="split-pane" style={{ flex: 1, minHeight: 0 }}>
                 {/* Input */}
-                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
+                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)', minHeight: '300px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileCode size={16} /> Input SVG</label>
                         <button
@@ -77,7 +77,7 @@ export default function SvgCompressor() {
                 </div>
 
                 {/* Output */}
-                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
+                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)', minHeight: '300px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Download size={16} /> Compressed</label>
                         {stats && (

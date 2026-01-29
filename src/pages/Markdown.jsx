@@ -13,13 +13,7 @@ export default function Markdown() {
                 <h2 className="text-gradient" style={{ fontSize: '1.8rem' }}>Markdown Editor</h2>
             </div>
 
-            <div style={{
-                flex: 1,
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 'var(--space-md)',
-                minHeight: 0 // Allow grid items to scroll
-            }}>
+            <div className="split-pane">
                 {/* Editor */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <label style={{ marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: 6 }}>

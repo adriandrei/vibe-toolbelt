@@ -79,9 +79,17 @@ export default function UrlParser() {
                         <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
                             <h3 style={{ fontSize: '1rem', marginBottom: 'var(--space-md)', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>Query Parameters</h3>
                             {Object.entries(parsed.Params).map(([k, v]) => (
-                                <div key={k} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12, marginBottom: 8, fontSize: '0.9rem' }}>
+                                <div key={k} style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 4,
+                                    marginBottom: 12,
+                                    fontSize: '0.9rem',
+                                    borderBottom: '1px solid var(--border)',
+                                    paddingBottom: 8
+                                }}>
                                     <div style={{ color: 'var(--primary)', fontWeight: 500 }}>{k}</div>
-                                    <div style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{v}</div>
+                                    <div style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all', paddingLeft: 8 }}>{v}</div>
                                 </div>
                             ))}
                         </div>

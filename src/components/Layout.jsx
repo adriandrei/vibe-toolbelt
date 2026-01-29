@@ -48,36 +48,48 @@ export default function Layout({ children }) {
                 className={isSidebarOpen ? 'desktop-sidebar-open' : ''}
                 style={{
                     flex: 1,
-                    marginLeft: 0, // Handled by CSS class .desktop-sidebar-open
+                    marginLeft: 0,
                     transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     display: 'flex',
                     flexDirection: 'column',
-                    width: '100%'
+                    width: '100%',
+                    minWidth: 0 // Prevent flex child overflow issues
                 }}
             >
-                {/* Mobile Menu Trigger (Only visible on small screens VIA CSS) */}
+                {/* Mobile Menu Trigger & Header */}
                 <div
-                    className="mobile-only"
+                    className="tablet-down"
                     style={{
                         padding: 'var(--space-md)',
-                        display: 'flex' // CSS will override this to none on desktop
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        borderBottom: '1px solid var(--border)',
+                        background: 'rgba(9, 9, 11, 0.8)',
+                        backdropFilter: 'blur(10px)',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 40
                     }}
                 >
-                    <button
-                        onClick={() => setIsSidebarOpen(true)}
-                        style={{
-                            padding: '8px',
-                            color: 'var(--text-main)',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <Menu size={24} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                        <button
+                            onClick={() => setIsSidebarOpen(true)}
+                            aria-label="Open menu"
+                            style={{
+                                padding: '8px',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                                display: 'flex'
+                            }}
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <span style={{ fontWeight: 600, fontSize: '1.1rem' }} className="text-gradient">Vibe Tools</span>
+                    </div>
                 </div>
 
-                <main style={{ padding: 'var(--space-xl)', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
+                <main style={{ padding: 'var(--space-md) var(--space-md) var(--space-xl)', width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
                     {children}
                 </main>
             </div>

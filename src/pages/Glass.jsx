@@ -40,12 +40,7 @@ box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
                 <p style={{ color: 'var(--text-muted)' }}>Design frosted glass effects for your next project</p>
             </div>
 
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 'var(--space-xl)',
-                alignItems: 'start'
-            }}>
+            <div className="split-pane" style={{ alignItems: 'start' }}>
 
                 {/* Controls */}
                 <div className="glass-panel" style={{ padding: 'var(--space-lg)' }}>
