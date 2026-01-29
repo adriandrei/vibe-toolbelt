@@ -85,12 +85,10 @@ export const TOOL_CATEGORIES = [
 const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
     const location = useLocation()
     const isActive = location.pathname === item.to
-    const [isHovered, setIsHovered] = useState(false)
 
     return (
         <div
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            className="nav-item-wrapper"
             style={{ position: 'relative' }}
         >
             <Link
@@ -109,7 +107,7 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
                     fontSize: '0.9rem',
                     fontWeight: isActive ? 500 : 400,
                     transition: 'all 0.2s',
-                    paddingRight: '30px', // Space for star
+                    paddingRight: '36px', // Space for star
                     minHeight: '44px' /* Ensure min touch target height */
                 }}
             >
@@ -117,30 +115,30 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
                 <span>{item.label}</span>
             </Link>
 
-            {(isHovered || isFav) && (
-                <button
-                    aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
-                    onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        onToggleFav(item.to)
-                    }}
-                    style={{
-                        position: 'absolute',
-                        right: 8,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        border: 'none',
-                        background: 'none',
-                        color: isFav ? '#eab308' : 'var(--text-dim)',
-                        cursor: 'pointer',
-                        padding: '8px', /* Increased from 2px */
-                        opacity: isFav ? 1 : 0.5
-                    }}
-                >
-                    <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
-                </button>
-            )}
+            <button
+                className={`fav-btn ${isFav ? 'active' : ''}`}
+                aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+                onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onToggleFav(item.to)
+                }}
+                style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    border: 'none',
+                    background: 'none',
+                    color: isFav ? '#eab308' : 'var(--text-dim)',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    opacity: isFav ? 1 : 0, // Hidden by default unless fav, handled by CSS hover
+                    transition: 'opacity 0.2s'
+                }}
+            >
+                <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
+            </button>
         </div>
     )
 }

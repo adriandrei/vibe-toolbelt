@@ -129,3 +129,23 @@ textarea {
         /* Desktop: Side by Side */
     }
 }
+
+/* NavItem Favorites Button */
+.nav-item-wrapper .fav-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.nav-item-wrapper:hover .fav-btn,
+.nav-item-wrapper .fav-btn.active,
+.nav-item-wrapper .fav-btn:focus {
+    opacity: 1 !important;
+}
+
+/* Ensure accessible tap target on mobile without hover issue */
+@media (hover: none) {
+    .nav-item-wrapper .fav-btn {
+        opacity: 0.7;
+        /* Always visible on touch devices */
+    }
+}
