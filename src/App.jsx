@@ -31,6 +31,7 @@ import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import UnixTimestamp from './pages/UnixTimestamp'
 import CidrCalculator from './pages/CidrCalculator'
+import RegexTester from './pages/RegexTester'
 
 function App() {
   return (
@@ -67,6 +68,7 @@ function App() {
           <Route path="/markdown" element={<Markdown />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/regex" element={<RegexTester />} />
         </Routes>
       </Layout>
     </BrowserRouter>

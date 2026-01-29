@@ -9,7 +9,7 @@ import {
     X,
     Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
-    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network
+    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 
@@ -32,6 +32,7 @@ export const TOOL_CATEGORIES = [
             { to: '/markdown', icon: FileText, label: 'Markdown' },
             { to: '/cron', icon: Clock, label: 'Cron Parser' },
             { to: '/unix', icon: Clock, label: 'Unix Timestamp' },
+            { to: '/regex', icon: Regex, label: 'Regex Tester' },
             { to: '/svg', icon: Image, label: 'SVG Compressor' },
         ]
     },

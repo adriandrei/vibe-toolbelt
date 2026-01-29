@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Command, CornerDownLeft } from 'lucide-react'
+import { Search, Command, CornerDownLeft, Sparkles, ArrowRight } from 'lucide-react'
 import { TOOL_CATEGORIES } from './Sidebar'
+import { analyzeContent } from '../utils/analyzers'
 
 export default function CommandPalette({ isOpen, onClose }) {
     const [query, setQuery] = useState('')
     const [selectedIndex, setSelectedIndex] = useState(0)
+    const [suggestion, setSuggestion] = useState(null)
     const inputRef = useRef(null)
     const navigate = useNavigate()
 
@@ -18,6 +20,16 @@ export default function CommandPalette({ isOpen, onClose }) {
         item.label.toLowerCase().includes(query.toLowerCase()) ||
         item.category.toLowerCase().includes(query.toLowerCase())
     )
+
+    // Analyze content for smart suggestions
+    useEffect(() => {
+        if (!query) {
+            setSuggestion(null)
+            return
+        }
+        const result = analyzeContent(query)
+        setSuggestion(result)
+    }, [query])
 
     useEffect(() => {
         if (isOpen && inputRef.current) {
@@ -32,16 +44,28 @@ export default function CommandPalette({ isOpen, onClose }) {
         if (!isOpen) return
 
         const handleKeyDown = (e) => {
+            const totalItems = filteredItems.length + (suggestion ? 1 : 0)
+
             if (e.key === 'ArrowDown') {
                 e.preventDefault()
-                setSelectedIndex(prev => (prev + 1) % filteredItems.length)
+                setSelectedIndex(prev => (prev + 1) % totalItems)
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault()
-                setSelectedIndex(prev => (prev - 1 + filteredItems.length) % filteredItems.length)
+                setSelectedIndex(prev => (prev - 1 + totalItems) % totalItems)
             } else if (e.key === 'Enter') {
                 e.preventDefault()
-                if (filteredItems[selectedIndex]) {
-                    navigate(filteredItems[selectedIndex].to)
+
+                // Handle Suggestion Selection (Index 0 if exists)
+                if (suggestion && selectedIndex === 0) {
+                    navigate(suggestion.tool)
+                    onClose()
+                    return
+                }
+
+                // Handle List Selection
+                const listIndex = suggestion ? selectedIndex - 1 : selectedIndex
+                if (filteredItems[listIndex]) {
+                    navigate(filteredItems[listIndex].to)
                     onClose()
                 }
             } else if (e.key === 'Escape') {
@@ -51,7 +75,7 @@ export default function CommandPalette({ isOpen, onClose }) {
 
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [isOpen, filteredItems, selectedIndex, navigate, onClose])
+    }, [isOpen, filteredItems, selectedIndex, navigate, onClose, suggestion])
 
     if (!isOpen) return null
 
@@ -94,7 +118,7 @@ export default function CommandPalette({ isOpen, onClose }) {
                         type="text"
                         value={query}
                         onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
-                        placeholder="Search tools..."
+                        placeholder="Type to search or paste content (JWT, Base64, JSON)..."
                         style={{
                             border: 'none',
                             background: 'transparent',
@@ -117,36 +141,68 @@ export default function CommandPalette({ isOpen, onClose }) {
 
                 {/* Results */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-xs)' }}>
-                    {filteredItems.length === 0 ? (
+
+                    {/* Smart Suggestion */}
+                    {suggestion && (
+                        <div
+                            onClick={() => { navigate(suggestion.tool); onClose(); }}
+                            onMouseEnter={() => setSelectedIndex(0)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 'var(--space-md)',
+                                padding: 'var(--space-md)',
+                                borderRadius: 'var(--radius-md)',
+                                background: selectedIndex === 0 ? 'var(--primary)' : 'rgba(var(--primary-rgb), 0.1)',
+                                color: selectedIndex === 0 ? '#fff' : 'var(--primary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.1s',
+                                marginBottom: 'var(--space-xs)',
+                                border: '1px solid var(--primary)'
+                            }}
+                        >
+                            <Sparkles size={20} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600 }}>Detected {suggestion.label}</div>
+                                <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>Press Enter to open tool</div>
+                            </div>
+                            <ArrowRight size={16} />
+                        </div>
+                    )}
+
+                    {filteredItems.length === 0 && !suggestion ? (
                         <div style={{ padding: 'var(--space-lg)', textAlign: 'center', color: 'var(--text-muted)' }}>
                             No tools found matching "{query}"
                         </div>
                     ) : (
-                        filteredItems.map((item, index) => (
-                            <div
-                                key={item.to}
-                                onClick={() => { navigate(item.to); onClose(); }}
-                                onMouseEnter={() => setSelectedIndex(index)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 'var(--space-md)',
-                                    padding: 'var(--space-md)',
-                                    borderRadius: 'var(--radius-md)',
-                                    background: index === selectedIndex ? 'var(--primary)' : 'transparent',
-                                    color: index === selectedIndex ? '#fff' : 'var(--text-main)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.1s'
-                                }}
-                            >
-                                <item.icon size={20} style={{ opacity: index === selectedIndex ? 1 : 0.7 }} />
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 500 }}>{item.label}</div>
-                                    <div style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase' }}>{item.category}</div>
+                        filteredItems.map((item, index) => {
+                            const actualIndex = suggestion ? index + 1 : index;
+                            return (
+                                <div
+                                    key={item.to}
+                                    onClick={() => { navigate(item.to); onClose(); }}
+                                    onMouseEnter={() => setSelectedIndex(actualIndex)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 'var(--space-md)',
+                                        padding: 'var(--space-md)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: actualIndex === selectedIndex ? 'var(--primary)' : 'transparent',
+                                        color: actualIndex === selectedIndex ? '#fff' : 'var(--text-main)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.1s'
+                                    }}
+                                >
+                                    <item.icon size={20} style={{ opacity: actualIndex === selectedIndex ? 1 : 0.7 }} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 500 }}>{item.label}</div>
+                                        <div style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase' }}>{item.category}</div>
+                                    </div>
+                                    {actualIndex === selectedIndex && <CornerDownLeft size={16} />}
                                 </div>
-                                {index === selectedIndex && <CornerDownLeft size={16} />}
-                            </div>
-                        ))
+                            )
+                        })
                     )}
                 </div>
             </div>
