@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { Menu, Search } from 'lucide-react'
+import { Menu, Search, History } from 'lucide-react'
 import Sidebar from './Sidebar'
 import SmartPaste from './SmartPaste'
 import CommandPalette from './CommandPalette'
+import HistoryPanel from './HistoryPanel'
 
 export default function Layout({ children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024)
     const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
     // Handle Resize
     useEffect(() => {
@@ -28,6 +30,11 @@ export default function Layout({ children }) {
                 e.preventDefault()
                 setIsSearchOpen(true)
             }
+            // Ctrl+H for history
+            if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+                e.preventDefault()
+                setIsHistoryOpen(prev => !prev)
+            }
         }
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
@@ -43,6 +50,7 @@ export default function Layout({ children }) {
 
             <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
             <SmartPaste />
+            <HistoryPanel isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
             <div
                 className={isSidebarOpen ? 'desktop-sidebar-open' : ''}
@@ -87,7 +95,45 @@ export default function Layout({ children }) {
                         </button>
                         <span style={{ fontWeight: 600, fontSize: '1.1rem' }} className="text-gradient">Vibe Tools</span>
                     </div>
+                    <button
+                        onClick={() => setIsHistoryOpen(true)}
+                        aria-label="Open history"
+                        style={{
+                            padding: '8px',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            display: 'flex'
+                        }}
+                    >
+                        <History size={20} />
+                    </button>
                 </div>
+
+                {/* Desktop History Button */}
+                <button
+                    onClick={() => setIsHistoryOpen(true)}
+                    className="desktop-only"
+                    aria-label="Open history (Ctrl+H)"
+                    title="Recent Operations (Ctrl+H)"
+                    style={{
+                        position: 'fixed',
+                        top: 'var(--space-md)',
+                        right: 'var(--space-md)',
+                        padding: '10px 14px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        zIndex: 50,
+                        fontSize: '0.85rem'
+                    }}
+                >
+                    <History size={16} /> History
+                </button>
 
                 <main style={{ padding: 'var(--space-md) var(--space-md) var(--space-xl)', width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
                     {children}

@@ -20,6 +20,7 @@ export const TOOL_CATEGORIES = [
         icon: Wand2,
         items: [
             { to: '/', icon: Home, label: 'Home' },
+            { to: '/inspect', icon: Search, label: 'Inspector' },
         ]
     },
     {

@@ -35,6 +35,7 @@ const Terms = lazy(() => import('./pages/Terms'))
 const UnixTimestamp = lazy(() => import('./pages/UnixTimestamp'))
 const CidrCalculator = lazy(() => import('./pages/CidrCalculator'))
 const RegexTester = lazy(() => import('./pages/RegexTester'))
+const Inspector = lazy(() => import('./pages/Inspector'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -86,6 +87,7 @@ function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/regex" element={<RegexTester />} />
+            <Route path="/inspect" element={<Inspector />} />
           </Routes>
         </Suspense>
       </Layout>
