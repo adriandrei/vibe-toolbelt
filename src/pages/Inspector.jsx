@@ -19,7 +19,7 @@ const PATTERNS = {
     unixTimestamp: /^\d{10,13}$/,
     semver: /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/,
     color: /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
-    cron: /^(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)$/,
+    cron: /^[*0-9,/-]+\s+[*0-9,/-]+\s+[*0-9,/-]+\s+[*0-9,/-]+\s+[*0-9,/-]+$/,
     cidr: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/
 }
 
@@ -49,7 +49,20 @@ function detectFormats(input) {
     try {
         JSON.parse(trimmed)
         formats.push({ type: 'json', label: 'JSON', icon: Braces, color: '#22c55e', link: '/formatters' })
-    } catch { }
+    } catch { /* ignore */ }
+
+    // Hex (only if pure hex and long enough)
+    if (formats.length === 0 && trimmed.length >= 32 && PATTERNS.hex.test(trimmed.replace(/^0x/, ''))) {
+        formats.push({ type: 'hex', label: 'Hexadecimal', icon: Binary, color: '#ef4444' })
+    }
+
+    // Base64 (only if not already detected as something else and long enough)
+    if (formats.length === 0 && trimmed.length > 10 && PATTERNS.base64.test(trimmed)) {
+        try {
+            atob(trimmed)
+            formats.push({ type: 'base64', label: 'Base64 Encoded', icon: Lock, color: '#a855f7', link: '/base64' })
+        } catch { /* ignore */ }
+    }
 
     // JWT
     if (PATTERNS.jwt.test(trimmed)) {
@@ -123,18 +136,7 @@ function detectFormats(input) {
         formats.push({ type: 'cidr', label: 'CIDR Notation', icon: Globe, color: '#14b8a6', link: '/cidr' })
     }
 
-    // Base64 (only if not already detected as something else and long enough)
-    if (formats.length === 0 && trimmed.length > 10 && PATTERNS.base64.test(trimmed)) {
-        try {
-            atob(trimmed)
-            formats.push({ type: 'base64', label: 'Base64 Encoded', icon: Lock, color: '#a855f7', link: '/base64' })
-        } catch { }
-    }
 
-    // Hex (only if pure hex and long enough)
-    if (formats.length === 0 && trimmed.length >= 32 && PATTERNS.hex.test(trimmed.replace(/^0x/, ''))) {
-        formats.push({ type: 'hex', label: 'Hexadecimal', icon: Binary, color: '#ef4444' })
-    }
 
     return formats
 }
@@ -146,7 +148,7 @@ async function computeHashes(input) {
     const encoder = new TextEncoder()
     const data = encoder.encode(input)
 
-    const [md5Promise, sha1, sha256, sha512] = await Promise.all([
+    const [, sha1, sha256, sha512] = await Promise.all([
         // MD5 not available in SubtleCrypto, we'll skip it
         Promise.resolve(null),
         crypto.subtle.digest('SHA-1', data),
@@ -218,11 +220,20 @@ export default function Inspector() {
         if (!input) return null
         const trimmed = input.trim()
 
+        // Unix timestamp
+        if (PATTERNS.unixTimestamp.test(trimmed)) {
+            const ts = parseInt(trimmed)
+            const date = new Date(ts.toString().length === 10 ? ts * 1000 : ts)
+            if (!isNaN(date.getTime())) {
+                return { type: 'timestamp', content: date.toISOString() + '\n' + date.toLocaleString() }
+            }
+        }
+
         // Try JSON formatting
         try {
             const parsed = JSON.parse(trimmed)
             return { type: 'json', content: JSON.stringify(parsed, null, 2) }
-        } catch { }
+        } catch { /* ignore */ }
 
         // Try Base64 decode
         if (PATTERNS.base64.test(trimmed) && trimmed.length > 10) {
@@ -232,7 +243,7 @@ export default function Inspector() {
                 if (/^[\x20-\x7E\n\r\t]+$/.test(decoded)) {
                     return { type: 'base64-decoded', content: decoded }
                 }
-            } catch { }
+            } catch { /* ignore */ }
         }
 
         // JWT decode
@@ -245,16 +256,7 @@ export default function Inspector() {
                     type: 'jwt',
                     content: JSON.stringify({ header, payload }, null, 2)
                 }
-            } catch { }
-        }
-
-        // Unix timestamp
-        if (PATTERNS.unixTimestamp.test(trimmed)) {
-            const ts = parseInt(trimmed)
-            const date = new Date(ts.toString().length === 10 ? ts * 1000 : ts)
-            if (!isNaN(date.getTime())) {
-                return { type: 'timestamp', content: date.toISOString() + '\n' + date.toLocaleString() }
-            }
+            } catch { /* ignore */ }
         }
 
         return null
