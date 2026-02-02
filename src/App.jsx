@@ -43,6 +43,7 @@ const Snippets = lazy(() => import('./pages/Snippets'))
 const PdfTools = lazy(() => import('./pages/PdfTools'))
 const Recorder = lazy(() => import('./pages/Recorder'))
 const ExifViewer = lazy(() => import('./pages/ExifViewer'))
+const ApiTester = lazy(() => import('./pages/ApiTester'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -102,6 +103,7 @@ function App() {
             <Route path="/pdf" element={<PdfTools />} />
             <Route path="/recorder" element={<Recorder />} />
             <Route path="/exif" element={<ExifViewer />} />
+            <Route path="/api" element={<ApiTester />} />
           </Routes>
         </Suspense>
       </Layout>

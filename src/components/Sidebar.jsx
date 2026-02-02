@@ -9,7 +9,7 @@ import {
     X,
     Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
-    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture
+    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 
@@ -22,6 +22,7 @@ export const TOOL_CATEGORIES = [
             { to: '/', icon: Home, label: 'Home' },
             { to: '/recorder', icon: Video, label: 'Screen Recorder' },
             { to: '/inspect', icon: Search, label: 'Inspector' },
+            { to: '/api', icon: Zap, label: 'API Tester' },
         ]
     },
     {

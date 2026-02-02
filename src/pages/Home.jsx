@@ -1,48 +1,44 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { Code, Key, User, ArrowRight, FileDiff, Fingerprint, Braces, Palette } from 'lucide-react'
+import { TOOL_CATEGORIES } from '../components/Sidebar'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
-const ToolCard = ({ to, icon: Icon, title, description, color }) => (
+const ToolCard = ({ to, icon: Icon, label, color }) => (
     <Link to={to} className="glass-panel" style={{
         display: 'flex',
-        flexDirection: 'column',
-        padding: 'var(--space-lg)',
-        transition: 'transform 0.2s ease, border-color 0.2s ease',
-        height: '100%',
-        textDecoration: 'none' // Ensure no underline
+        alignItems: 'center',
+        gap: '12px',
+        padding: '16px',
+        transition: 'transform 0.2s ease, border-color 0.2s ease, background 0.2s',
+        textDecoration: 'none',
+        border: '1px solid var(--border)',
+        background: 'var(--bg-panel)'
     }}
         onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-4px)'
-            e.currentTarget.style.borderColor = color
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.borderColor = 'var(--primary)'
+            e.currentTarget.style.background = 'var(--bg-card)'
         }}
         onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'none'
-            e.currentTarget.style.borderColor = 'var(--glass-border)'
+            e.currentTarget.style.borderColor = 'var(--border)'
+            e.currentTarget.style.background = 'var(--bg-panel)'
         }}
     >
         <div style={{
-            background: `hsla(${color === 'var(--accent)' ? '280' : 'var(--hue)'}, 80%, 20%, 0.5)`,
-            width: '48px',
-            height: '48px',
-            borderRadius: 'var(--radius-md)',
+            color: 'var(--primary)',
+            background: 'rgba(139, 92, 246, 0.1)',
+            padding: '8px',
+            borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 'var(--space-md)',
-            color: color
+            justifyContent: 'center'
         }}>
-            <Icon size={24} />
+            <Icon size={20} />
         </div>
-        <h2 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-sm)', color: 'var(--text-main)', marginTop: 0 }}>{title}</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-lg)', flexGrow: 1 }}>{description}</p>
-
-        <div style={{ display: 'flex', alignItems: 'center', color: color, fontWeight: 500, fontSize: '0.9rem' }}>
-            Launch Tool <ArrowRight size={16} style={{ marginLeft: 'var(--space-xs)' }} />
-        </div>
+        <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.95rem' }}>{label}</div>
     </Link>
 )
-
 
 const Footer = () => (
     <footer style={{
@@ -69,13 +65,13 @@ export default function Home() {
     useDocumentTitle('Home')
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 'var(--space-2xl)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 'var(--space-xl)' }}>
             {/* Hero Section */}
-            <div style={{ textAlign: 'center', margin: 'var(--space-xl) 0' }}>
+            <div style={{ textAlign: 'center', margin: 'var(--space-xl) 0 var(--space-lg)' }}>
                 <h1 style={{
-                    fontSize: 'clamp(2.5rem, 5vw + 1rem, 4.5rem)',
+                    fontSize: 'clamp(2rem, 4vw + 1rem, 3.5rem)',
                     marginBottom: 'var(--space-md)',
-                    letterSpacing: '-0.03em',
+                    letterSpacing: '-0.02em',
                     lineHeight: 1.1,
                     textShadow: '0 0 40px rgba(168, 85, 247, 0.2)'
                 }}>
@@ -83,13 +79,13 @@ export default function Home() {
                     Developer Toolkit
                 </h1>
                 <p style={{
-                    fontSize: '1.25rem',
+                    fontSize: '1.1rem',
                     color: 'var(--text-muted)',
-                    maxWidth: '650px',
-                    margin: '0 auto var(--space-xl)',
+                    maxWidth: '600px',
+                    margin: '0 auto var(--space-lg)',
                     lineHeight: 1.6
                 }}>
-                    A privacy-focused collection of essential utilities. <br />
+                    A privacy-focused collection of {TOOL_CATEGORIES.flatMap(c => c.items).length}+ utilities. <br />
                     Fast, secure, and always at your fingertips.
                 </p>
 
@@ -100,91 +96,70 @@ export default function Home() {
                     gap: 'var(--space-sm)',
                     background: 'var(--bg-panel)',
                     border: '1px solid var(--border)',
-                    padding: 'var(--space-sm) var(--space-lg)',
+                    padding: '6px 16px',
                     borderRadius: 'var(--radius-full)',
                     color: 'var(--text-main)',
-                    fontSize: '0.95rem',
+                    fontSize: '0.9rem',
                     boxShadow: 'var(--glass-shadow)'
                 }}>
-                    <span>Press</span>
-                    <span style={{
+                    <span style={{ color: 'var(--text-muted)' }}>Press</span>
+                    <kbd style={{
                         background: 'var(--bg-card)',
                         border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '2px 8px',
-                        fontSize: '0.85rem',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
                         fontFamily: 'var(--font-mono)',
                         fontWeight: 600,
-                        color: 'var(--accent)'
-                    }}>
-                        Ctrl
-                    </span>
-                    <span>+</span>
-                    <span style={{
+                        color: 'var(--text-main)'
+                    }}>Ctrl</kbd>
+                    <span style={{ color: 'var(--text-muted)' }}>+</span>
+                    <kbd style={{
                         background: 'var(--bg-card)',
                         border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '2px 8px',
-                        fontSize: '0.85rem',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
                         fontFamily: 'var(--font-mono)',
                         fontWeight: 600,
-                        color: 'var(--accent)'
-                    }}>
-                        K
-                    </span>
-                    <span>to search tools instantly</span>
+                        color: 'var(--text-main)'
+                    }}>K</kbd>
+                    <span style={{ color: 'var(--text-muted)' }}>to search</span>
                 </div>
             </div>
 
-            {/* Featured Tools Grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: 'var(--space-lg)',
-                paddingBottom: 'var(--space-xl)'
-            }}>
-                <ToolCard
-                    to="/diff"
-                    icon={FileDiff}
-                    title="Secure Diff"
-                    description="Compare text and code safely offline."
-                    color="#3b82f6"
-                />
-                <ToolCard
-                    to="/uuid"
-                    icon={Fingerprint}
-                    title="UUID Generator"
-                    description="Generate standard UUIDs in bulk."
-                    color="#a855f7"
-                />
-                <ToolCard
-                    to="/formatters"
-                    icon={Braces}
-                    title="Formatters"
-                    description="Prettify JSON or clean up SQL queries."
-                    color="#f43f5e"
-                />
-                <ToolCard
-                    to="/css"
-                    icon={Palette}
-                    title="Glassmorphism"
-                    description="Design beautiful frosted glass CSS effects."
-                    color="#ec4899"
-                />
-                <ToolCard
-                    to="/base64"
-                    icon={Code}
-                    title="Base64"
-                    description="Encode and decode text to Base64 format."
-                    color="var(--primary)"
-                />
-                <ToolCard
-                    to="/jwt"
-                    icon={Key}
-                    title="JWT Decoder"
-                    description="Inspect JSON Web Tokens securely."
-                    color="var(--accent)"
-                />
+            {/* All Tools Grid by Category */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+                {TOOL_CATEGORIES.map((category) => (
+                    <div key={category.name} className="fade-in">
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            marginBottom: '16px',
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            letterSpacing: '1px'
+                        }}>
+                            <category.icon size={16} />
+                            {category.name}
+                        </div>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                            gap: '16px'
+                        }}>
+                            {category.items.filter(item => item.to !== '/').map((tool) => (
+                                <ToolCard
+                                    key={tool.to}
+                                    to={tool.to}
+                                    icon={tool.icon}
+                                    label={tool.label}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
 
             <Footer />

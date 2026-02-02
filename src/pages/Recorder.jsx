@@ -233,14 +233,22 @@ export default function Recorder() {
                     {!isRecording && status !== 'finished' && (
                         <button
                             onClick={startRecordingFlow}
-                            className="btn-primary"
                             style={{
-                                display: 'flex', alignItems: 'center', gap: 10,
-                                padding: '10px 24px', fontSize: '1rem',
-                                boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)'
+                                display: 'flex', alignItems: 'center', gap: 12,
+                                padding: '12px 32px', fontSize: '1.1rem',
+                                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
+                                transition: 'all 0.2s ease'
                             }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.5)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.4)'; }}
                         >
-                            <div style={{ width: 10, height: 10, background: '#fff', borderRadius: '50%' }}></div>
+                            <div style={{ width: 12, height: 12, background: '#fff', borderRadius: '50%', boxShadow: '0 0 10px rgba(255,255,255,0.8)' }}></div>
                             Start Recording
                         </button>
                     )}
