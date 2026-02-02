@@ -36,6 +36,8 @@ const UnixTimestamp = lazy(() => import('./pages/UnixTimestamp'))
 const CidrCalculator = lazy(() => import('./pages/CidrCalculator'))
 const RegexTester = lazy(() => import('./pages/RegexTester'))
 const Inspector = lazy(() => import('./pages/Inspector'))
+const QrCode = lazy(() => import('./pages/QrCode'))
+const CaseConverter = lazy(() => import('./pages/CaseConverter'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -88,6 +90,8 @@ function App() {
             <Route path="/terms" element={<Terms />} />
             <Route path="/regex" element={<RegexTester />} />
             <Route path="/inspect" element={<Inspector />} />
+            <Route path="/qrcode" element={<QrCode />} />
+            <Route path="/case" element={<CaseConverter />} />
           </Routes>
         </Suspense>
       </Layout>

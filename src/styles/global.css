@@ -136,7 +136,12 @@ textarea {
     transition: opacity 0.2s ease;
 }
 
-.nav-item-wrapper:hover .fav-btn,
+@media (hover: hover) {
+    .nav-item-wrapper:hover .fav-btn {
+        opacity: 1 !important;
+    }
+}
+
 .nav-item-wrapper .fav-btn.active,
 .nav-item-wrapper .fav-btn:focus {
     opacity: 1 !important;
