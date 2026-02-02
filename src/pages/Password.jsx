@@ -1,5 +1,4 @@
-import React, { useState } from 'react'
-import zxcvbn from 'zxcvbn'
+import React, { useState, useEffect } from 'react'
 import { Shield, ShieldAlert, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
@@ -7,9 +6,22 @@ export default function Password() {
     useDocumentTitle('Password Strength')
     const [password, setPassword] = useState('')
     const [show, setShow] = useState(false)
+    const [zxcvbn, setZxcvbn] = useState(null)
+    const [isLoading, setIsLoading] = useState(false)
 
-    const result = zxcvbn(password)
-    const score = password ? result.score : 0 // 0-4
+    // Dynamically load zxcvbn only when user starts typing
+    useEffect(() => {
+        if (password && !zxcvbn && !isLoading) {
+            setIsLoading(true)
+            import('zxcvbn').then(module => {
+                setZxcvbn(() => module.default)
+                setIsLoading(false)
+            })
+        }
+    }, [password, zxcvbn, isLoading])
+
+    const result = zxcvbn && password ? zxcvbn(password) : null
+    const score = result ? result.score : 0 // 0-4
 
     const getColor = (s) => {
         if (s === 0) return '#ef4444'
@@ -21,6 +33,7 @@ export default function Password() {
 
     const getLabel = (s) => {
         if (!password) return 'Enter Password'
+        if (isLoading) return 'Analyzing...'
         return ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'][s]
     }
 

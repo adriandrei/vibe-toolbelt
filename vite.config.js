@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import viteCompression from 'vite-plugin-compression'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -31,21 +32,48 @@ export default defineConfig({
           }
         ]
       }
+    }),
+    // Brotli compression for production builds
+    viteCompression({
+      algorithm: 'brotliCompress',
+      ext: '.br',
+      threshold: 10240, // Only compress files > 10KB
+      deleteOriginFile: false
     })
   ],
   build: {
+    // Use terser for better minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.logs in production
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug']
+      }
+    },
     rollupOptions: {
       output: {
         // Manual chunks for better code splitting
         manualChunks: {
-          // Vendor chunks
+          // Core vendor chunks
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-icons': ['lucide-react'],
+
           // Heavy dependencies get their own chunks
           'vendor-faker': ['@faker-js/faker'],
           'vendor-sql': ['sql-formatter'],
+          'vendor-syntax': ['react-syntax-highlighter'],
+
+          // PDF/Image processing
+          'vendor-pdf': ['pdf-lib', 'jspdf'],
+          'vendor-image': ['heic2any', 'html-to-image', 'jszip'],
+
+          // Crypto/Security
+          'vendor-crypto': ['crypto-js', 'jose', 'jsencrypt'],
         }
       }
-    }
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000
   }
 })

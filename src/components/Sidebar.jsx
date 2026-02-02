@@ -288,6 +288,7 @@ export default function Sidebar({ isOpen, onClose }) {
                         </button>
                     </div>
 
+
                     {/* Integrated Search */}
                     <div style={{ position: 'relative' }}>
                         <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
@@ -298,7 +299,7 @@ export default function Sidebar({ isOpen, onClose }) {
                             onChange={e => setQuery(e.target.value)}
                             style={{
                                 width: '100%',
-                                padding: '8px 8px 8px 34px',
+                                padding: '8px 34px 8px 34px',
                                 borderRadius: '8px',
                                 border: '1px solid var(--border)',
                                 background: 'var(--bg-app)',
@@ -308,6 +309,32 @@ export default function Sidebar({ isOpen, onClose }) {
                             autoComplete="off"
                             name="app-search-tool-query"
                         />
+                        {query && (
+                            <button
+                                onClick={() => setQuery('')}
+                                aria-label="Clear search"
+                                style={{
+                                    position: 'absolute',
+                                    right: 8,
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '4px',
+                                    transition: 'background 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-panel)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
