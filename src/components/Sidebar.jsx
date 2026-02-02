@@ -9,7 +9,7 @@ import {
     X,
     Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
-    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive
+    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 
@@ -35,6 +35,7 @@ export const TOOL_CATEGORIES = [
             { to: '/cron', icon: Clock, label: 'Cron Parser' },
             { to: '/unix', icon: Clock, label: 'Unix Timestamp' },
             { to: '/regex', icon: Regex, label: 'Regex Tester' },
+            { to: '/image', icon: FileImage, label: 'Image Converter' },
             { to: '/qrcode', icon: QrCode, label: 'QR Code' },
             { to: '/svg', icon: Image, label: 'SVG Compressor' },
         ]

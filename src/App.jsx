@@ -38,6 +38,7 @@ const RegexTester = lazy(() => import('./pages/RegexTester'))
 const Inspector = lazy(() => import('./pages/Inspector'))
 const QrCode = lazy(() => import('./pages/QrCode'))
 const CaseConverter = lazy(() => import('./pages/CaseConverter'))
+const ImageConverter = lazy(() => import('./pages/ImageConverter'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -92,6 +93,7 @@ function App() {
             <Route path="/inspect" element={<Inspector />} />
             <Route path="/qrcode" element={<QrCode />} />
             <Route path="/case" element={<CaseConverter />} />
+            <Route path="/image" element={<ImageConverter />} />
           </Routes>
         </Suspense>
       </Layout>
