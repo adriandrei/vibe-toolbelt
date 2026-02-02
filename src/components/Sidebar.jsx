@@ -9,7 +9,7 @@ import {
     X,
     Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
-    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage
+    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 
@@ -20,6 +20,7 @@ export const TOOL_CATEGORIES = [
         icon: Wand2,
         items: [
             { to: '/', icon: Home, label: 'Home' },
+            { to: '/recorder', icon: Video, label: 'Screen Recorder' },
             { to: '/inspect', icon: Search, label: 'Inspector' },
         ]
     },
@@ -36,7 +37,9 @@ export const TOOL_CATEGORIES = [
             { to: '/unix', icon: Clock, label: 'Unix Timestamp' },
             { to: '/regex', icon: Regex, label: 'Regex Tester' },
             { to: '/image', icon: FileImage, label: 'Image Converter' },
+            { to: '/exif', icon: Aperture, label: 'EXIF Viewer' },
             { to: '/qrcode', icon: QrCode, label: 'QR Code' },
+            { to: '/pdf', icon: FileStack, label: 'PDF Tools' },
             { to: '/svg', icon: Image, label: 'SVG Compressor' },
         ]
     },
@@ -82,6 +85,7 @@ export const TOOL_CATEGORIES = [
             { to: '/triangle', icon: Triangle, label: 'Triangle' },
             { to: '/color-blindness', icon: Eye, label: 'Color Blindness' },
             { to: '/box-shadow', icon: Layers, label: 'Box Shadow' },
+            { to: '/snippets', icon: Camera, label: 'Code Snippets' },
         ]
     }
 ]

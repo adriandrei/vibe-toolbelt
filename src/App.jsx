@@ -39,6 +39,10 @@ const Inspector = lazy(() => import('./pages/Inspector'))
 const QrCode = lazy(() => import('./pages/QrCode'))
 const CaseConverter = lazy(() => import('./pages/CaseConverter'))
 const ImageConverter = lazy(() => import('./pages/ImageConverter'))
+const Snippets = lazy(() => import('./pages/Snippets'))
+const PdfTools = lazy(() => import('./pages/PdfTools'))
+const Recorder = lazy(() => import('./pages/Recorder'))
+const ExifViewer = lazy(() => import('./pages/ExifViewer'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -94,6 +98,10 @@ function App() {
             <Route path="/qrcode" element={<QrCode />} />
             <Route path="/case" element={<CaseConverter />} />
             <Route path="/image" element={<ImageConverter />} />
+            <Route path="/snippets" element={<Snippets />} />
+            <Route path="/pdf" element={<PdfTools />} />
+            <Route path="/recorder" element={<Recorder />} />
+            <Route path="/exif" element={<ExifViewer />} />
           </Routes>
         </Suspense>
       </Layout>
