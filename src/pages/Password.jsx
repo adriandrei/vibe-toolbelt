@@ -87,7 +87,7 @@ export default function Password() {
                     {getLabel(score)}
                 </div>
 
-                {password && (
+                {result && (
                     <div style={{ display: 'grid', gap: 'var(--space-md)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                             <span style={{ color: 'var(--text-muted)' }}>Crack Time (Online)</span>
