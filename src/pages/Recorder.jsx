@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Video, Mic, StopCircle, PlayCircle, Download, Monitor, Camera, X, PictureInPicture, Image as ImageIcon, Volume2 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import GIFEncoder from 'gif-encoder-2'
+import gifshot from 'gifshot'
 
 export default function Recorder() {
     useDocumentTitle('Screen Recorder')
@@ -88,6 +88,9 @@ export default function Recorder() {
 
             // 3. Audio Mixing
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume()
+            }
             audioContextRef.current = audioCtx
             const dest = audioCtx.createMediaStreamDestination()
 
@@ -169,7 +172,8 @@ export default function Recorder() {
             }
 
             const recorder = new MediaRecorder(finalStream, {
-                mimeType: 'video/webm;codecs=vp9'
+                mimeType: 'video/webm;codecs=vp8',
+                videoBitsPerSecond: 2500000 // 2.5 Mbps
             })
 
             recorder.ondataavailable = (e) => {
@@ -223,55 +227,53 @@ export default function Recorder() {
         try {
             const blob = new Blob(recordedChunks, { type: 'video/webm' })
             const url = URL.createObjectURL(blob)
-            const video = document.createElement('video')
-            video.src = url
-            video.muted = true
-            await video.play() // Start playing to get metadata
 
-            const width = 640 // Resize for GIF performance
-            const scale = width / video.videoWidth
-            const height = Math.floor(video.videoHeight * scale)
+            // Temporary video element to get dimensions and duration
+            const tempVideo = document.createElement('video')
+            tempVideo.src = url
 
-            const canvas = document.createElement('canvas')
-            canvas.width = width
-            canvas.height = height
-            const ctx = canvas.getContext('2d', { willReadFrequently: true })
+            await new Promise((resolve) => {
+                tempVideo.onloadedmetadata = () => resolve()
+                // Timeout fallback
+                setTimeout(resolve, 2000)
+            })
 
-            const encoder = new GIFEncoder(width, height)
-            encoder.setDelay(200) // 5 FPS
-            encoder.setQuality(10) // good quality
-            encoder.start()
+            const width = 800 // Better resolution for recordings
+            const height = tempVideo.videoWidth ? Math.round((tempVideo.videoHeight / tempVideo.videoWidth) * width) : 450
+            const duration = tempVideo.duration || 5
+            const fps = 10 // Better smoothness
+            const numFrames = Math.min(Math.floor(duration * fps), 200) // Quality vs size balance
 
-            const duration = video.duration
-            const fps = 5
-            const interval = 1 / fps
-
-            for (let t = 0; t <= duration; t += interval) {
-                video.currentTime = t
-                await new Promise(r => video.addEventListener('seeked', r, { once: true })) // Wait for seek
-                ctx.drawImage(video, 0, 0, width, height)
-                encoder.addFrame(ctx)
-                if (status === 'idle') break // Abort if reset
-                setGifProgress(Math.round((t / duration) * 100))
-                await new Promise(r => setTimeout(r, 0)) // Yield to UI
-            }
-
-            encoder.finish()
-            const buffer = encoder.out.getData()
-            const gifBlob = new Blob([buffer], { type: 'image/gif' })
-            const gifUrl = URL.createObjectURL(gifBlob)
-
-            const a = document.createElement('a')
-            document.body.appendChild(a)
-            a.style = 'display: none'
-            a.href = gifUrl
-            a.download = `recording-${new Date().getTime()}.gif`
-            a.click()
-            window.URL.revokeObjectURL(gifUrl)
-            setStatus('finished')
+            gifshot.createGIF({
+                video: [url],
+                gifWidth: width,
+                gifHeight: height,
+                interval: 1 / fps,
+                numFrames: numFrames,
+                sampleInterval: 5, // Higher quality pixels
+                progressCallback: (progress) => {
+                    setGifProgress(Math.round(progress * 100))
+                }
+            }, (obj) => {
+                if (!obj.error) {
+                    const gifUrl = obj.image
+                    const a = document.createElement('a')
+                    document.body.appendChild(a)
+                    a.style = 'display: none'
+                    a.href = gifUrl
+                    a.download = `recording-${new Date().getTime()}.gif`
+                    a.click()
+                    setStatus('finished')
+                } else {
+                    console.error('GIFshot error', obj.error)
+                    alert('GIF Export failed: ' + (obj.errorMsg || 'Unknown error'))
+                    setStatus('finished')
+                }
+                URL.revokeObjectURL(url)
+            })
 
         } catch (e) {
-            console.error('GIF Export failed', e)
+            console.error('GIF Export initialization failed', e)
             alert('GIF Export failed: ' + e.message)
             setStatus('finished')
         }
