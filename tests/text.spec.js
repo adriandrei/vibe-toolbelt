@@ -29,13 +29,12 @@ test.describe('Text Tools', () => {
         await expect(preview.locator('strong')).toHaveText('Bold Text');
     });
 
-    // Skipped: Formatters tests need updating after JMESPath migration
-    test.skip('Formatters formats JSON', async ({ page }) => {
+    test('Formatters formats JSON', async ({ page }) => {
         await page.goto('/formatters');
 
         const uglyJson = '{"foo":"bar"}';
         await page.locator('textarea').first().fill(uglyJson);
-        await page.getByRole('button', { name: 'Format JSON' }).click();
+        await page.getByRole('button', { name: 'Process' }).click();
 
         const output = page.locator('textarea[readonly]');
         const val = await output.inputValue();
@@ -57,8 +56,7 @@ test.describe('Text Tools', () => {
         await expect(page.getByText(/Every 5 minutes/i)).toBeVisible();
     });
 
-    // Skipped: Formatters tests need updating after JMESPath migration
-    test.skip('Formatters handles SQL formatting', async ({ page }) => {
+    test('Formatters handles SQL formatting', async ({ page }) => {
         await page.goto('/formatters');
 
         // Switch to SQL mode
@@ -66,15 +64,14 @@ test.describe('Text Tools', () => {
 
         const messySQL = 'select * from users where id=1';
         await page.locator('textarea').first().fill(messySQL);
-        await page.getByRole('button', { name: 'Format SQL' }).click();
+        await page.getByRole('button', { name: 'Process' }).click();
 
         const formatted = await page.locator('textarea[readonly]').inputValue();
         expect(formatted).toContain('SELECT'); // Should uppercase keywords
         expect(formatted).toContain('\n'); // Should have line breaks
     });
 
-    // Skipped: Formatters tests need updating after JMESPath migration
-    test.skip('Formatters switches between modes', async ({ page }) => {
+    test('Formatters switches between modes', async ({ page }) => {
         await page.goto('/formatters');
 
         // Start with JSON

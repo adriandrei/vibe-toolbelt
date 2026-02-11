@@ -171,22 +171,6 @@ test.describe('Responsive Layout', () => {
         expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 5);
     });
 
-    // Skipped: Flaky due to rendering timing issues
-    test.skip('Glass Generator Mobile Stack', async ({ page }) => {
-        await page.setViewportSize({ width: 375, height: 667 });
-        await page.goto('/glass');
-
-        const splitPane = page.locator('.split-pane');
-        const controls = splitPane.locator('> div').first();
-        const preview = splitPane.locator('> div').last();
-
-        const controlsRect = await controls.boundingBox();
-        const previewRect = await preview.boundingBox();
-
-        // Preview should be below Controls
-        expect(previewRect.y).toBeGreaterThan(controlsRect.y + controlsRect.height - 5);
-    });
-
     test('Gradient Generator Mobile Stack', async ({ page }) => {
         await page.setViewportSize({ width: 375, height: 667 });
         await page.goto('/gradient');

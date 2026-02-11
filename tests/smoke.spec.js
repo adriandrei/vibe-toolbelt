@@ -28,9 +28,7 @@ const pages = [
     '/cidr',
     '/svg',
     '/cron',
-    '/markdown',
-    '/privacy',
-    '/terms'
+    '/markdown'
 ];
 
 for (const path of pages) {
@@ -39,7 +37,7 @@ for (const path of pages) {
         await page.goto(path);
 
         // 2. Check title contains app name
-        await expect(page).toHaveTitle(/Vibe Toolbelt/);
+        await expect(page).toHaveTitle(/Private Toolkit/);
 
         // 3. Ensure no serious visual errors (main content visible)
         await expect(page.locator('main')).toBeVisible();

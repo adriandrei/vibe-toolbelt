@@ -1,14 +1,13 @@
 import { test, expect } from '@playwright/test';
 
-// Skipping entire suite - tests need updating after JMESPath migration
-test.describe.skip('JSON Power Tools', () => {
+test.describe('JSON Power Tools', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/formatters');
     });
 
     test('Loads JSON mode by default', async ({ page }) => {
         await expect(page.getByRole('button', { name: 'JSON', exact: true })).toBeVisible();
-        await expect(page.getByPlaceholder('JMESPath Filter')).toBeVisible();
+        await expect(page.getByPlaceholder(/JMESPath/)).toBeVisible();
     });
 
     test('Formats Valid JSON', async ({ page }) => {
@@ -54,7 +53,7 @@ test.describe.skip('JSON Power Tools', () => {
         await page.locator('textarea').first().fill(input);
         await page.getByRole('button', { name: 'Process' }).click();
 
-        await expect(page.locator('strong')).toHaveText('Error:');
-        await expect(page.locator('.glass-panel').last()).toContainText('JSON Syntax Error');
+        await expect(page.getByText('Error:')).toBeVisible();
+        await expect(page.getByText(/JSON Syntax Error/)).toBeVisible();
     });
 });
