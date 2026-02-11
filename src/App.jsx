@@ -48,6 +48,21 @@ const ApiTester = lazy(() => import('./pages/ApiTester'))
 const Base64Image = lazy(() => import('./pages/Base64Image'))
 const FaviconGenerator = lazy(() => import('./pages/FaviconGenerator'))
 const KeycodeViewer = lazy(() => import('./pages/KeycodeViewer'))
+const UrlEncode = lazy(() => import('./pages/UrlEncode'))
+const HtmlEntity = lazy(() => import('./pages/HtmlEntity'))
+const ColorConverter = lazy(() => import('./pages/ColorConverter'))
+const NumberBase = lazy(() => import('./pages/NumberBase'))
+const ListSorter = lazy(() => import('./pages/ListSorter'))
+const HttpStatus = lazy(() => import('./pages/HttpStatus'))
+const Chmod = lazy(() => import('./pages/Chmod'))
+const NanoId = lazy(() => import('./pages/NanoId'))
+const Bcrypt = lazy(() => import('./pages/Bcrypt'))
+const Aes = lazy(() => import('./pages/Aes'))
+const Otp = lazy(() => import('./pages/Otp'))
+const CsvJson = lazy(() => import('./pages/CsvJson'))
+const TextStats = lazy(() => import('./pages/TextStats'))
+const HexViewer = lazy(() => import('./pages/HexViewer'))
+const PrivacyScanner = lazy(() => import('./pages/PrivacyScanner'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -112,6 +127,21 @@ function App() {
               <Route path="/image-base64" element={<Base64Image />} />
               <Route path="/favicon" element={<FaviconGenerator />} />
               <Route path="/keycode" element={<KeycodeViewer />} />
+              <Route path="/urlencode" element={<UrlEncode />} />
+              <Route path="/html-entity" element={<HtmlEntity />} />
+              <Route path="/color" element={<ColorConverter />} />
+              <Route path="/number-base" element={<NumberBase />} />
+              <Route path="/list" element={<ListSorter />} />
+              <Route path="/http-status" element={<HttpStatus />} />
+              <Route path="/chmod" element={<Chmod />} />
+              <Route path="/nanoid" element={<NanoId />} />
+              <Route path="/bcrypt" element={<Bcrypt />} />
+              <Route path="/aes" element={<Aes />} />
+              <Route path="/otp" element={<Otp />} />
+              <Route path="/csv-json" element={<CsvJson />} />
+              <Route path="/text-stats" element={<TextStats />} />
+              <Route path="/hex" element={<HexViewer />} />
+              <Route path="/privacy-scanner" element={<PrivacyScanner />} />
             </Routes>
           </Suspense>
         </Layout>

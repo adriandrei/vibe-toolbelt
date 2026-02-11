@@ -103,7 +103,7 @@ const Footer = () => (
             <a href="mailto:adriandrei@hotmail.com" style={{ color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = 'var(--text-main)'} onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}>Contact Support</a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-            <span>&copy; {new Date().getFullYear()} Vibe Toolbelt.</span>
+            <span>&copy; {new Date().getFullYear()} Private Toolkit.</span>
             <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--text-dim)' }}></span>
             <span>Made with <span style={{ color: '#ec4899' }}>♥</span> for developers.</span>
         </div>
@@ -159,7 +159,7 @@ export default function Home() {
                     fontWeight: 800
                 }}>
                     The <span className="text-gradient">Ultimate</span><br />
-                    Developer Toolkit
+                    Private Toolkit
                 </h1>
 
                 <p style={{

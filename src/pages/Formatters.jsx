@@ -54,10 +54,15 @@ export default function Formatters() {
     }
 
     // Auto-format when toggles change (if input exists)
+    // Auto-format when toggles change (if input exists) with debounce
     useEffect(() => {
-        if (input && !error) {
+        if (!input) return
+
+        const timer = setTimeout(() => {
             handleFormat()
-        }
+        }, 500)
+
+        return () => clearTimeout(timer)
     }, [indent, jqQuery])
 
     const handleCopy = () => {
@@ -149,7 +154,7 @@ export default function Formatters() {
                                 type="text"
                                 value={jqQuery}
                                 onChange={(e) => setJqQuery(e.target.value)}
-                                placeholder="JMESPath Filter (e.g. [].id or people[?age > `20`])"
+                                placeholder="JMESPath Filter (e.g. [*].id or people[?age > `20`])"
                                 style={{
                                     padding: '6px 10px',
                                     fontSize: '0.9rem',
@@ -266,7 +271,8 @@ export default function Formatters() {
                                     background: 'transparent',
                                     border: 'none',
                                     resize: 'none',
-                                    color: mode === 'sql' ? '#a5b4fc' : '#86efac'
+                                    color: mode === 'sql' ? '#a5b4fc' : '#86efac',
+                                    overflow: 'auto'
                                 }}
                                 spellCheck="false"
                             />

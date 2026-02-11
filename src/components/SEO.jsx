@@ -13,21 +13,21 @@ export default function SEO({
     return (
         <Helmet>
             {/* Basic Meta Tags */}
-            <title>{title ? `${title} | Vibe Toolbelt` : 'Vibe Toolbelt - The Ultimate Developer Toolkit'}</title>
+            <title>{title ? `${title} | Private Toolkit` : 'Private Toolkit - Privacy-First Developer Utilities'}</title>
             <meta name="description" content={description} />
             <meta name="keywords" content={keywords} />
 
             {/* Open Graph / Facebook */}
             <meta property="og:type" content="website" />
             <meta property="og:url" content={fullUrl} />
-            <meta property="og:title" content={title ? `${title} | Vibe Toolbelt` : 'Vibe Toolbelt'} />
+            <meta property="og:title" content={title ? `${title} | Private Toolkit` : 'Private Toolkit'} />
             <meta property="og:description" content={description} />
             <meta property="og:image" content={image} />
 
             {/* Twitter */}
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:url" content={fullUrl} />
-            <meta name="twitter:title" content={title ? `${title} | Vibe Toolbelt` : 'Vibe Toolbelt'} />
+            <meta name="twitter:title" content={title ? `${title} | Private Toolkit` : 'Private Toolkit'} />
             <meta name="twitter:description" content={description} />
             <meta name="twitter:image" content={image} />
 

@@ -1,6 +1,6 @@
 {
-    "short_name": "DevTools",
-    "name": "Vibe Developer Tools",
+    "short_name": "Toolkit",
+    "name": "Private Toolkit",
     "icons": [
         {
             "src": "/vite.svg",

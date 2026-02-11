@@ -9,9 +9,11 @@ import {
     X,
     Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
-    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap, Keyboard
+    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap, Keyboard,
+    Binary, ListOrdered, Server, ShieldAlert, Paintbrush, AlignLeft, FileCode
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
+import PrivacyBadge from './PrivacyBadge'
 
 // Map of categories and tools
 export const TOOL_CATEGORIES = [
@@ -30,27 +32,32 @@ export const TOOL_CATEGORIES = [
         icon: Code,
         items: [
             { to: '/base64', icon: Code, label: 'Base64' },
+            { to: '/csv-json', icon: ArrowRightLeft, label: 'CSV <> JSON' },
+            { to: '/hex', icon: FileCode, label: 'Hex Viewer' },
             { to: '/formatters', icon: Braces, label: 'Formatters' },
             { to: '/converter', icon: ArrowRightLeft, label: 'JSON <> YAML' },
             { to: '/markdown', icon: FileText, label: 'Markdown' },
-            { to: '/case', icon: CaseSensitive, label: 'Case Converter' },
             { to: '/cron', icon: Clock, label: 'Cron Parser' },
             { to: '/unix', icon: Clock, label: 'Unix Timestamp' },
-            { to: '/regex', icon: Regex, label: 'Regex Tester' },
             { to: '/image', icon: FileImage, label: 'Image Converter' },
-            { to: '/exif', icon: Aperture, label: 'EXIF Viewer' },
             { to: '/qrcode', icon: QrCode, label: 'QR Code' },
             { to: '/pdf', icon: FileStack, label: 'PDF Tools' },
             { to: '/image-base64', icon: Image, label: 'Base64 Image' },
             { to: '/favicon', icon: Layers, label: 'Favicon Generator' },
             { to: '/keycode', icon: Keyboard, label: 'Keycode' },
             { to: '/svg', icon: Image, label: 'SVG Compressor' },
+            { to: '/urlencode', icon: Link2, label: 'URL Encode' },
+            { to: '/html-entity', icon: Code, label: 'HTML Entity' },
+            { to: '/number-base', icon: Binary, label: 'Number Base' },
         ]
     },
     {
         name: 'Security',
         icon: ShieldCheck,
         items: [
+            { to: '/bcrypt', icon: Shield, label: 'Bcrypt Hash' },
+            { to: '/aes', icon: Lock, label: 'AES Encrypt' },
+            { to: '/otp', icon: Clock, label: 'OTP / TOTP' },
             { to: '/jwt', icon: Key, label: 'JWT Decoder' },
             { to: '/diff', icon: FileDiff, label: 'Secure Diff' },
             { to: '/uuid', icon: Fingerprint, label: 'UUID Gen' },
@@ -59,6 +66,8 @@ export const TOOL_CATEGORIES = [
             { to: '/hmac', icon: Shield, label: 'HMAC Gen' },
             { to: '/rsa', icon: Lock, label: 'RSA Key Gen' },
             { to: '/password', icon: Shield, label: 'Password Audit' },
+            { to: '/nanoid', icon: Fingerprint, label: 'Nano ID / ULID' },
+            { to: '/chmod', icon: ShieldAlert, label: 'Chmod Calc' },
         ]
     },
     {
@@ -70,6 +79,26 @@ export const TOOL_CATEGORIES = [
             { to: '/curl', icon: Terminal, label: 'Curl to Fetch' },
             { to: '/cidr', icon: Network, label: 'IP / CIDR' },
             { to: '/meta', icon: Globe, label: 'Meta Tags' },
+            { to: '/http-status', icon: Server, label: 'HTTP Status' },
+        ]
+    },
+    {
+        name: 'Text',
+        icon: AlignLeft,
+        items: [
+            { to: '/text-stats', icon: AlignLeft, label: 'Text Stats' },
+            { to: '/list', icon: ListOrdered, label: 'List Sorter' },
+            { to: '/case', icon: CaseSensitive, label: 'Case Converter' },
+            { to: '/regex', icon: Regex, label: 'Regex Tester' },
+            { to: '/lorem', icon: Type, label: 'Lorem Ipsum' },
+        ]
+    },
+    {
+        name: 'Privacy',
+        icon: Eye,
+        items: [
+            { to: '/privacy-scanner', icon: ShieldAlert, label: 'Privacy Scanner' },
+            { to: '/exif', icon: Aperture, label: 'EXIF Viewer' },
         ]
     },
     {
@@ -77,7 +106,6 @@ export const TOOL_CATEGORIES = [
         icon: Database,
         items: [
             { to: '/faker', icon: Database, label: 'Data Gen' },
-            { to: '/lorem', icon: Type, label: 'Lorem Ipsum' },
         ]
     },
     {
@@ -90,6 +118,7 @@ export const TOOL_CATEGORIES = [
             { to: '/color-blindness', icon: Eye, label: 'Color Blindness' },
             { to: '/box-shadow', icon: Layers, label: 'Box Shadow' },
             { to: '/snippets', icon: Camera, label: 'Code Snippets' },
+            { to: '/color', icon: Paintbrush, label: 'Color Converter' },
         ]
     }
 ]
@@ -268,7 +297,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Link to="/" onClick={() => window.innerWidth <= 1024 && onClose()} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', textDecoration: 'none' }}>
                             <Wand2 size={24} color="var(--primary)" />
-                            <span className="text-gradient" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>DevTools</span>
+                            <span className="text-gradient" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>Private Toolkit</span>
                         </Link>
                         <button
                             aria-label="Close sidebar"
@@ -422,19 +451,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     color: 'var(--text-dim)',
                     textAlign: 'center'
                 }}>
-                    <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        background: 'rgba(16, 185, 129, 0.1)',
-                        color: '#10b981',
-                        fontWeight: 600,
-                        marginBottom: 'var(--space-xs)'
-                    }}>
-                        <ShieldCheck size={12} /> Offline & Secure
-                    </div>
+                    <PrivacyBadge />
                 </div>
             </aside>
         </>

@@ -1,5 +1,5 @@
 {
-  "name": "vibe-toolbelt",
+  "name": "private-toolkit",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^9.9.0",
+    "bcryptjs": "^3.0.3",
     "cronstrue": "^3.9.0",
     "crypto-js": "^4.2.0",
     "diff": "^8.0.3",
@@ -26,6 +27,7 @@
     "jspdf": "^4.1.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.562.0",
+    "otpauth": "^9.5.0",
     "pdf-lib": "^1.17.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",

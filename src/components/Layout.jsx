@@ -3,6 +3,7 @@ import { Menu, Search } from 'lucide-react'
 import Sidebar from './Sidebar'
 import SmartPaste from './SmartPaste'
 import CommandPalette from './CommandPalette'
+import PrivacyBadge from './PrivacyBadge'
 
 
 export default function Layout({ children }) {
@@ -89,7 +90,10 @@ export default function Layout({ children }) {
                         >
                             <Menu size={24} />
                         </button>
-                        <span style={{ fontWeight: 600, fontSize: '1.1rem' }} className="text-gradient">Vibe Tools</span>
+                        <span style={{ fontWeight: 600, fontSize: '1.2rem' }} className="text-gradient">Private Toolkit</span>
+                        <div style={{ marginLeft: 'auto' }}>
+                            <PrivacyBadge />
+                        </div>
                     </div>
 
                 </div>
