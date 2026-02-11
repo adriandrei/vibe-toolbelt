@@ -11,6 +11,9 @@ export default function ImageConverter() {
     const [format, setFormat] = useState('image/png')
     const [quality, setQuality] = useState(0.9)
     const [isConverting, setIsConverting] = useState(false)
+    const [targetWidth, setTargetWidth] = useState('')
+    const [targetHeight, setTargetHeight] = useState('')
+    const [maintainAspect, setMaintainAspect] = useState(true)
     const fileInputRef = useRef(null)
 
     const handleFiles = async (files) => {
@@ -70,14 +73,27 @@ export default function ImageConverter() {
         }
     }, [images])
 
+    const calculateDimensions = (originalWidth, originalHeight) => {
+        let w = originalWidth
+        let h = originalHeight
+
+        if (targetWidth && targetHeight) {
+            w = parseInt(targetWidth)
+            h = parseInt(targetHeight)
+        } else if (targetWidth) {
+            w = parseInt(targetWidth)
+            if (maintainAspect) h = Math.round(originalHeight * (w / originalWidth))
+        } else if (targetHeight) {
+            h = parseInt(targetHeight)
+            if (maintainAspect) w = Math.round(originalWidth * (h / originalHeight))
+        }
+
+        return { w, h }
+    }
+
     const generateIco = async (canvas) => {
         // Basic 256x256 PNG-encoded ICO
-        // Header: 2 bytes reserved (0), 2 bytes type (1), 2 bytes count (1)
-        // Directory: 1 byte width (0=256), 1 byte height (0=256), 1 byte colors (0), 1 byte res, 2 bytes planes (1), 2 bytes bpp (32), 4 bytes size, 4 bytes offset
-
         return new Promise((resolve) => {
-            // Resize to 256x256 for icon if larger, or keep aspect? ICOs strictly usually are squares.
-            // Let's fit centered in 256x256
             const iconCanvas = document.createElement('canvas')
             iconCanvas.width = 256
             iconCanvas.height = 256
@@ -94,7 +110,7 @@ export default function ImageConverter() {
             iconCanvas.toBlob(async (pngBlob) => {
                 const pngBuffer = await pngBlob.arrayBuffer()
                 const size = pngBuffer.byteLength
-                const offset = 22 // 6 header + 16 dir
+                const offset = 22
 
                 const buffer = new ArrayBuffer(offset + size)
                 const view = new DataView(buffer)
@@ -130,7 +146,6 @@ export default function ImageConverter() {
             format: [canvas.width, canvas.height]
         })
 
-        // Add image as typical JPEG or PNG
         const imgData = canvas.toDataURL('image/jpeg', quality)
         doc.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height)
         return doc.output('blob')
@@ -144,9 +159,13 @@ export default function ImageConverter() {
             image.src = img.preview
 
             image.onload = async () => {
-                canvas.width = image.width
-                canvas.height = image.height
-                ctx.drawImage(image, 0, 0)
+                const { w, h } = calculateDimensions(image.width, image.height)
+                canvas.width = w
+                canvas.height = h
+
+                ctx.imageSmoothingEnabled = true
+                ctx.imageSmoothingQuality = 'high'
+                ctx.drawImage(image, 0, 0, w, h)
 
                 let resultBlob = null
 
@@ -232,7 +251,7 @@ export default function ImageConverter() {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
                 <h2 className="text-gradient">Image Converter</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Bulk convert PNG, JPG, WEBP, AVIF, HEIC, SVG to modern formats.</p>
+                <p style={{ color: 'var(--text-muted)' }}>Bulk convert and resize PNG, JPG, WEBP, AVIF, HEIC, SVG to modern formats.</p>
             </div>
 
             {/* Config & Controls */}
@@ -270,6 +289,36 @@ export default function ImageConverter() {
                         style={{ width: '100%' }}
                     />
                     {['image/png', 'image/x-icon', 'image/bmp'].includes(format) && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Quality ignored for {format.split('/')[1]}</div>}
+                </div>
+
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                    <label style={{ display: 'block', marginBottom: 'var(--space-xs)', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Resize (px)</label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                            type="number"
+                            placeholder="W"
+                            value={targetWidth}
+                            onChange={e => setTargetWidth(e.target.value)}
+                            style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
+                        />
+                        <span style={{ color: 'var(--text-muted)' }}>x</span>
+                        <input
+                            type="number"
+                            placeholder="H"
+                            value={targetHeight}
+                            onChange={e => setTargetHeight(e.target.value)}
+                            style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
+                        />
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={maintainAspect}
+                                onChange={e => setMaintainAspect(e.target.checked)}
+                            /> Maintain Aspect Ratio
+                        </label>
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-end' }}>
@@ -402,8 +451,8 @@ export default function ImageConverter() {
                             <a
                                 href={img.convertedUrl}
                                 download={`${img.file.name.split('.')[0]}_converted.${format === 'application/pdf' ? 'pdf' :
-                                        format === 'image/x-icon' ? 'ico' :
-                                            format.split('/')[1]
+                                    format === 'image/x-icon' ? 'ico' :
+                                        format.split('/')[1]
                                     }`}
                                 style={{
                                     display: 'flex',

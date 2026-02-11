@@ -45,6 +45,9 @@ const PdfTools = lazy(() => import('./pages/PdfTools'))
 const Recorder = lazy(() => import('./pages/Recorder'))
 const ExifViewer = lazy(() => import('./pages/ExifViewer'))
 const ApiTester = lazy(() => import('./pages/ApiTester'))
+const Base64Image = lazy(() => import('./pages/Base64Image'))
+const FaviconGenerator = lazy(() => import('./pages/FaviconGenerator'))
+const KeycodeViewer = lazy(() => import('./pages/KeycodeViewer'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -106,6 +109,9 @@ function App() {
               <Route path="/recorder" element={<Recorder />} />
               <Route path="/exif" element={<ExifViewer />} />
               <Route path="/api" element={<ApiTester />} />
+              <Route path="/image-base64" element={<Base64Image />} />
+              <Route path="/favicon" element={<FaviconGenerator />} />
+              <Route path="/keycode" element={<KeycodeViewer />} />
             </Routes>
           </Suspense>
         </Layout>
