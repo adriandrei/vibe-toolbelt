@@ -1,8 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { Upload, Download, Image as ImageIcon, X, Archive, RefreshCw, FileText } from 'lucide-react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { Upload, Download, Image as ImageIcon, X, Archive, RefreshCw, FileText, Crop as CropIcon, Check, ZoomIn } from 'lucide-react'
 import JSZip from 'jszip'
 import heic2any from 'heic2any'
 import { jsPDF } from 'jspdf'
+import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
+
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function ImageConverter() {
@@ -15,6 +18,13 @@ export default function ImageConverter() {
     const [targetHeight, setTargetHeight] = useState('')
     const [maintainAspect, setMaintainAspect] = useState(true)
     const fileInputRef = useRef(null)
+
+    // Crop State
+    const [cropImage, setCropImage] = useState(null)
+    const [crop, setCrop] = useState()
+    const [completedCrop, setCompletedCrop] = useState(null)
+    const [isCropping, setIsCropping] = useState(false)
+    const imgRef = useRef(null)
 
     const handleFiles = async (files) => {
         const fileList = Array.from(files)
@@ -46,6 +56,7 @@ export default function ImageConverter() {
                     id: Math.random().toString(36).substr(2, 9),
                     file, // Keep original file ref
                     preview, // Use browser-compatible blob url for preview
+                    originalPreview: preview, // Keep original for revert/re-crop
                     convertedUrl: null,
                     status: 'pending'
                 })
@@ -239,6 +250,106 @@ export default function ImageConverter() {
         URL.revokeObjectURL(url)
     }
 
+
+    // Crop Logic
+    function onImageLoad(e) {
+        const { width, height } = e.currentTarget
+        // Default center crop
+        const aspect = 16 / 9
+        const crop = centerCrop(
+            makeAspectCrop(
+                {
+                    unit: '%',
+                    width: 90,
+                },
+                aspect,
+                width,
+                height
+            ),
+            width,
+            height
+        )
+        setCrop(crop)
+    }
+
+
+    const openCrop = (img) => {
+        setCropImage(img)
+        setCompletedCrop(null)
+        setCrop(undefined) // Reset to let auto-center logic work or start empty
+        setIsCropping(true)
+    }
+
+    const closeCrop = () => {
+        setIsCropping(false)
+        setCropImage(null)
+    }
+
+
+    const getCroppedImg = async (image, crop) => {
+        const canvas = document.createElement('canvas')
+        const scaleX = image.naturalWidth / image.width
+        const scaleY = image.naturalHeight / image.height
+        canvas.width = crop.width
+        canvas.height = crop.height
+        const ctx = canvas.getContext('2d')
+
+        const pixelRatio = window.devicePixelRatio
+        canvas.width = crop.width * pixelRatio
+        canvas.height = crop.height * pixelRatio
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+        ctx.imageSmoothingQuality = 'high'
+
+        ctx.drawImage(
+            image,
+            crop.x * scaleX,
+            crop.y * scaleY,
+            crop.width * scaleX,
+            crop.height * scaleY,
+            0,
+            0,
+            crop.width,
+            crop.height,
+        )
+
+        // As Base64 string
+        return new Promise((resolve) => {
+            canvas.toBlob((file) => {
+                resolve({
+                    blob: file,
+                    url: URL.createObjectURL(file)
+                })
+            }, 'image/png')
+        })
+    }
+
+    const saveCrop = async () => {
+        if (!completedCrop || !imgRef.current) return
+
+        try {
+            const { blob, url } = await getCroppedImg(
+                imgRef.current,
+                completedCrop
+            )
+
+            setImages(prev => prev.map(img => {
+                if (img.id === cropImage.id) {
+                    return {
+                        ...img,
+                        preview: url, // Update preview to cropped version
+                        status: 'pending', // Reset status if it was done
+                        convertedUrl: null, // Reset converted output
+                        file: new File([blob], img.file.name, { type: 'image/png' }) // Replace file with cropped blob
+                    }
+                }
+                return img
+            }))
+            closeCrop()
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
     const formatSize = (bytes) => {
         if (bytes === 0) return '0 B'
         const k = 1024
@@ -251,7 +362,7 @@ export default function ImageConverter() {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
                 <h2 className="text-gradient">Image Converter</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Bulk convert and resize PNG, JPG, WEBP, AVIF, HEIC, SVG to modern formats.</p>
+                <p style={{ color: 'var(--text-muted)' }}>Bulk convert, resize, and crop images.</p>
             </div>
 
             {/* Config & Controls */}
@@ -400,12 +511,23 @@ export default function ImageConverter() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-md)' }}>
                 {images.map(img => (
                     <div key={img.id} className="glass-panel" style={{ padding: 'var(--space-md)', position: 'relative' }}>
-                        <button
-                            onClick={() => setImages(prev => prev.filter(i => i.id !== img.id))}
-                            style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 4, color: '#fff', border: 'none', cursor: 'pointer', zIndex: 10 }}
-                        >
-                            <X size={14} />
-                        </button>
+                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 4 }}>
+                            <button
+                                onClick={() => openCrop(img)}
+                                title="Crop"
+                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
+                            >
+                                <CropIcon size={14} />
+                            </button>
+                            <button
+                                onClick={() => setImages(prev => prev.filter(i => i.id !== img.id))}
+                                title="Remove"
+                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+
 
                         <div style={{
                             height: '180px',
@@ -486,6 +608,97 @@ export default function ImageConverter() {
                     </div>
                 ))}
             </div>
+
+            {/* Fullscreen Crop Modal */}
+            {isCropping && cropImage && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 9999,
+                    background: '#000',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}>
+                    <div style={{
+                        padding: 'var(--space-md)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(0,0,0,0.8)',
+                        zIndex: 10
+                    }}>
+                        <h3 style={{ color: '#fff', margin: 0 }}>Crop Image</h3>
+                        <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
+                            <button
+                                onClick={closeCrop}
+                                style={{
+                                    background: 'transparent',
+                                    border: '1px solid #fff',
+                                    color: '#fff',
+                                    padding: '8px 16px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={saveCrop}
+                                style={{
+                                    background: 'var(--primary)',
+                                    border: 'none',
+                                    color: '#fff',
+                                    padding: '8px 16px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6
+                                }}
+                            >
+                                <Check size={16} /> Apply Crop
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{
+                        flex: 1,
+                        background: '#111',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px',
+                        overflow: 'auto'
+                    }}>
+                        <ReactCrop
+                            crop={crop}
+                            onChange={(c) => setCrop(c)}
+                            onComplete={(c) => setCompletedCrop(c)}
+                        >
+                            <img
+                                ref={imgRef}
+                                src={cropImage.originalPreview || cropImage.preview}
+                                alt="Crop me"
+                                onLoad={onImageLoad}
+                                style={{ maxHeight: '80vh', maxWidth: '100%' }}
+                            />
+                        </ReactCrop>
+                    </div>
+
+                    <div style={{
+                        padding: 'var(--space-md)',
+                        background: 'rgba(0,0,0,0.9)',
+                        color: '#aaa',
+                        fontSize: '0.9rem',
+                        textAlign: 'center'
+                    }}>
+                        Drag handles to resize. Drag inside to move.
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
