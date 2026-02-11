@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { faker } from '@faker-js/faker'
+import { fakerEN_US as faker } from '@faker-js/faker'
 import { Copy, RefreshCw, Type } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 

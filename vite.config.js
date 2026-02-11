@@ -65,7 +65,8 @@ export default defineConfig({
           'vendor-syntax': ['react-syntax-highlighter'],
 
           // PDF/Image processing
-          'vendor-pdf': ['pdf-lib', 'jspdf'],
+          'vendor-pdf-lib': ['pdf-lib'],
+          'vendor-jspdf': ['jspdf'],
           'vendor-image': ['heic2any', 'html-to-image', 'jszip'],
 
           // Crypto/Security
@@ -74,6 +75,6 @@ export default defineConfig({
       }
     },
     // Increase chunk size warning limit
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1500
   }
 })
