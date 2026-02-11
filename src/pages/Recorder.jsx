@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Video, Mic, StopCircle, PlayCircle, Download, Monitor, Camera, X } from 'lucide-react'
+import { Video, Mic, StopCircle, PlayCircle, Download, Monitor, Camera, X, PictureInPicture, Image as ImageIcon, Volume2 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import GIFEncoder from 'gif-encoder-2'
 
 export default function Recorder() {
     useDocumentTitle('Screen Recorder')
@@ -9,8 +10,10 @@ export default function Recorder() {
     const [isRecording, setIsRecording] = useState(false)
     const [recordedChunks, setRecordedChunks] = useState([])
     const [micEnabled, setMicEnabled] = useState(true)
+    const [systemAudioEnabled, setSystemAudioEnabled] = useState(true)
     const [camEnabled, setCamEnabled] = useState(false)
-    const [status, setStatus] = useState('idle') // idle, preparing, recording, finished
+    const [status, setStatus] = useState('idle') // idle, preparing, recording, finished, processing
+    const [gifProgress, setGifProgress] = useState(0)
 
     // Refs for Media Management
     const videoPreviewRef = useRef(null)
@@ -48,7 +51,7 @@ export default function Recorder() {
             // 1. Get Screen Stream (Video + System Audio)
             const screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: { frameRate: 60 },
-                audio: true // System audio
+                audio: systemAudioEnabled // System audio
             })
             screenStreamRef.current = screenStream
 
@@ -212,6 +215,80 @@ export default function Recorder() {
         window.URL.revokeObjectURL(url)
     }
 
+    const downloadGif = async () => {
+        if (recordedChunks.length === 0) return
+        setStatus('processing')
+        setGifProgress(0)
+
+        try {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' })
+            const url = URL.createObjectURL(blob)
+            const video = document.createElement('video')
+            video.src = url
+            video.muted = true
+            await video.play() // Start playing to get metadata
+
+            const width = 640 // Resize for GIF performance
+            const scale = width / video.videoWidth
+            const height = Math.floor(video.videoHeight * scale)
+
+            const canvas = document.createElement('canvas')
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d', { willReadFrequently: true })
+
+            const encoder = new GIFEncoder(width, height)
+            encoder.setDelay(200) // 5 FPS
+            encoder.setQuality(10) // good quality
+            encoder.start()
+
+            const duration = video.duration
+            const fps = 5
+            const interval = 1 / fps
+
+            for (let t = 0; t <= duration; t += interval) {
+                video.currentTime = t
+                await new Promise(r => video.addEventListener('seeked', r, { once: true })) // Wait for seek
+                ctx.drawImage(video, 0, 0, width, height)
+                encoder.addFrame(ctx)
+                if (status === 'idle') break // Abort if reset
+                setGifProgress(Math.round((t / duration) * 100))
+                await new Promise(r => setTimeout(r, 0)) // Yield to UI
+            }
+
+            encoder.finish()
+            const buffer = encoder.out.getData()
+            const gifBlob = new Blob([buffer], { type: 'image/gif' })
+            const gifUrl = URL.createObjectURL(gifBlob)
+
+            const a = document.createElement('a')
+            document.body.appendChild(a)
+            a.style = 'display: none'
+            a.href = gifUrl
+            a.download = `recording-${new Date().getTime()}.gif`
+            a.click()
+            window.URL.revokeObjectURL(gifUrl)
+            setStatus('finished')
+
+        } catch (e) {
+            console.error('GIF Export failed', e)
+            alert('GIF Export failed: ' + e.message)
+            setStatus('finished')
+        }
+    }
+
+    const togglePiP = async () => {
+        try {
+            if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture()
+            } else if (videoPreviewRef.current) {
+                await videoPreviewRef.current.requestPictureInPicture()
+            }
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
@@ -267,22 +344,9 @@ export default function Recorder() {
                         </button>
                     )}
 
-                    {status === 'finished' && (
-                        <button
-                            onClick={downloadVideo}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 24px', fontSize: '1rem',
-                                background: '#10b981', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)',
-                                cursor: 'pointer', fontWeight: 600,
-                                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
-                            }}
-                        >
-                            <Download size={18} /> Download
-                        </button>
-                    )}
                 </div>
 
-                {!isRecording && (
+                {!isRecording && status !== 'processing' && (
                     <div style={{ display: 'flex', gap: 8, background: 'var(--bg-app)', padding: 4, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                         <button
                             onClick={() => setMicEnabled(!micEnabled)}
@@ -301,6 +365,22 @@ export default function Recorder() {
                         </button>
                         <div style={{ width: 1, background: 'var(--border)', margin: '4px 0' }}></div>
                         <button
+                            onClick={() => setSystemAudioEnabled(!systemAudioEnabled)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
+                                background: systemAudioEnabled ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                color: systemAudioEnabled ? '#3b82f6' : 'var(--text-muted)',
+                                border: 'none',
+                                borderRadius: 'var(--radius-sm)',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: 500
+                            }}
+                        >
+                            <Volume2 size={16} /> {systemAudioEnabled ? 'Sys Audio' : 'No Sys'}
+                        </button>
+                        <div style={{ width: 1, background: 'var(--border)', margin: '4px 0' }}></div>
+                        <button
                             onClick={() => setCamEnabled(!camEnabled)}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
@@ -314,6 +394,33 @@ export default function Recorder() {
                             }}
                         >
                             <Camera size={16} /> {camEnabled ? 'Cam On' : 'Hidden'}
+                        </button>
+                    </div>
+                )}
+
+                {status === 'finished' && (
+                    <div style={{ display: 'flex', gap: 12 }}>
+                        <button
+                            onClick={downloadVideo}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 24px', fontSize: '1rem',
+                                background: '#10b981', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer', fontWeight: 600,
+                                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                            }}
+                        >
+                            <Download size={18} /> Video (WebM)
+                        </button>
+                        <button
+                            onClick={downloadGif}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 24px', fontSize: '1rem',
+                                background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer', fontWeight: 600,
+                                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+                            }}
+                        >
+                            <ImageIcon size={18} /> Export GIF
                         </button>
                     </div>
                 )}
@@ -342,6 +449,26 @@ export default function Recorder() {
                 border: '1px solid var(--border)',
                 boxShadow: isRecording ? '0 0 0 2px #ef4444' : '0 20px 50px rgba(0,0,0,0.5)'
             }}>
+                {(isRecording || status === 'finished') && (
+                    <button
+                        onClick={togglePiP}
+                        title="Picture in Picture Mode"
+                        style={{
+                            position: 'absolute',
+                            top: 16,
+                            right: 16,
+                            background: 'rgba(0,0,0,0.5)',
+                            color: '#fff',
+                            border: 'none',
+                            padding: 8,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            zIndex: 10
+                        }}
+                    >
+                        <PictureInPicture size={20} />
+                    </button>
+                )}
                 {status === 'idle' && (
                     <div style={{
                         position: 'absolute', inset: 0,
@@ -392,6 +519,17 @@ export default function Recorder() {
                 <div style={{ textAlign: 'center', marginTop: 12, color: '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     <div className="pulse-dot" style={{ width: 10, height: 10, background: '#ef4444', borderRadius: '50%' }}></div>
                     Recording in progress...
+                </div>
+            )}
+
+            {status === 'processing' && (
+                <div style={{ marginTop: 20, padding: 20 }}>
+                    <div style={{ color: 'var(--text-main)', textAlign: 'center', marginBottom: 8 }}>
+                        Generating GIF ({gifProgress}%)...
+                    </div>
+                    <div style={{ height: 8, background: 'var(--bg-app)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ width: `${gifProgress}%`, height: '100%', background: '#f59e0b', transition: 'width 0.2s' }}></div>
+                    </div>
                 </div>
             )}
 

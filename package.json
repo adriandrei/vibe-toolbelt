@@ -17,6 +17,7 @@
     "crypto-js": "^4.2.0",
     "diff": "^8.0.3",
     "exifreader": "^4.36.1",
+    "gif-encoder-2": "^1.0.5",
     "heic2any": "^0.0.4",
     "html-to-image": "^1.11.13",
     "ip-address": "^10.1.0",

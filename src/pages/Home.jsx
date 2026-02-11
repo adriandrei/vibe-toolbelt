@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TOOL_CATEGORIES } from '../components/Sidebar'
 import SEO from '../components/SEO'
-import { Search, ArrowRight, Github, Shield, Zap, Globe } from 'lucide-react'
+import { Search, ArrowRight, Github, Shield, Zap, Globe, Twitter, Linkedin, Share2, Check } from 'lucide-react'
 
 const ToolCard = ({ to, icon: Icon, label }) => (
     <Link to={to} className="glass-panel group" style={{
@@ -245,6 +245,119 @@ export default function Home() {
                     title="Blazing Fast"
                     description="Built with Vite and React for instant load times and smooth interactions."
                 />
+            </div>
+
+            {/* Promotion / Spread the Word */}
+            <div style={{
+                maxWidth: '1200px',
+                margin: '0 auto 60px',
+                width: '100%',
+                padding: '0 20px'
+            }}>
+                <div className="glass-panel" style={{
+                    padding: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '24px',
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)',
+                    border: '1px solid rgba(139, 92, 246, 0.2)'
+                }}>
+                    <div style={{ flex: '1 1 300px' }}>
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <span role="img" aria-label="rocket">🚀</span> Spread the Word
+                        </h2>
+                        <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+                            Enjoying the Vibe Toolbelt? Help us grow by sharing it with your developer friends or starring us on GitHub!
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out Vibe Toolbelt! A privacy-first developer toolkit. 🛠️✨')}&url=${encodeURIComponent(window.location.href)}`, '_blank')}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '10px 20px',
+                                background: 'rgba(0, 0, 0, 0.5)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)'}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231h0.001Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z" />
+                            </svg> Post
+                        </button>
+                        <button
+                            onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`, '_blank')}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '10px 20px',
+                                background: 'rgba(10, 102, 194, 0.1)',
+                                color: '#0a66c2',
+                                border: '1px solid rgba(10, 102, 194, 0.2)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(10, 102, 194, 0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(10, 102, 194, 0.1)'}
+                        >
+                            <Linkedin size={18} /> Share
+                        </button>
+                        <button
+                            onClick={() => window.open('https://github.com/adriandrei/vibe-toolbelt', '_blank')}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '10px 20px',
+                                background: 'rgba(36, 41, 46, 0.1)',
+                                color: '#24292e',
+                                border: '1px solid rgba(36, 41, 46, 0.2)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(36, 41, 46, 0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(36, 41, 46, 0.1)'}
+                        >
+                            <Github size={18} /> Star on GitHub
+                        </button>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(window.location.href)
+                                const btn = document.getElementById('copy-link-btn')
+                                if (btn) {
+                                    const originalText = btn.innerHTML
+                                    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!'
+                                    setTimeout(() => btn.innerHTML = originalText, 2000)
+                                }
+                            }}
+                            id="copy-link-btn"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '10px 20px',
+                                background: 'var(--bg-app)',
+                                color: 'var(--text-main)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--text-muted)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                        >
+                            <Share2 size={18} /> Copy Link
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* All Tools Grid by Category */}
