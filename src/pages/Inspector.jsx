@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { Sparkles, Copy, Check, ArrowRight, FileText, Hash, Lock, Globe, Code, Braces, Key, Binary, AlertCircle, Zap } from 'lucide-react'
+import { Sparkles, Copy, Check, ArrowRight, FileText, Hash, Lock, Globe, Code, Braces, Key, Binary, AlertCircle, Zap, Database } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { Link } from 'react-router-dom'
 
@@ -20,7 +20,21 @@ const PATTERNS = {
     semver: /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/,
     color: /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
     cron: /^[*0-9,/-]+\s+[*0-9,/-]+\s+[*0-9,/-]+\s+[*0-9,/-]+\s+[*0-9,/-]+$/,
-    cidr: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/
+    cidr: /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/,
+    xml: /^<([a-zA-Z0-9]+)[^>]*>[\s\S]*<\/\1>$/,
+    sql: /^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\s+/i
+}
+
+// Simple XML Formatter
+function formatXml(xml) {
+    let formatted = ''
+    let pad = 0
+    xml.split(/>\s*</).forEach(node => {
+        if (node.match(/^\/\w/)) pad = Math.max(0, pad - 1)
+        formatted += '  '.repeat(pad) + '<' + node + '>\r\n'
+        if (node.match(/^<?\w[^>]*[^\/]$/)) pad += 1
+    })
+    return formatted.replace(/^<|>\r\n$/g, '') // Cleanup edges
 }
 
 // Calculate Shannon entropy
@@ -51,9 +65,19 @@ function detectFormats(input) {
         formats.push({ type: 'json', label: 'JSON', icon: Braces, color: '#22c55e', link: '/formatters' })
     } catch { /* ignore */ }
 
+    // XML
+    if (PATTERNS.xml.test(trimmed)) {
+        formats.push({ type: 'xml', label: 'XML', icon: Code, color: '#f97316', link: '/formatters' })
+    }
+
+    // SQL
+    if (PATTERNS.sql.test(trimmed)) {
+        formats.push({ type: 'sql', label: 'SQL Query', icon: Database, color: '#3b82f6', link: '/formatters' })
+    }
+
     // Hex (only if pure hex and long enough)
     if (formats.length === 0 && trimmed.length >= 32 && PATTERNS.hex.test(trimmed.replace(/^0x/, ''))) {
-        formats.push({ type: 'hex', label: 'Hexadecimal', icon: Binary, color: '#ef4444' })
+        formats.push({ type: 'hex', label: 'Hexadecimal', icon: Binary, color: '#ef4444', link: '/hex' })
     }
 
     // Base64 (only if not already detected as something else and long enough)
@@ -94,7 +118,7 @@ function detectFormats(input) {
 
     // IPv6
     if (PATTERNS.ipv6.test(trimmed)) {
-        formats.push({ type: 'ipv6', label: 'IPv6 Address', icon: Globe, color: '#10b981' })
+        formats.push({ type: 'ipv6', label: 'IPv6 Address', icon: Globe, color: '#10b981', link: '/cidr' })
     }
 
     // MAC
@@ -171,6 +195,7 @@ export default function Inspector() {
     const [input, setInput] = useState('')
     const [hashes, setHashes] = useState(null)
     const [copied, setCopied] = useState(null)
+    const [previewCopied, setPreviewCopied] = useState(false)
 
     // Compute stats
     const stats = useMemo(() => {
@@ -235,6 +260,13 @@ export default function Inspector() {
             return { type: 'json', content: JSON.stringify(parsed, null, 2) }
         } catch { /* ignore */ }
 
+        // Try XML formatting
+        if (PATTERNS.xml.test(trimmed)) {
+            try {
+                return { type: 'xml', content: formatXml(trimmed) }
+            } catch { /* ignore */ }
+        }
+
         // Try Base64 decode
         if (PATTERNS.base64.test(trimmed) && trimmed.length > 10) {
             try {
@@ -266,6 +298,13 @@ export default function Inspector() {
         navigator.clipboard.writeText(value)
         setCopied(key)
         setTimeout(() => setCopied(null), 2000)
+    }
+
+    const handlePreviewCopy = () => {
+        if (!preview?.content) return
+        navigator.clipboard.writeText(preview.content)
+        setPreviewCopied(true)
+        setTimeout(() => setPreviewCopied(false), 2000)
     }
 
     const entropyLevel = stats ? (
@@ -503,14 +542,36 @@ export default function Inspector() {
 
                     {/* Preview */}
                     {preview && (
-                        <div className="glass-panel" style={{ padding: 'var(--space-lg)', gridColumn: '1 / -1' }}>
+                        <div className="glass-panel" style={{ padding: 'var(--space-lg)', gridColumn: '1 / -1', position: 'relative' }}>
                             <h3 style={{ marginBottom: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <Code size={18} color="var(--primary)" />
                                 {preview.type === 'json' && 'Formatted JSON Preview'}
+                                {preview.type === 'xml' && 'XML Structure Preview'}
                                 {preview.type === 'base64-decoded' && 'Base64 Decoded Preview'}
                                 {preview.type === 'jwt' && 'JWT Decoded Preview'}
                                 {preview.type === 'timestamp' && 'Timestamp Interpretation'}
                             </h3>
+                            <button
+                                onClick={handlePreviewCopy}
+                                style={{
+                                    position: 'absolute',
+                                    top: 'var(--space-lg)',
+                                    right: 'var(--space-lg)',
+                                    padding: '6px 12px',
+                                    background: 'var(--bg-app)',
+                                    border: '1px solid var(--border)',
+                                    color: previewCopied ? '#22c55e' : 'var(--text-muted)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontSize: '0.8rem'
+                                }}
+                            >
+                                {previewCopied ? <Check size={14} /> : <Copy size={14} />}
+                                {previewCopied ? 'Copied' : 'Copy'}
+                            </button>
                             <pre style={{
                                 padding: 'var(--space-md)',
                                 background: 'var(--bg-app)',
@@ -539,7 +600,7 @@ export default function Inspector() {
                     <Sparkles size={48} style={{ opacity: 0.2, marginBottom: 'var(--space-md)' }} />
                     <p>Paste any content to analyze it</p>
                     <p style={{ fontSize: '0.85rem', marginTop: 'var(--space-sm)' }}>
-                        Supports: JSON, JWT, UUID, Base64, URLs, IPs, timestamps, colors, cron expressions, and more
+                        Supports: JSON, XML, SQL, JWT, UUID, Base64, URLs, IPs, timestamps, colors, cron expressions, and more
                     </p>
                 </div>
             )}

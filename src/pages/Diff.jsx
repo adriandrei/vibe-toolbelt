@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import * as diff from 'diff'
 import { Lock, FileDiff, LayoutPanelLeft, AlignJustify, Copy, Check } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { DiffViewer } from '../components/DiffViewer'
 
 export default function Diff() {
     useDocumentTitle('Secure Diff')
@@ -10,7 +11,8 @@ export default function Diff() {
     const [viewMode, setViewMode] = useState('unified') // 'unified' | 'split'
     const [copied, setCopied] = useState(false)
 
-    // Compute diffs
+    // Compute diffs logic moved to DiffViewer
+    // We still calculate lines for stats locally or we could move stats to DiffViewer later
     const unifiedDiff = useMemo(() => {
         if (!oldText && !newText) return []
         return diff.diffLines(oldText, newText)
@@ -179,127 +181,8 @@ export default function Diff() {
             </div>
 
             {/* Diff Result */}
-            {unifiedDiff.length > 0 && (
-                <div className="glass-panel" style={{ padding: 'var(--space-lg)', overflowX: 'auto' }}>
-                    <h3 style={{ marginBottom: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <FileDiff size={20} color="var(--primary)" /> Comparison Result
-                    </h3>
-
-                    {viewMode === 'unified' ? (
-                        /* Unified View */
-                        <pre style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.85rem',
-                            lineHeight: 1.6,
-                            margin: 0
-                        }}>
-                            {unifiedDiff.map((part, index) => {
-                                const color = part.added ? '#10b981' : part.removed ? '#ef4444' : 'inherit'
-                                const bg = part.added ? 'rgba(16, 185, 129, 0.1)' : part.removed ? 'rgba(239, 68, 68, 0.1)' : 'transparent'
-                                const prefix = part.added ? '+ ' : part.removed ? '- ' : '  '
-
-                                return (
-                                    <div key={index} style={{ color, backgroundColor: bg }}>
-                                        {part.value.split('\n').map((line, li, arr) => (
-                                            li < arr.length - 1 || line ? (
-                                                <div key={li} style={{ padding: '0 8px' }}>
-                                                    <span style={{ color: 'var(--text-dim)', userSelect: 'none', marginRight: 8 }}>{prefix}</span>
-                                                    {line}
-                                                </div>
-                                            ) : null
-                                        ))}
-                                    </div>
-                                )
-                            })}
-                        </pre>
-                    ) : (
-                        /* Side-by-Side View */
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                            {/* Headers */}
-                            <div style={{
-                                padding: '8px 12px',
-                                background: 'rgba(239, 68, 68, 0.1)',
-                                fontWeight: 600,
-                                fontSize: '0.85rem',
-                                borderRadius: 'var(--radius-sm) 0 0 0'
-                            }}>
-                                Original
-                            </div>
-                            <div style={{
-                                padding: '8px 12px',
-                                background: 'rgba(16, 185, 129, 0.1)',
-                                fontWeight: 600,
-                                fontSize: '0.85rem',
-                                borderRadius: '0 var(--radius-sm) 0 0'
-                            }}>
-                                New
-                            </div>
-
-                            {/* Content */}
-                            <div style={{
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: '0.85rem',
-                                lineHeight: 1.6,
-                                borderRight: '1px solid var(--border)'
-                            }}>
-                                {splitDiff.left.map((line, i) => (
-                                    <div
-                                        key={i}
-                                        style={{
-                                            padding: '2px 8px',
-                                            minHeight: '1.6em',
-                                            background: line.type === 'removed'
-                                                ? 'rgba(239, 68, 68, 0.15)'
-                                                : line.type === 'placeholder'
-                                                    ? 'rgba(255,255,255,0.02)'
-                                                    : 'transparent',
-                                            color: line.type === 'removed' ? '#ef4444' : 'inherit'
-                                        }}
-                                    >
-                                        {line.type !== 'placeholder' && (
-                                            <>
-                                                <span style={{ color: 'var(--text-dim)', userSelect: 'none', marginRight: 8 }}>
-                                                    {line.type === 'removed' ? '-' : ' '}
-                                                </span>
-                                                {line.value}
-                                            </>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            <div style={{
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: '0.85rem',
-                                lineHeight: 1.6
-                            }}>
-                                {splitDiff.right.map((line, i) => (
-                                    <div
-                                        key={i}
-                                        style={{
-                                            padding: '2px 8px',
-                                            minHeight: '1.6em',
-                                            background: line.type === 'added'
-                                                ? 'rgba(16, 185, 129, 0.15)'
-                                                : line.type === 'placeholder'
-                                                    ? 'rgba(255,255,255,0.02)'
-                                                    : 'transparent',
-                                            color: line.type === 'added' ? '#10b981' : 'inherit'
-                                        }}
-                                    >
-                                        {line.type !== 'placeholder' && (
-                                            <>
-                                                <span style={{ color: 'var(--text-dim)', userSelect: 'none', marginRight: 8 }}>
-                                                    {line.type === 'added' ? '+' : ' '}
-                                                </span>
-                                                {line.value}
-                                            </>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
+            {(oldText || newText) && (
+                <DiffViewer oldText={oldText} newText={newText} viewMode={viewMode} />
             )}
         </div>
     )
