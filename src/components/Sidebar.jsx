@@ -10,9 +10,11 @@ import {
     Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
     Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap, Keyboard,
-    Binary, ListOrdered, Server, ShieldAlert, Paintbrush, AlignLeft, FileCode
+    Binary, ListOrdered, Server, ShieldAlert, Paintbrush, AlignLeft, FileCode,
+    Sun, Moon
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
+import { useTheme } from './ThemeProvider'
 import PrivacyBadge from './PrivacyBadge'
 
 // Map of categories and tools
@@ -233,6 +235,36 @@ const CategoryGroup = ({ category, onMobileClick, favorites, toggleFavorite }) =
     )
 }
 
+const ThemeToggle = () => {
+    const { theme, toggle } = useTheme()
+    const isDark = theme === 'dark'
+
+    return (
+        <button
+            onClick={toggle}
+            aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 14px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-lg)',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                fontSize: '0.8rem',
+                transition: 'all 0.3s ease',
+                width: '100%',
+                justifyContent: 'center'
+            }}
+        >
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
+            {isDark ? 'Light Mode' : 'Dark Mode'}
+        </button>
+    )
+}
+
 export default function Sidebar({ isOpen, onClose }) {
     const [query, setQuery] = useState('')
     const { favorites, toggleFavorite } = useFavorites()
@@ -447,10 +479,12 @@ export default function Sidebar({ isOpen, onClose }) {
                 <div style={{
                     padding: 'var(--space-md)',
                     borderTop: '1px solid var(--border)',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-dim)',
-                    textAlign: 'center'
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)'
                 }}>
+                    <ThemeToggle />
                     <PrivacyBadge />
                 </div>
             </aside>

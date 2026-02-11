@@ -46,13 +46,22 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-body.light {
-  --bg-app: hsl(var(--hue), 10%, 95%);
-  --bg-panel: hsl(var(--hue), 10%, 90%);
-  --bg-card: hsla(var(--hue), 10%, 100%, 0.7);
+:root[data-theme="light"] {
+  --bg-app: hsl(var(--hue), 15%, 96%);
+  --bg-panel: hsl(var(--hue), 12%, 100%);
+  --bg-card: hsla(var(--hue), 15%, 100%, 0.8);
 
-  --text-main: hsl(var(--hue), 30%, 10%);
-  --text-muted: hsl(var(--hue), 20%, 40%);
+  --text-main: hsl(var(--hue), 30%, 12%);
+  --text-muted: hsl(var(--hue), 15%, 40%);
+  --text-dim: hsl(var(--hue), 10%, 55%);
 
-  --border: hsla(var(--hue), 20%, 20%, 0.1);
+  --primary: hsl(var(--hue), 80%, 50%);
+  --primary-glow: hsla(var(--hue), 80%, 50%, 0.15);
+
+  --border: hsla(var(--hue), 20%, 20%, 0.12);
+  --border-hover: hsla(var(--hue), 20%, 20%, 0.25);
+
+  --glass-bg: hsla(var(--hue), 15%, 100%, 0.7);
+  --glass-border: hsla(var(--hue), 20%, 20%, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
 }

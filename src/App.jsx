@@ -3,6 +3,9 @@ import { Suspense, lazy } from 'react'
 import { HelmetProvider } from 'react-helmet-async'
 import './styles/responsive.css'
 import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
+import { ToastProvider } from './components/ToastProvider'
+import { ThemeProvider } from './components/ThemeProvider'
 
 // Lazy-loaded page components for code splitting
 const Home = lazy(() => import('./pages/Home'))
@@ -63,6 +66,7 @@ const CsvJson = lazy(() => import('./pages/CsvJson'))
 const TextStats = lazy(() => import('./pages/TextStats'))
 const HexViewer = lazy(() => import('./pages/HexViewer'))
 const PrivacyScanner = lazy(() => import('./pages/PrivacyScanner'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -79,74 +83,81 @@ const PageLoader = () => (
 
 function App() {
   return (
-    <HelmetProvider>
-      <BrowserRouter>
-        <Layout>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/base64" element={<Base64 />} />
-              <Route path="/jwt" element={<Jwt />} />
-              <Route path="/username" element={<Username />} />
-              <Route path="/diff" element={<Diff />} />
-              <Route path="/uuid" element={<Uuid />} />
-              <Route path="/hash" element={<Hash />} />
-              <Route path="/hmac" element={<Hmac />} />
-              <Route path="/rsa" element={<Rsa />} />
-              <Route path="/password" element={<Password />} />
-              <Route path="/url" element={<UrlParser />} />
-              <Route path="/ua" element={<UserAgent />} />
-              <Route path="/curl" element={<Curl />} />
-              <Route path="/meta" element={<MetaTags />} />
-              <Route path="/faker" element={<FakerTool />} />
-              <Route path="/lorem" element={<Lorem />} />
-              <Route path="/css" element={<Glass />} />
-              <Route path="/gradient" element={<Gradient />} />
-              <Route path="/triangle" element={<Triangle />} />
-              <Route path="/color-blindness" element={<ColorBlindness />} />
-              <Route path="/box-shadow" element={<BoxShadow />} />
-              <Route path="/formatters" element={<Formatters />} />
-              <Route path="/converter" element={<Converter />} />
-              <Route path="/unix" element={<UnixTimestamp />} />
-              <Route path="/cidr" element={<CidrCalculator />} />
-              <Route path="/svg" element={<SvgCompressor />} />
-              <Route path="/cron" element={<CronParser />} />
-              <Route path="/markdown" element={<Markdown />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/regex" element={<RegexTester />} />
-              <Route path="/inspect" element={<Inspector />} />
-              <Route path="/qrcode" element={<QrCode />} />
-              <Route path="/case" element={<CaseConverter />} />
-              <Route path="/image" element={<ImageConverter />} />
-              <Route path="/snippets" element={<Snippets />} />
-              <Route path="/pdf" element={<PdfTools />} />
-              <Route path="/recorder" element={<Recorder />} />
-              <Route path="/exif" element={<ExifViewer />} />
-              <Route path="/api" element={<ApiTester />} />
-              <Route path="/image-base64" element={<Base64Image />} />
-              <Route path="/favicon" element={<FaviconGenerator />} />
-              <Route path="/keycode" element={<KeycodeViewer />} />
-              <Route path="/urlencode" element={<UrlEncode />} />
-              <Route path="/html-entity" element={<HtmlEntity />} />
-              <Route path="/color" element={<ColorConverter />} />
-              <Route path="/number-base" element={<NumberBase />} />
-              <Route path="/list" element={<ListSorter />} />
-              <Route path="/http-status" element={<HttpStatus />} />
-              <Route path="/chmod" element={<Chmod />} />
-              <Route path="/nanoid" element={<NanoId />} />
-              <Route path="/bcrypt" element={<Bcrypt />} />
-              <Route path="/aes" element={<Aes />} />
-              <Route path="/otp" element={<Otp />} />
-              <Route path="/csv-json" element={<CsvJson />} />
-              <Route path="/text-stats" element={<TextStats />} />
-              <Route path="/hex" element={<HexViewer />} />
-              <Route path="/privacy-scanner" element={<PrivacyScanner />} />
-            </Routes>
-          </Suspense>
-        </Layout>
-      </BrowserRouter>
-    </HelmetProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <HelmetProvider>
+          <BrowserRouter>
+            <Layout>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/base64" element={<Base64 />} />
+                    <Route path="/jwt" element={<Jwt />} />
+                    <Route path="/username" element={<Username />} />
+                    <Route path="/diff" element={<Diff />} />
+                    <Route path="/uuid" element={<Uuid />} />
+                    <Route path="/hash" element={<Hash />} />
+                    <Route path="/hmac" element={<Hmac />} />
+                    <Route path="/rsa" element={<Rsa />} />
+                    <Route path="/password" element={<Password />} />
+                    <Route path="/url" element={<UrlParser />} />
+                    <Route path="/ua" element={<UserAgent />} />
+                    <Route path="/curl" element={<Curl />} />
+                    <Route path="/meta" element={<MetaTags />} />
+                    <Route path="/faker" element={<FakerTool />} />
+                    <Route path="/lorem" element={<Lorem />} />
+                    <Route path="/css" element={<Glass />} />
+                    <Route path="/gradient" element={<Gradient />} />
+                    <Route path="/triangle" element={<Triangle />} />
+                    <Route path="/color-blindness" element={<ColorBlindness />} />
+                    <Route path="/box-shadow" element={<BoxShadow />} />
+                    <Route path="/formatters" element={<Formatters />} />
+                    <Route path="/converter" element={<Converter />} />
+                    <Route path="/unix" element={<UnixTimestamp />} />
+                    <Route path="/cidr" element={<CidrCalculator />} />
+                    <Route path="/svg" element={<SvgCompressor />} />
+                    <Route path="/cron" element={<CronParser />} />
+                    <Route path="/markdown" element={<Markdown />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                    <Route path="/terms" element={<Terms />} />
+                    <Route path="/regex" element={<RegexTester />} />
+                    <Route path="/inspect" element={<Inspector />} />
+                    <Route path="/qrcode" element={<QrCode />} />
+                    <Route path="/case" element={<CaseConverter />} />
+                    <Route path="/image" element={<ImageConverter />} />
+                    <Route path="/snippets" element={<Snippets />} />
+                    <Route path="/pdf" element={<PdfTools />} />
+                    <Route path="/recorder" element={<Recorder />} />
+                    <Route path="/exif" element={<ExifViewer />} />
+                    <Route path="/api" element={<ApiTester />} />
+                    <Route path="/image-base64" element={<Base64Image />} />
+                    <Route path="/favicon" element={<FaviconGenerator />} />
+                    <Route path="/keycode" element={<KeycodeViewer />} />
+                    <Route path="/urlencode" element={<UrlEncode />} />
+                    <Route path="/html-entity" element={<HtmlEntity />} />
+                    <Route path="/color" element={<ColorConverter />} />
+                    <Route path="/number-base" element={<NumberBase />} />
+                    <Route path="/list" element={<ListSorter />} />
+                    <Route path="/http-status" element={<HttpStatus />} />
+                    <Route path="/chmod" element={<Chmod />} />
+                    <Route path="/nanoid" element={<NanoId />} />
+                    <Route path="/bcrypt" element={<Bcrypt />} />
+                    <Route path="/aes" element={<Aes />} />
+                    <Route path="/otp" element={<Otp />} />
+                    <Route path="/csv-json" element={<CsvJson />} />
+                    <Route path="/text-stats" element={<TextStats />} />
+                    <Route path="/hex" element={<HexViewer />} />
+                    <Route path="/privacy-scanner" element={<PrivacyScanner />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </ErrorBoundary>
+            </Layout>
+          </BrowserRouter>
+        </HelmetProvider>
+      </ToastProvider>
+    </ThemeProvider>
   )
 }
 
