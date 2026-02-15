@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@faker-js/faker": "^9.9.0",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "bcryptjs": "^3.0.3",
     "cronstrue": "^3.9.0",
     "crypto-js": "^4.2.0",

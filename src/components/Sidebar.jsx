@@ -11,7 +11,7 @@ import {
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
     Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap, Keyboard,
     Binary, ListOrdered, Server, ShieldAlert, Paintbrush, AlignLeft, FileCode,
-    Sun, Moon
+    Sun, Moon, Film
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 import { useTheme } from './ThemeProvider'
@@ -25,6 +25,7 @@ export const TOOL_CATEGORIES = [
         items: [
             { to: '/', icon: Home, label: 'Home' },
             { to: '/recorder', icon: Video, label: 'Screen Recorder' },
+            { to: '/video', icon: Film, label: 'Video Studio' },
             { to: '/inspect', icon: Search, label: 'Inspector' },
             { to: '/api', icon: Zap, label: 'API Tester' },
         ]

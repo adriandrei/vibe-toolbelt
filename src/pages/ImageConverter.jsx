@@ -7,6 +7,7 @@ import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useEscape } from '../hooks/useEscape'
 
 export default function ImageConverter() {
     useDocumentTitle('Image Converter')
@@ -25,6 +26,10 @@ export default function ImageConverter() {
     const [completedCrop, setCompletedCrop] = useState(null)
     const [isCropping, setIsCropping] = useState(false)
     const imgRef = useRef(null)
+
+    useEscape(() => {
+        if (isCropping) closeCrop()
+    })
 
     const handleFiles = async (files) => {
         const fileList = Array.from(files)

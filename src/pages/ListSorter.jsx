@@ -23,8 +23,10 @@ export default function ListSorter() {
 
         if (dedupe) {
             if (caseSensitive) {
+                // Case Sensitive Dedupe: "Apple" != "apple"
                 lines = [...new Set(lines)]
             } else {
+                // Ignore Case Dedupe: "Apple" == "apple" -> Keep first occurrence
                 const seen = new Set()
                 lines = lines.filter(l => {
                     const key = l.toLowerCase()
@@ -43,6 +45,8 @@ export default function ListSorter() {
                 } else if (sortType === 'length') {
                     cmp = a.length - b.length
                 } else {
+                    // If Case Sensitive: Use localeCompare
+                    // If Ignore Case: Lowercase both then compare
                     cmp = caseSensitive ? a.localeCompare(b) : a.toLowerCase().localeCompare(b.toLowerCase())
                 }
                 return sortDir === 'desc' ? -cmp : cmp

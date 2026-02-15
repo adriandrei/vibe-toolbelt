@@ -99,7 +99,7 @@ export default function Formatters() {
     }
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
                 <h2 className="text-gradient">Code Formatters</h2>
                 <p style={{ color: 'var(--text-muted)' }}>Prettify, Minify, and Query your code.</p>
@@ -242,7 +242,7 @@ export default function Formatters() {
                 )}
             </div>
 
-            <div className="split-pane">
+            <div className="split-pane" style={{ flex: 1, minHeight: 0, paddingBottom: 20 }}>
                 {/* Input */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
@@ -259,11 +259,12 @@ export default function Formatters() {
                             flex: 1,
                             fontFamily: 'var(--font-mono)',
                             fontSize: '0.85rem',
-                            resize: 'vertical',
+                            resize: 'none',
                             background: 'rgba(0,0,0,0.2)',
-                            minHeight: '300px',
+                            minHeight: '100%',
                             border: '1px solid var(--border)',
                             borderRadius: 'var(--radius-sm)',
+                            color: 'var(--text-main)',
                             color: 'var(--text-main)',
                             padding: 'var(--space-sm)'
                         }}
@@ -329,7 +330,8 @@ export default function Formatters() {
                             position: 'relative',
                             display: 'flex',
                             flexDirection: 'column',
-                            minHeight: '300px'
+                            height: '100%',
+                            minHeight: '0'
                         }}>
                             {error ? (
                                 <div style={{ padding: 'var(--space-md)', color: '#ef4444', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap' }}>

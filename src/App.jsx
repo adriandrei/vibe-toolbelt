@@ -66,6 +66,7 @@ const CsvJson = lazy(() => import('./pages/CsvJson'))
 const TextStats = lazy(() => import('./pages/TextStats'))
 const HexViewer = lazy(() => import('./pages/HexViewer'))
 const PrivacyScanner = lazy(() => import('./pages/PrivacyScanner'))
+const VideoTools = lazy(() => import('./pages/VideoTools'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 // Simple loading fallback
@@ -149,6 +150,7 @@ function App() {
                     <Route path="/text-stats" element={<TextStats />} />
                     <Route path="/hex" element={<HexViewer />} />
                     <Route path="/privacy-scanner" element={<PrivacyScanner />} />
+                    <Route path="/video" element={<VideoTools />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

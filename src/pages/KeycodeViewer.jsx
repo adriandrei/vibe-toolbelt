@@ -25,7 +25,7 @@ export default function KeycodeViewer() {
                 timestamp: Date.now()
             }
             setEvent(newData)
-            setHistory(prev => [newData, ...prev].slice(0, 10))
+            setHistory(prev => [newData, ...prev].slice(0, 50))
         }
 
         window.addEventListener('keydown', handleKeyDown)
@@ -102,8 +102,8 @@ export default function KeycodeViewer() {
                     {/* Simple History */}
                     {history.length > 0 && (
                         <div style={{ width: '100%', opacity: 0.7 }}>
-                            <h4 style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-sm)' }}>Recent Keys</h4>
-                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 10 }}>
+                            <h4 style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-sm)' }}>Recent Keys ({history.length})</h4>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingBottom: 10 }}>
                                 {history.map((h, i) => (
                                     <div key={h.timestamp + i} className="glass-panel" style={{ padding: '8px 12px', minWidth: 60, textAlign: 'center', fontSize: '0.85rem' }}>
                                         <div style={{ fontWeight: 600, color: i === 0 ? 'var(--primary)' : 'var(--text-main)' }}>{h.key === ' ' ? '␣' : h.key}</div>

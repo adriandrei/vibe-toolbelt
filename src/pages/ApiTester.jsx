@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import { useEscape } from '../hooks/useEscape'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -57,6 +58,10 @@ export default function ApiTester() {
     useEffect(() => {
         parseParamsFromUrl(url)
     }, [])
+
+    useEscape(() => {
+        if (showImportModal) setShowImportModal(false)
+    })
 
     // --- Helpers ---
 
@@ -204,7 +209,8 @@ export default function ApiTester() {
                 statusText: 'Network Error',
                 time: Math.round(performance.now() - startTime),
                 body: null,
-                size: 0
+                size: 0,
+                headers: []
             })
         }
         setIsLoading(false)
@@ -265,180 +271,8 @@ export default function ApiTester() {
         }
     }
 
-    // --- Sub-components (Inline for simplicity) ---
-
-    // Environment Manager
-    const EnvModal = () => {
-        const activeEnv = envs.find(e => e.id === activeEnvId)
-
-        const updateEnvName = (val) => {
-            setEnvs(envs.map(e => e.id === activeEnvId ? { ...e, name: val } : e))
-        }
-
-        const addVar = () => {
-            const newVars = [...activeEnv.vars, { key: '', value: '' }]
-            setEnvs(envs.map(e => e.id === activeEnvId ? { ...e, vars: newVars } : e))
-        }
-
-        const updateVar = (capturedEnvId, idx, field, val) => {
-            // Need to find env by ID because activeEnv might change if we allowed switching inside modal
-            // But here we rely on activeEnvId
-            const targetEnv = envs.find(e => e.id === capturedEnvId)
-            const newVars = [...targetEnv.vars]
-            newVars[idx][field] = val
-            setEnvs(envs.map(e => e.id === capturedEnvId ? { ...e, vars: newVars } : e))
-        }
-
-        const removeVar = (idx) => {
-            const newVars = activeEnv.vars.filter((_, i) => i !== idx)
-            setEnvs(envs.map(e => e.id === activeEnvId ? { ...e, vars: newVars } : e))
-        }
-
-        const createEnv = () => {
-            const newId = Date.now().toString()
-            const newEnv = { id: newId, name: 'New Environment', vars: [] }
-            setEnvs([...envs, newEnv])
-            setActiveEnvId(newId)
-        }
-
-        const deleteEnv = (id) => {
-            if (envs.length <= 1) return // Prevent deleting last one
-            const newEnvs = envs.filter(e => e.id !== id)
-            setEnvs(newEnvs)
-            if (activeEnvId === id) setActiveEnvId(newEnvs[0].id)
-        }
-
-        return (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="glass-panel" style={{ width: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)' }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: 0 }}>Manage Environments</h3>
-                        <button onClick={() => setShowEnvModal(false)}><X size={20} /></button>
-                    </div>
-
-                    <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-                        {/* Sidebar List */}
-                        <div style={{ width: '180px', borderRight: '1px solid var(--border)', padding: '12px', display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(0,0,0,0.2)' }}>
-                            {envs.map(e => (
-                                <button
-                                    key={e.id}
-                                    onClick={() => setActiveEnvId(e.id)}
-                                    style={{
-                                        padding: '8px 12px', textAlign: 'left', borderRadius: 6,
-                                        background: activeEnvId === e.id ? 'var(--primary-glow)' : 'transparent',
-                                        color: activeEnvId === e.id ? 'var(--primary)' : 'var(--text-muted)',
-                                        border: activeEnvId === e.id ? '1px solid var(--primary)' : '1px solid transparent',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {e.name}
-                                </button>
-                            ))}
-                            <button onClick={createEnv} style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8, padding: 8, color: 'var(--text-dim)', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 6, cursor: 'pointer' }}>
-                                <Plus size={14} /> New Env
-                            </button>
-                        </div>
-
-                        {/* Edit Area */}
-                        <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>Environment Name</label>
-                                <input
-                                    value={activeEnv.name}
-                                    onChange={e => updateEnvName(e.target.value)}
-                                    style={{ width: '100%', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 4 }}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                                        Use variables as <code style={{ color: 'var(--accent)' }}>{'{{key}}'}</code>
-                                    </div>
-                                    {envs.length > 1 && (
-                                        <button onClick={() => deleteEnv(activeEnv.id)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
-                                            <Trash2 size={12} /> Delete Env
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 8, paddingLeft: 8 }}>
-                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Variable</label>
-                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Value</label>
-                                </div>
-                                {activeEnv.vars.map((v, i) => (
-                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 8 }}>
-                                        <input placeholder="Key" value={v.key} onChange={e => updateVar(activeEnv.id, i, 'key', e.target.value)} style={{ padding: '6px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 4 }} />
-                                        <input placeholder="Value" value={v.value} onChange={e => updateVar(activeEnv.id, i, 'value', e.target.value)} style={{ padding: '6px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 4 }} />
-                                        <button onClick={() => removeVar(i)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                                    </div>
-                                ))}
-                                <button onClick={addVar} style={{ width: 'fit-content', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginTop: 8 }}>
-                                    <Plus size={16} /> Add Variable
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )
-    }
-
-    const SaveModal = () => (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="glass-panel" style={{ width: '400px', padding: '24px', background: 'var(--bg-panel)' }}>
-                <h3 style={{ marginTop: 0 }}>Save Collection Request</h3>
-                <input
-                    placeholder="Request Name (e.g. Get User Profile)"
-                    value={saveName}
-                    onChange={e => setSaveName(e.target.value)}
-                    autoFocus
-                    style={{ width: '100%', padding: '10px', marginTop: '16px', marginBottom: '24px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 6 }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                    <button onClick={() => setShowSaveModal(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
-                    <button onClick={saveRequest} style={{ padding: '8px 16px', background: 'var(--primary)', border: 'none', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Save</button>
-                </div>
-            </div>
-        </div>
-    )
-
-    const CodeModal = () => {
-        const [lang, setLang] = useState('curl')
-        const code = generateCode({ method, url, headers, body }, lang)
-        const [copied, setCopied] = useState(false)
-
-        const copyCode = () => {
-            navigator.clipboard.writeText(code)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
-        }
-
-        return (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="glass-panel" style={{ width: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)' }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: 0 }}>Generate Code</h3>
-                        <button onClick={() => setShowCodeModal(false)}><X size={20} /></button>
-                    </div>
-                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-                        {['curl', 'fetch', 'python'].map(l => (
-                            <button key={l} onClick={() => setLang(l)} style={{ padding: '12px 24px', background: lang === l ? 'var(--bg-app)' : 'transparent', color: lang === l ? 'var(--primary)' : 'var(--text-muted)', borderRight: '1px solid var(--border)', borderTop: 'none', borderLeft: 'none', borderBottom: lang === l ? '2px solid var(--primary)' : 'none', cursor: 'pointer', fontWeight: 500, textTransform: 'capitalize' }}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
-                    <div style={{ padding: '16px', flex: 1, overflow: 'auto', position: 'relative' }}>
-                        <button onClick={copyCode} style={{ position: 'absolute', top: 24, right: 24, padding: '4px 8px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, zIndex: 10 }}>
-                            {copied ? <Clock size={14} color="#10b981" /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy'}
-                        </button>
-                        <SyntaxHighlighter language={lang === 'curl' ? 'bash' : lang} style={vscDarkPlus} customStyle={{ margin: 0, padding: '16px', borderRadius: 8 }}>
-                            {code}
-                        </SyntaxHighlighter>
-                    </div>
-                </div>
-            </div>
-        )
-    }
+    // --- Sub-components (Moved outside to prevent re-creation) ---
+    // See bottom of file for definitions
 
     // Helper for method colors
     const getMethodColor = (m) => {
@@ -697,9 +531,32 @@ export default function ApiTester() {
             </div>
 
             {/* Modals */}
-            {showEnvModal && <EnvModal />}
-            {showSaveModal && <SaveModal />}
-            {showCodeModal && <CodeModal />}
+            {showEnvModal && (
+                <EnvModal
+                    envs={envs}
+                    setEnvs={setEnvs}
+                    activeEnvId={activeEnvId}
+                    setActiveEnvId={setActiveEnvId}
+                    onClose={() => setShowEnvModal(false)}
+                />
+            )}
+            {showSaveModal && (
+                <SaveModal
+                    saveName={saveName}
+                    setSaveName={setSaveName}
+                    onSave={saveRequest}
+                    onClose={() => setShowSaveModal(false)}
+                />
+            )}
+            {showCodeModal && (
+                <CodeModal
+                    method={method}
+                    url={url}
+                    headers={headers}
+                    body={body}
+                    onClose={() => setShowCodeModal(false)}
+                />
+            )}
             {showImportModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div className="glass-panel" style={{ width: '500px', padding: '24px', background: 'var(--bg-panel)' }}>
@@ -723,6 +580,192 @@ export default function ApiTester() {
                 .spin { animation: spin 1s linear infinite; }
                 @keyframes spin { 100% { transform: rotate(360deg); } }
             `}</style>
+        </div>
+    )
+}
+
+// --- Sub-components (Moved outside) ---
+
+const EnvModal = ({ envs, setEnvs, activeEnvId, setActiveEnvId, onClose }) => {
+    useEscape(onClose)
+    const activeEnv = envs.find(e => e.id === activeEnvId)
+
+    const updateEnvName = (val) => {
+        setEnvs(envs.map(e => e.id === activeEnvId ? { ...e, name: val } : e))
+    }
+
+    const addVar = () => {
+        const newVars = [...activeEnv.vars, { key: '', value: '' }]
+        setEnvs(envs.map(e => e.id === activeEnvId ? { ...e, vars: newVars } : e))
+    }
+
+    const updateVar = (capturedEnvId, idx, field, val) => {
+        const targetEnv = envs.find(e => e.id === capturedEnvId)
+        const newVars = [...targetEnv.vars]
+        newVars[idx][field] = val
+        setEnvs(envs.map(e => e.id === capturedEnvId ? { ...e, vars: newVars } : e))
+    }
+
+    const removeVar = (idx) => {
+        const newVars = activeEnv.vars.filter((_, i) => i !== idx)
+        setEnvs(envs.map(e => e.id === activeEnvId ? { ...e, vars: newVars } : e))
+    }
+
+    const createEnv = () => {
+        const newId = Date.now().toString()
+        const newEnv = { id: newId, name: 'New Environment', vars: [] }
+        setEnvs([...envs, newEnv])
+        setActiveEnvId(newId)
+    }
+
+    const deleteEnv = (id) => {
+        if (envs.length <= 1) return
+        const newEnvs = envs.filter(e => e.id !== id)
+        setEnvs(newEnvs)
+        if (activeEnvId === id) setActiveEnvId(newEnvs[0].id)
+    }
+
+    const handleOverlayClick = (e) => {
+        if (e.target === e.currentTarget) onClose()
+    }
+
+    return (
+        <div onClick={handleOverlayClick} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="glass-panel" style={{ width: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)' }}>
+                <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0 }}>Manage Environments</h3>
+                    <button onClick={onClose}><X size={20} /></button>
+                </div>
+
+                <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+                    <div style={{ width: '180px', borderRight: '1px solid var(--border)', padding: '12px', display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(0,0,0,0.2)' }}>
+                        {envs.map(e => (
+                            <button
+                                key={e.id}
+                                onClick={() => setActiveEnvId(e.id)}
+                                style={{
+                                    padding: '8px 12px', textAlign: 'left', borderRadius: 6,
+                                    background: activeEnvId === e.id ? 'var(--primary-glow)' : 'transparent',
+                                    color: activeEnvId === e.id ? 'var(--primary)' : 'var(--text-muted)',
+                                    border: activeEnvId === e.id ? '1px solid var(--primary)' : '1px solid transparent',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {e.name}
+                            </button>
+                        ))}
+                        <button onClick={createEnv} style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8, padding: 8, color: 'var(--text-dim)', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 6, cursor: 'pointer' }}>
+                            <Plus size={14} /> New Env
+                        </button>
+                    </div>
+
+                    <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>Environment Name</label>
+                            <input
+                                value={activeEnv.name}
+                                onChange={e => updateEnvName(e.target.value)}
+                                style={{ width: '100%', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 4 }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                                    Use variables as <code style={{ color: 'var(--accent)' }}>{'{{key}}'}</code>
+                                </div>
+                                {envs.length > 1 && (
+                                    <button onClick={() => deleteEnv(activeEnv.id)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
+                                        <Trash2 size={12} /> Delete Env
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 8, paddingLeft: 8 }}>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Variable</label>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Value</label>
+                            </div>
+                            {activeEnv.vars.map((v, i) => (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 8 }}>
+                                    <input placeholder="Key" value={v.key} onChange={e => updateVar(activeEnv.id, i, 'key', e.target.value)} style={{ padding: '6px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 4 }} />
+                                    <input placeholder="Value" value={v.value} onChange={e => updateVar(activeEnv.id, i, 'value', e.target.value)} style={{ padding: '6px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 4 }} />
+                                    <button onClick={() => removeVar(i)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                </div>
+                            ))}
+                            <button onClick={addVar} style={{ width: 'fit-content', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginTop: 8 }}>
+                                <Plus size={16} /> Add Variable
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+const SaveModal = ({ saveName, setSaveName, onSave, onClose }) => {
+    useEscape(onClose)
+    const handleOverlayClick = (e) => {
+        if (e.target === e.currentTarget) onClose()
+    }
+    return (
+        <div onClick={handleOverlayClick} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="glass-panel" style={{ width: '400px', padding: '24px', background: 'var(--bg-panel)' }}>
+                <h3 style={{ marginTop: 0 }}>Save Collection Request</h3>
+                <input
+                    placeholder="Request Name (e.g. Get User Profile)"
+                    value={saveName}
+                    onChange={e => setSaveName(e.target.value)}
+                    autoFocus
+                    style={{ width: '100%', padding: '10px', marginTop: '16px', marginBottom: '24px', background: 'var(--bg-app)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: 6 }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                    <button onClick={onClose} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
+                    <button onClick={onSave} style={{ padding: '8px 16px', background: 'var(--primary)', border: 'none', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Save</button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+const CodeModal = ({ method, url, headers, body, onClose }) => {
+    useEscape(onClose)
+    const [lang, setLang] = useState('curl')
+    const code = generateCode({ method, url, headers, body }, lang)
+    const [copied, setCopied] = useState(false)
+
+    const copyCode = () => {
+        navigator.clipboard.writeText(code)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }
+
+    const handleOverlayClick = (e) => {
+        if (e.target === e.currentTarget) onClose()
+    }
+
+    return (
+        <div onClick={handleOverlayClick} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="glass-panel" style={{ width: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)' }}>
+                <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0 }}>Generate Code</h3>
+                    <button onClick={onClose}><X size={20} /></button>
+                </div>
+                <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+                    {['curl', 'fetch', 'python'].map(l => (
+                        <button key={l} onClick={() => setLang(l)} style={{ padding: '12px 24px', background: lang === l ? 'var(--bg-app)' : 'transparent', color: lang === l ? 'var(--primary)' : 'var(--text-muted)', borderRight: '1px solid var(--border)', borderTop: 'none', borderLeft: 'none', borderBottom: lang === l ? '2px solid var(--primary)' : 'none', cursor: 'pointer', fontWeight: 500, textTransform: 'capitalize' }}>
+                            {l}
+                        </button>
+                    ))}
+                </div>
+                <div style={{ padding: '16px', flex: 1, overflow: 'auto', position: 'relative' }}>
+                    <button onClick={copyCode} style={{ position: 'absolute', top: 24, right: 24, padding: '4px 8px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, zIndex: 10 }}>
+                        {copied ? <Clock size={14} color="#10b981" /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy'}
+                    </button>
+                    <SyntaxHighlighter language={lang === 'curl' ? 'bash' : lang} style={vscDarkPlus} customStyle={{ margin: 0, padding: '16px', borderRadius: 8 }}>
+                        {code}
+                    </SyntaxHighlighter>
+                </div>
+            </div>
         </div>
     )
 }
