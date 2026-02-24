@@ -11,7 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       workbox: {
-        // Increase max file size for precaching to 4MB
+        // Exclude ffmpeg files (32MB WASM) — loaded on demand, never precache
+        globIgnores: ['**\/ffmpeg\/**'],
+        // Raise limit to cover large vendor JS chunks (e.g. vendor-faker ~2.8MB)
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       manifest: {

@@ -265,7 +265,6 @@ export default function Formatters() {
                             border: '1px solid var(--border)',
                             borderRadius: 'var(--radius-sm)',
                             color: 'var(--text-main)',
-                            color: 'var(--text-main)',
                             padding: 'var(--space-sm)'
                         }}
                         spellCheck="false"
