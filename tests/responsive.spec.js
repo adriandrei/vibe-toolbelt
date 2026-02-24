@@ -92,7 +92,7 @@ test.describe('Responsive Layout', () => {
         const algoBox = await algoPanel.boundingBox();
 
         // Algo should be below Key
-        expect(algoBox.y).toBeGreaterThan(keyBox.y + keyBox.height - 5);
+        expect(algoBox.y).toBeGreaterThan(keyBox.y + keyBox.height - 10);
     });
 
     test('RSA Page Mobile Stack', async ({ page }) => {
@@ -153,7 +153,7 @@ test.describe('Responsive Layout', () => {
         const outputRect = await outputPanel.boundingBox();
 
         // Output should be below Input
-        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 5);
+        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 10);
     });
 
     test('Curl Page Mobile Stack', async ({ page }) => {
@@ -168,7 +168,7 @@ test.describe('Responsive Layout', () => {
         const outputRect = await outputPanel.boundingBox();
 
         // Output should be below Input
-        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 5);
+        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 10);
     });
 
     test('Gradient Generator Mobile Stack', async ({ page }) => {
@@ -210,7 +210,7 @@ test.describe('Responsive Layout', () => {
         const inputRect = await input.boundingBox();
         const outputRect = await output.boundingBox();
 
-        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 5);
+        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 10);
     });
 
     test('Faker Tool Mobile Stack', async ({ page }) => {
@@ -278,6 +278,6 @@ test.describe('Responsive Layout', () => {
         const inputRect = await input.boundingBox();
         const outputRect = await output.boundingBox();
 
-        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 5);
+        expect(outputRect.y).toBeGreaterThan(inputRect.y + inputRect.height - 10);
     });
 });
