@@ -39,16 +39,19 @@ export default function VideoTools() {
     // Config
     const loadFFmpeg = async () => {
         setIsLoading(true)
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+        const origin = window.location.origin
         const ffmpeg = ffmpegRef.current
         ffmpeg.on('log', ({ message }) => {
             console.log(message)
             setMessage(message)
         })
         try {
+            const coreURL = await toBlobURL(`${origin}/ffmpeg/ffmpeg-core.js`, 'text/javascript')
+            const wasmURL = await toBlobURL(`${origin}/ffmpeg/ffmpeg-core.wasm`, 'application/wasm')
             await ffmpeg.load({
-                coreURL: '/ffmpeg/ffmpeg-core.js',
-                wasmURL: '/ffmpeg/ffmpeg-core.wasm'
+                coreURL,
+                wasmURL,
+                workerURL: coreURL, // single-threaded; avoids 404 on missing .worker.js
             })
             setLoaded(true)
         } catch (error) {
@@ -102,77 +105,91 @@ export default function VideoTools() {
     const handleExport = async () => {
         if (!loaded) return
         setIsProcessing(true)
+
+        // Reload FFmpeg to clear WASM memory state from any previous run
+        setLoaded(false)
         const ffmpeg = ffmpegRef.current
+        ffmpeg.terminate()
+        await loadFFmpeg()
+        setIsProcessing(true) // loadFFmpeg sets isLoading, reset
 
         try {
-            await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile))
+            // Write with original extension so FFmpeg detects format correctly
+            const ext = videoFile.name.split('.').pop() || 'mp4'
+            const inputName = `input.${ext}`
+            await ffmpeg.writeFile(inputName, await fetchFile(videoFile))
 
-            // Build filter complex
-            let filters = []
+            const outputName = `output.${exportFormat}`
+            const hasTrimStart = trimRange[0] > 0
+            const hasTrimEnd = trimRange[1] < duration
+
+            // Build crop filter if active
+            let cropFilter = null
             if (crop) {
-                // Determine scale of displayed video vs actual video
                 const videoEl = videoRef.current
                 const scaleX = videoEl.videoWidth / videoEl.clientWidth
                 const scaleY = videoEl.videoHeight / videoEl.clientHeight
-
                 const realX = Math.round(crop.x * scaleX)
                 const realY = Math.round(crop.y * scaleY)
                 const realW = Math.round(crop.width * scaleX)
                 const realH = Math.round(crop.height * scaleY)
-
-                filters.push(`crop=${realW}:${realH}:${realX}:${realY}`)
+                cropFilter = `crop=${realW}:${realH}:${realX}:${realY}`
             }
 
-            // Trim logic needs -ss (start) and -to (end) or -t (duration)
-            // It's often better to use input seeking for speed, but filters for frame accuracy
-            // For simplicity with other filters, we might use select or trim filter, but -ss before -i is faster.
-            // However, with single complex filter, we use 'trim' filter.
-            // trim=start=0:end=10,setpts=PTS-STARTPTS
-            if (trimRange[0] > 0 || trimRange[1] < duration) {
-                filters.push(`trim=start=${trimRange[0]}:end=${trimRange[1]},setpts=PTS-STARTPTS`)
-                // Audio trimming usually requires atrim + asetpts
-                // complex_filter "[0:v]trim=...[v];[0:a]atrim=...[a]" -map "[v]" -map "[a]"
-            }
+            let command = []
 
-            let command = ['-i', 'input.mp4']
-            let filterStr = filters.join(',')
-
-            // Basic trim support without complex filters first
-            if (trimRange[0] > 0) {
-                command.push('-ss', trimRange[0].toString())
-            }
-            if (trimRange[1] < duration) {
-                command.push('-to', trimRange[1].toString())
-            }
-
-            if (filterStr) {
-                command.push('-vf', filterStr)
-            }
-
-            // Output format
-            let outputName = `output.${exportFormat}`
             if (exportFormat === 'gif') {
-                // GIF needs special handling for palette
-                command.push('-vf', `${filterStr ? filterStr + ',' : ''}fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`)
-                command = ['-i', 'input.mp4', '-ss', trimRange[0].toString(), '-to', trimRange[1].toString(), '-filter_complex', `${filterStr ? filterStr + ',' : ''}fps=10,scale=500:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`, outputName]
-                // Reset command for GIF because structure is different and tricky with simple logic
+                // GIF: always needs encoding — no stream copy possible
+                if (hasTrimStart) command.push('-ss', trimRange[0].toString())
+                command.push('-i', inputName)
+                if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
+                const gifBase = cropFilter ? `${cropFilter},` : ''
+                command.push(
+                    '-filter_complex',
+                    `[0:v]${gifBase}fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`,
+                    '-loop', '0',
+                    outputName
+                )
+
+            } else if (exportFormat === 'webm') {
+                // WebM always needs re-encoding (VP8+Vorbis) — can't copy H.264/AAC into WebM
+                if (hasTrimStart) command.push('-ss', trimRange[0].toString())
+                command.push('-i', inputName)
+                if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
+                if (cropFilter) command.push('-vf', cropFilter)
+                command.push('-c:v', 'libvpx', '-crf', '10', '-b:v', '1M', '-c:a', 'libvorbis', outputName)
+
+            } else if (cropFilter) {
+                // MP4 with crop — must re-encode video
+                if (hasTrimStart) command.push('-ss', trimRange[0].toString())
+                command.push('-i', inputName)
+                if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
+                command.push('-vf', cropFilter, '-c:v', 'libx264', '-crf', '23', '-c:a', 'aac', outputName)
+
             } else {
-                command.push(outputName)
+                // MP4 trim only — stream copy (no codec, no WASM memory pressure)
+                if (hasTrimStart) command.push('-ss', trimRange[0].toString())
+                command.push('-i', inputName)
+                if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
+                command.push('-c', 'copy', outputName)
             }
 
-            // TODO: Refine command generation for complex scenarios
+            setMessage('Processing...')
             await ffmpeg.exec(command)
 
             const data = await ffmpeg.readFile(outputName)
-            const url = URL.createObjectURL(new Blob([data.buffer], { type: `video/${exportFormat}` }))
+            const mimeType = exportFormat === 'gif' ? 'image/gif' : `video/${exportFormat}`
+            const url = URL.createObjectURL(new Blob([data], { type: mimeType }))
 
             const a = document.createElement('a')
             a.href = url
             a.download = outputName
             a.click()
+            URL.revokeObjectURL(url)
+            setMessage('Export complete!')
         } catch (error) {
-            console.error(error)
-            alert('Export failed. See console.')
+            console.error('Export failed:', error)
+            setMessage(`Export failed: ${error?.message ?? error}`)
         } finally {
             setIsProcessing(false)
         }
