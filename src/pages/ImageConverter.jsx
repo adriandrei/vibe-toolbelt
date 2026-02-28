@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Upload, Download, Image as ImageIcon, X, Archive, RefreshCw, FileText, Crop as CropIcon, Check, ZoomIn } from 'lucide-react'
+import { Upload, Download, Image as ImageIcon, X, Archive, RefreshCw, FileText, Crop as CropIcon, Check, ZoomIn, RotateCw, FlipHorizontal, FlipVertical, Sliders, Type, ImagePlus } from 'lucide-react'
 import JSZip from 'jszip'
 import heic2any from 'heic2any'
 import { jsPDF } from 'jspdf'
@@ -19,6 +19,14 @@ export default function ImageConverter() {
     const [targetHeight, setTargetHeight] = useState('')
     const [maintainAspect, setMaintainAspect] = useState(true)
     const fileInputRef = useRef(null)
+    const watermarkInputRef = useRef(null)
+
+    // Phase 2 Filters & Features
+    const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturation: 100, sepia: 0 })
+    const [watermarkText, setWatermarkText] = useState('')
+    const [watermarkImage, setWatermarkImage] = useState(null)
+    const [stripExif, setStripExif] = useState(true) // Default true, as canvas strips it automatically, but we surface it
+
 
     // Crop State
     const [cropImage, setCropImage] = useState(null)
@@ -63,7 +71,10 @@ export default function ImageConverter() {
                     preview, // Use browser-compatible blob url for preview
                     originalPreview: preview, // Keep original for revert/re-crop
                     convertedUrl: null,
-                    status: 'pending'
+                    status: 'pending',
+                    rotation: 0,
+                    flipH: false,
+                    flipV: false
                 })
             } catch (e) {
                 console.error('File processing failed', e)
@@ -175,13 +186,57 @@ export default function ImageConverter() {
             image.src = img.preview
 
             image.onload = async () => {
-                const { w, h } = calculateDimensions(image.width, image.height)
+                const isRotated = img.rotation === 90 || img.rotation === 270;
+                const baseW = isRotated ? image.height : image.width;
+                const baseH = isRotated ? image.width : image.height;
+
+                const { w, h } = calculateDimensions(baseW, baseH)
                 canvas.width = w
                 canvas.height = h
 
                 ctx.imageSmoothingEnabled = true
                 ctx.imageSmoothingQuality = 'high'
-                ctx.drawImage(image, 0, 0, w, h)
+
+                // Apply CSS-like Filters to Canvas
+                ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) sepia(${filters.sepia}%)`
+
+                ctx.save()
+                ctx.translate(w / 2, h / 2)
+                ctx.rotate(img.rotation * Math.PI / 180)
+                ctx.scale(img.flipH ? -1 : 1, img.flipV ? -1 : 1)
+
+                const drawW = isRotated ? h : w;
+                const drawH = isRotated ? w : h;
+                ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH)
+                ctx.restore()
+
+                ctx.filter = 'none' // reset filter for watermark
+
+                // Apply Watermark Image
+                if (watermarkImage) {
+                    const padding = 20
+                    // Default to bottom right
+                    const wmWidth = Math.min(w * 0.25, 300) // max 25% of image width
+                    const wmHeight = wmWidth * (watermarkImage.naturalHeight / watermarkImage.naturalWidth)
+                    ctx.drawImage(watermarkImage, w - wmWidth - padding, h - wmHeight - padding, wmWidth, wmHeight)
+                }
+
+                // Apply Watermark Text
+                if (watermarkText) {
+                    const fontSize = Math.max(16, Math.floor(h * 0.05)) // 5% of height
+                    ctx.font = `bold ${fontSize}px sans-serif`
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)'
+                    ctx.lineWidth = Math.max(2, fontSize * 0.1)
+                    ctx.textAlign = 'right'
+                    ctx.textBaseline = 'bottom'
+
+                    const padding = 20
+                    const textY = watermarkImage ? h - (w * 0.25 * (watermarkImage.naturalHeight / watermarkImage.naturalWidth)) - padding * 2 : h - padding
+
+                    ctx.strokeText(watermarkText, w - padding, textY)
+                    ctx.fillText(watermarkText, w - padding, textY)
+                }
 
                 let resultBlob = null
 
@@ -253,6 +308,16 @@ export default function ImageConverter() {
         a.download = `converted_images.zip`
         a.click()
         URL.revokeObjectURL(url)
+    }
+
+
+    const handleWatermarkUpload = (e) => {
+        const file = e.target.files[0]
+        if (file && file.type.startsWith('image/')) {
+            const img = new Image()
+            img.onload = () => setWatermarkImage(img)
+            img.src = URL.createObjectURL(file)
+        }
     }
 
 
@@ -364,7 +429,7 @@ export default function ImageConverter() {
     }
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
             <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
                 <h2 className="text-gradient">Image Converter</h2>
                 <p style={{ color: 'var(--text-muted)' }}>Bulk convert, resize, and crop images.</p>
@@ -513,10 +578,31 @@ export default function ImageConverter() {
             </div>
 
             {/* Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 'var(--space-md)' }}>
                 {images.map(img => (
                     <div key={img.id} className="glass-panel" style={{ padding: 'var(--space-md)', position: 'relative' }}>
-                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 4 }}>
+                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', flexWrap: 'wrap', width: '60px', justifyContent: 'flex-end', gap: 4 }}>
+                            <button
+                                onClick={() => setImages(prev => prev.map(i => i.id === img.id ? { ...i, rotation: (i.rotation + 90) % 360, status: 'pending', convertedUrl: null } : i))}
+                                title="Rotate"
+                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
+                            >
+                                <RotateCw size={14} />
+                            </button>
+                            <button
+                                onClick={() => setImages(prev => prev.map(i => i.id === img.id ? { ...i, flipH: !i.flipH, status: 'pending', convertedUrl: null } : i))}
+                                title="Flip Horizontal"
+                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
+                            >
+                                <FlipHorizontal size={14} />
+                            </button>
+                            <button
+                                onClick={() => setImages(prev => prev.map(i => i.id === img.id ? { ...i, flipV: !i.flipV, status: 'pending', convertedUrl: null } : i))}
+                                title="Flip Vertical"
+                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
+                            >
+                                <FlipVertical size={14} />
+                            </button>
                             <button
                                 onClick={() => openCrop(img)}
                                 title="Crop"
@@ -547,7 +633,11 @@ export default function ImageConverter() {
                             <img
                                 src={img.status === 'done' && !format.includes('pdf') ? img.convertedUrl : img.preview}
                                 alt="preview"
-                                style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
+                                style={{
+                                    maxHeight: '100%', maxWidth: '100%', objectFit: 'contain',
+                                    transform: img.status !== 'done' ? `rotate(${img.rotation || 0}deg) scaleX(${img.flipH ? -1 : 1}) scaleY(${img.flipV ? -1 : 1})` : 'none',
+                                    transition: 'transform 0.2s'
+                                }}
                             />
                         </div>
 

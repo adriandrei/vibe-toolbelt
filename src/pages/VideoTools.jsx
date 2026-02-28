@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
-import { Upload, Play, Pause, Scissors, Crop, Download, X, Film, AlertCircle } from 'lucide-react'
+import { Upload, Play, Pause, Scissors, Crop, Download, X, Film, VolumeX, FastForward, Maximize, Settings, Camera, Music, Type } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useEscape } from '../hooks/useEscape'
 
@@ -28,6 +28,17 @@ export default function VideoTools() {
     const [isCropping, setIsCropping] = useState(false)
     const [exportFormat, setExportFormat] = useState('mp4')
     const [isProcessing, setIsProcessing] = useState(false)
+
+    // New processing state
+    const [muteAudio, setMuteAudio] = useState(false)
+    const [playbackSpeed, setPlaybackSpeed] = useState(1)
+    const [downscale, setDownscale] = useState('original')
+
+    // Phase 2 processing state
+    const [gifFps, setGifFps] = useState(15)
+    const [gifWidth, setGifWidth] = useState(480)
+    const [fadeTarget, setFadeTarget] = useState('none') // 'in', 'out', 'both', 'none'
+    const [customAudioFile, setCustomAudioFile] = useState(null)
 
     useEscape(() => {
         if (isCropping) {
@@ -76,6 +87,11 @@ export default function VideoTools() {
             setCrop(null)
             setIsCropping(false)
             setTrimRange([0, 0])
+            setMuteAudio(false)
+            setPlaybackSpeed(1)
+            setDownscale('original')
+            setFadeTarget('none')
+            setCustomAudioFile(null)
         }
     }
 
@@ -101,6 +117,27 @@ export default function VideoTools() {
         }
     }
 
+    const captureSnapshot = () => {
+        if (!videoRef.current) return
+        const canvas = document.createElement('canvas')
+        canvas.width = videoRef.current.videoWidth
+        canvas.height = videoRef.current.videoHeight
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            // Include formatted timestamp in name
+            const ms = Math.floor((videoRef.current.currentTime % 1) * 1000).toString().padStart(3, '0')
+            const safeTime = formatTime(videoRef.current.currentTime).replace(':', '-')
+            a.download = `snapshot_${safeTime}-${ms}.jpg`
+            a.click()
+            URL.revokeObjectURL(url)
+        }, 'image/jpeg', 0.95)
+    }
+
     // Export Logic
     const handleExport = async () => {
         if (!loaded) return
@@ -119,12 +156,20 @@ export default function VideoTools() {
             const inputName = `input.${ext}`
             await ffmpeg.writeFile(inputName, await fetchFile(videoFile))
 
+            let audioInputName = null
+            if (customAudioFile && !muteAudio && exportFormat !== 'gif' && exportFormat !== 'mp3') {
+                const aExt = customAudioFile.name.split('.').pop() || 'mp3'
+                audioInputName = `audio.${aExt}`
+                await ffmpeg.writeFile(audioInputName, await fetchFile(customAudioFile))
+            }
+
             const outputName = `output.${exportFormat}`
             const hasTrimStart = trimRange[0] > 0
             const hasTrimEnd = trimRange[1] < duration
 
-            // Build crop filter if active
-            let cropFilter = null
+            let videoFilters = []
+            let audioFilters = []
+
             if (crop) {
                 const videoEl = videoRef.current
                 const scaleX = videoEl.videoWidth / videoEl.clientWidth
@@ -133,52 +178,112 @@ export default function VideoTools() {
                 const realY = Math.round(crop.y * scaleY)
                 const realW = Math.round(crop.width * scaleX)
                 const realH = Math.round(crop.height * scaleY)
-                cropFilter = `crop=${realW}:${realH}:${realX}:${realY}`
+                videoFilters.push(`crop=${realW}:${realH}:${realX}:${realY}`)
             }
+
+            if (downscale !== 'original') {
+                videoFilters.push(`scale=-2:${downscale}`) // -2 ensures width is divisible by 2 for h264
+            }
+
+            if (playbackSpeed !== 1) {
+                videoFilters.push(`setpts=${1 / playbackSpeed}*PTS`)
+                audioFilters.push(`atempo=${playbackSpeed}`)
+            }
+
+            if (fadeTarget !== 'none') {
+                const fdur = 2 // 2 second fade
+                if (fadeTarget === 'in' || fadeTarget === 'both') {
+                    videoFilters.push(`fade=t=in:st=0:d=${fdur}`)
+                    audioFilters.push(`afade=t=in:st=0:d=${fdur}`)
+                }
+                if (fadeTarget === 'out' || fadeTarget === 'both') {
+                    const durationScale = hasTrimEnd ? (trimRange[1] - trimRange[0]) : duration
+                    const fadeStart = Math.max(0, durationScale - fdur)
+                    videoFilters.push(`fade=t=out:st=${fadeStart}:d=${fdur}`)
+                    audioFilters.push(`afade=t=out:st=${fadeStart}:d=${fdur}`)
+                }
+            }
+
+            const vfArg = videoFilters.length > 0 ? videoFilters.join(',') : null
+            const afArg = audioFilters.length > 0 ? audioFilters.join(',') : null
 
             let command = []
 
-            if (exportFormat === 'gif') {
-                // GIF: always needs encoding — no stream copy possible
+            if (exportFormat === 'mp3') {
+                // Audio Extraction Only
                 if (hasTrimStart) command.push('-ss', trimRange[0].toString())
                 command.push('-i', inputName)
                 if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
-                const gifBase = cropFilter ? `${cropFilter},` : ''
+                if (afArg) command.push('-af', afArg)
+                command.push('-vn', '-c:a', 'libmp3lame', '-q:a', '2', outputName)
+            } else if (exportFormat === 'gif') {
+                // GIF: always needs encoding
+                if (hasTrimStart) command.push('-ss', trimRange[0].toString())
+                command.push('-i', inputName)
+                if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
+
+                const preFilters = videoFilters.length > 0 ? `${videoFilters.join(',')},` : ''
                 command.push(
                     '-filter_complex',
-                    `[0:v]${gifBase}fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`,
+                    `[0:v]${preFilters}fps=${gifFps},scale=${gifWidth}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`,
                     '-loop', '0',
                     outputName
                 )
-
-            } else if (exportFormat === 'webm') {
-                // WebM always needs re-encoding (VP8+Vorbis) — can't copy H.264/AAC into WebM
-                if (hasTrimStart) command.push('-ss', trimRange[0].toString())
-                command.push('-i', inputName)
-                if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
-                if (cropFilter) command.push('-vf', cropFilter)
-                command.push('-c:v', 'libvpx', '-crf', '10', '-b:v', '1M', '-c:a', 'libvorbis', outputName)
-
-            } else if (cropFilter) {
-                // MP4 with crop — must re-encode video
-                if (hasTrimStart) command.push('-ss', trimRange[0].toString())
-                command.push('-i', inputName)
-                if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
-                command.push('-vf', cropFilter, '-c:v', 'libx264', '-crf', '23', '-c:a', 'aac', outputName)
-
             } else {
-                // MP4 trim only — stream copy (no codec, no WASM memory pressure)
+                // WebM or MP4
                 if (hasTrimStart) command.push('-ss', trimRange[0].toString())
                 command.push('-i', inputName)
+
+                if (audioInputName) {
+                    command.push('-i', audioInputName)
+                }
+
                 if (hasTrimEnd) command.push('-t', (trimRange[1] - trimRange[0]).toString())
-                command.push('-c', 'copy', outputName)
+
+                if (vfArg || exportFormat === 'webm' || audioInputName) {
+                    // Requires re-encoding
+                    if (vfArg) command.push('-vf', vfArg)
+
+                    if (audioInputName) {
+                        // Map video from input 0, map audio from input 1
+                        command.push('-map', '0:v:0', '-map', '1:a:0')
+                        // We must explicitly re-encode audio if we filter it, or we can copy if no filter
+                        if (afArg) command.push('-af', afArg)
+
+                        // Handle shortest if audio is longer than video
+                        command.push('-shortest')
+                    } else if (muteAudio) {
+                        command.push('-an')
+                    } else if (afArg) {
+                        command.push('-af', afArg)
+                    }
+
+                    if (exportFormat === 'webm') {
+                        command.push('-c:v', 'libvpx', '-crf', '10', '-b:v', '1M')
+                        if (!muteAudio) command.push('-c:a', 'libvorbis')
+                    } else {
+                        command.push('-c:v', 'libx264', '-crf', '23')
+                        if (!muteAudio && !afArg && !audioInputName) command.push('-c:a', 'aac') // default encode if we filtered audio or replaced it but didn't specify
+                        if (audioInputName && !afArg) command.push('-c:a', 'aac')
+                    }
+                } else {
+                    // pure copy possible for MP4? 
+                    // Wait, if no crop/scale/speed/webm, we can just copy
+                    if (muteAudio) {
+                        command.push('-an')
+                        command.push('-c:v', 'copy')
+                    } else {
+                        command.push('-c', 'copy')
+                    }
+                }
+                command.push(outputName)
             }
 
             setMessage('Processing...')
             await ffmpeg.exec(command)
 
             const data = await ffmpeg.readFile(outputName)
-            const mimeType = exportFormat === 'gif' ? 'image/gif' : `video/${exportFormat}`
+            const mimeType = exportFormat === 'gif' ? 'image/gif' : exportFormat === 'mp3' ? 'audio/mpeg' : `video/${exportFormat}`
             const url = URL.createObjectURL(new Blob([data], { type: mimeType }))
 
             const a = document.createElement('a')
@@ -240,9 +345,9 @@ export default function VideoTools() {
                     />
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 24, alignItems: 'start' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
                     {/* Left Column: Preview */}
-                    <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="glass-panel" style={{ padding: 0, overflow: 'hidden', flex: '1 1 500px', minWidth: 0 }}>
                         <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9' }}>
                             <video
                                 ref={videoRef}
@@ -304,12 +409,27 @@ export default function VideoTools() {
                                 <span style={{ fontSize: '0.9rem', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>
                                     {formatTime(currentTime)} / {formatTime(duration)}
                                 </span>
+
+                                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                                    <button
+                                        onClick={captureSnapshot}
+                                        title="Capture Frame (Snapshot)"
+                                        style={{
+                                            background: 'none', border: 'none', color: 'var(--text-main)',
+                                            cursor: 'pointer', padding: 8, borderRadius: '50%',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}
+                                        className="hover-bg"
+                                    >
+                                        <Camera size={20} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Right Column: Tools */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: '1 1 300px', minWidth: 0 }}>
                         <div className="glass-panel" style={{ padding: 20 }}>
                             <h3 style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <Scissors size={18} /> Tools
@@ -426,6 +546,80 @@ export default function VideoTools() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Advanced video processing */}
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: 8, color: 'var(--text-dim)' }}>
+                                    Processing
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.8rem', marginBottom: 4, color: 'var(--text-muted)' }}>Speed</div>
+                                        <select
+                                            value={playbackSpeed}
+                                            onChange={e => setPlaybackSpeed(parseFloat(e.target.value))}
+                                            style={{ width: '100%', padding: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)' }}
+                                        >
+                                            <option value={0.5}>0.5x Slow</option>
+                                            <option value={0.75}>0.75x</option>
+                                            <option value={1}>1x Normal</option>
+                                            <option value={1.5}>1.5x Fast</option>
+                                            <option value={2}>2x Faster</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.8rem', marginBottom: 4, color: 'var(--text-muted)' }}>Mute Audio</div>
+                                        <label style={{ display: 'flex', alignItems: 'center', height: '35px', gap: 8, padding: '0 8px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', opacity: customAudioFile ? 0.3 : 1 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={muteAudio}
+                                                disabled={customAudioFile !== null}
+                                                onChange={e => setMuteAudio(e.target.checked)}
+                                            />
+                                            <span style={{ fontSize: '0.85rem' }}>Muted</span>
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.8rem', marginBottom: 4, color: 'var(--text-muted)' }}>Replace Audio</div>
+                                        <button
+                                            onClick={() => document.getElementById('audio-upload').click()}
+                                            style={{
+                                                width: '100%', height: '35px',
+                                                background: customAudioFile ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-input)',
+                                                border: `1px solid ${customAudioFile ? '#3b82f6' : 'var(--border)'}`,
+                                                color: customAudioFile ? '#3b82f6' : 'var(--text-main)',
+                                                borderRadius: 6, cursor: 'pointer', fontSize: '0.85rem',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                                overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', padding: '0 8px'
+                                            }}
+                                            title={customAudioFile ? customAudioFile.name : 'Select Audio'}
+                                        >
+                                            <Music size={14} style={{ flexShrink: 0 }} />
+                                            {customAudioFile ? customAudioFile.name : 'Select MP3/WAV'}
+                                        </button>
+                                        <input
+                                            id="audio-upload"
+                                            type="file"
+                                            accept="audio/*"
+                                            onChange={(e) => setCustomAudioFile(e.target.files[0] || null)}
+                                            style={{ display: 'none' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.8rem', marginBottom: 4, color: 'var(--text-muted)' }}>Fade Effects (2s)</div>
+                                        <select
+                                            value={fadeTarget}
+                                            onChange={e => setFadeTarget(e.target.value)}
+                                            style={{ width: '100%', padding: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)', fontSize: '0.85rem' }}
+                                        >
+                                            <option value="none">None</option>
+                                            <option value="in">Fade In</option>
+                                            <option value="out">Fade Out</option>
+                                            <option value="both">Fade In + Out</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="glass-panel" style={{ padding: 20 }}>
@@ -442,10 +636,65 @@ export default function VideoTools() {
                                     borderRadius: 6, color: 'var(--text-main)'
                                 }}
                             >
-                                <option value="mp4">MP4 (H.264)</option>
-                                <option value="webm">WebM (VP9)</option>
+                                <option value="mp4">MP4 Video (H.264)</option>
+                                <option value="webm">WebM Video (VP9)</option>
                                 <option value="gif">Animated GIF</option>
+                                <option value="mp3">Audio Only (MP3)</option>
                             </select>
+
+                            {exportFormat === 'gif' && (
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: 8, color: 'var(--text-dim)' }}>
+                                        GIF Quality
+                                    </label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: 4, color: 'var(--text-muted)' }}>Framerate (FPS)</div>
+                                            <select
+                                                value={gifFps}
+                                                onChange={e => setGifFps(parseInt(e.target.value))}
+                                                style={{ width: '100%', padding: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)' }}
+                                            >
+                                                <option value="10">10 FPS (Small)</option>
+                                                <option value="15">15 FPS (Standard)</option>
+                                                <option value="24">24 FPS (Smooth)</option>
+                                                <option value="30">30 FPS (HD)</option>
+                                            </select>
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '0.8rem', marginBottom: 4, color: 'var(--text-muted)' }}>Max Width</div>
+                                            <select
+                                                value={gifWidth}
+                                                onChange={e => setGifWidth(parseInt(e.target.value))}
+                                                style={{ width: '100%', padding: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)' }}
+                                            >
+                                                <option value="320">320px (Tiny)</option>
+                                                <option value="480">480px (Standard)</option>
+                                                <option value="640">640px (Large)</option>
+                                                <option value="800">800px (Huge)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {exportFormat !== 'mp3' && exportFormat !== 'gif' && (
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: 8, color: 'var(--text-dim)' }}>
+                                        Downscale Video
+                                    </label>
+                                    <select
+                                        value={downscale}
+                                        onChange={e => setDownscale(e.target.value)}
+                                        style={{ width: '100%', padding: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)' }}
+                                    >
+                                        <option value="original">Original Resolution</option>
+                                        <option value="1080">1080p Max Height</option>
+                                        <option value="720">720p Max Height</option>
+                                        <option value="480">480p Max Height</option>
+                                    </select>
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleExport}
