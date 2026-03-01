@@ -62,17 +62,17 @@ function detectFormats(input) {
     // JSON
     try {
         JSON.parse(trimmed)
-        formats.push({ type: 'json', label: 'JSON', icon: Braces, color: '#22c55e', link: '/formatters' })
+        formats.push({ type: 'json', label: 'JSON', icon: Braces, color: '#22c55e', link: '/formatters', stateParams: { input: trimmed, mode: 'json' } })
     } catch { /* ignore */ }
 
     // XML
     if (PATTERNS.xml.test(trimmed)) {
-        formats.push({ type: 'xml', label: 'XML', icon: Code, color: '#f97316', link: '/formatters' })
+        formats.push({ type: 'xml', label: 'XML', icon: Code, color: '#f97316', link: '/formatters', stateParams: { input: trimmed, mode: 'xml' } })
     }
 
     // SQL
     if (PATTERNS.sql.test(trimmed)) {
-        formats.push({ type: 'sql', label: 'SQL Query', icon: Database, color: '#3b82f6', link: '/formatters' })
+        formats.push({ type: 'sql', label: 'SQL Query', icon: Database, color: '#3b82f6', link: '/formatters', stateParams: { input: trimmed, mode: 'sql' } })
     }
 
     // Hex (only if pure hex and long enough)
@@ -90,17 +90,17 @@ function detectFormats(input) {
 
     // JWT
     if (PATTERNS.jwt.test(trimmed)) {
-        formats.push({ type: 'jwt', label: 'JWT Token', icon: Key, color: '#f59e0b', link: '/jwt' })
+        formats.push({ type: 'jwt', label: 'JWT Token', icon: Key, color: '#f59e0b', link: '/jwt', stateParams: { input: trimmed } })
     }
 
     // UUID
     if (PATTERNS.uuid.test(trimmed)) {
-        formats.push({ type: 'uuid', label: 'UUID', icon: Hash, color: '#8b5cf6', link: '/uuid' })
+        formats.push({ type: 'uuid', label: 'UUID', icon: Hash, color: '#8b5cf6', link: '/uuid', stateParams: { input: trimmed } })
     }
 
     // URL
     if (PATTERNS.url.test(trimmed)) {
-        formats.push({ type: 'url', label: 'URL', icon: Globe, color: '#3b82f6', link: '/url' })
+        formats.push({ type: 'url', label: 'URL', icon: Globe, color: '#3b82f6', link: '/url', stateParams: { input: trimmed } })
     }
 
     // Email
@@ -147,7 +147,7 @@ function detectFormats(input) {
 
     // Color
     if (PATTERNS.color.test(trimmed)) {
-        formats.push({ type: 'color', label: 'Hex Color', icon: Zap, color: trimmed, link: '/gradient' })
+        formats.push({ type: 'color', label: 'Hex Color', icon: Zap, color: trimmed, link: '/gradient', stateParams: { input: trimmed } })
     }
 
     // Cron
@@ -366,6 +366,7 @@ export default function Inspector() {
                                         {format.link && (
                                             <Link
                                                 to={format.link}
+                                                state={format.stateParams || { input: input.trim() }}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',

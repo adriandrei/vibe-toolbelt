@@ -4,6 +4,7 @@ import jmespath from 'jmespath'
 import { Braces, Database, Copy, Check, Trash2, FileCode, FileJson, RefreshCw, Filter, AlignLeft, AlignJustify, Code, FileDiff } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DiffViewer } from '../components/DiffViewer'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 // Simple XML Formatter
 function formatXml(xml, indentChar = '  ') {
@@ -36,6 +37,8 @@ export default function Formatters() {
     const [copied, setCopied] = useState(false)
     const [indent, setIndent] = useState(2) // 0 for minify, 2 for prettify
     const [jqQuery, setJqQuery] = useState('') // Default empty (identity)
+
+    useSmartInput({ input: setInput, mode: setMode })
 
     const handleFormat = () => {
         if (!input.trim()) return

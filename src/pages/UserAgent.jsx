@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { UAParser } from 'ua-parser-js'
 import { Monitor, Smartphone, Globe, Cpu, Copy } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 export default function UserAgent() {
     useDocumentTitle('User Agent Parser')
     const [uaString, setUaString] = useState(navigator.userAgent)
     const [result, setResult] = useState(null)
+
+    useSmartInput({ input: setUaString })
 
     useEffect(() => {
         if (!uaString) {

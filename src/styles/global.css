@@ -86,6 +86,11 @@ select:focus {
     box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
+select option {
+    background-color: var(--bg-panel);
+    color: var(--text-main);
+}
+
 textarea {
     min-height: 120px;
     font-family: var(--font-mono);

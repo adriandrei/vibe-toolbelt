@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Copy, Trash2, Check, ArrowRightLeft } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 // Unicode safe Encode/Decode
 const toBase64 = (str) => {
@@ -25,6 +26,8 @@ export default function Base64() {
     const [input, setInput] = useState('')
     const [output, setOutput] = useState('')
     const [copied, setCopied] = useState(false)
+
+    useSmartInput({ input: setInput })
 
     useEffect(() => {
         if (!input) {

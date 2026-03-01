@@ -187,7 +187,7 @@ export default function Home() {
                     cursor: 'pointer',
                     transition: 'transform 0.2s'
                 }}
-                    onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+                    onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >

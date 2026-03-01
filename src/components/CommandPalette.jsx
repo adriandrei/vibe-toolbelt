@@ -57,7 +57,7 @@ export default function CommandPalette({ isOpen, onClose }) {
 
                 // Handle Suggestion Selection (Index 0 if exists)
                 if (suggestion && selectedIndex === 0) {
-                    navigate(suggestion.tool)
+                    navigate(suggestion.tool, { state: { input: query } })
                     onClose()
                     return
                 }
@@ -65,7 +65,7 @@ export default function CommandPalette({ isOpen, onClose }) {
                 // Handle List Selection
                 const listIndex = suggestion ? selectedIndex - 1 : selectedIndex
                 if (filteredItems[listIndex]) {
-                    navigate(filteredItems[listIndex].to)
+                    navigate(filteredItems[listIndex].to, { state: { input: query } })
                     onClose()
                 }
             } else if (e.key === 'Escape') {
@@ -145,7 +145,7 @@ export default function CommandPalette({ isOpen, onClose }) {
                     {/* Smart Suggestion */}
                     {suggestion && (
                         <div
-                            onClick={() => { navigate(suggestion.tool); onClose(); }}
+                            onClick={() => { navigate(suggestion.tool, { state: { input: query } }); onClose(); }}
                             onMouseEnter={() => setSelectedIndex(0)}
                             style={{
                                 display: 'flex',
@@ -180,7 +180,7 @@ export default function CommandPalette({ isOpen, onClose }) {
                             return (
                                 <div
                                     key={item.to}
-                                    onClick={() => { navigate(item.to); onClose(); }}
+                                    onClick={() => { navigate(item.to, { state: { input: query } }); onClose(); }}
                                     onMouseEnter={() => setSelectedIndex(actualIndex)}
                                     style={{
                                         display: 'flex',

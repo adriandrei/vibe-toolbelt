@@ -28,6 +28,7 @@ export const TOOL_CATEGORIES = [
             { to: '/video', icon: Film, label: 'Video Studio' },
             { to: '/inspect', icon: Search, label: 'Inspector' },
             { to: '/api', icon: Zap, label: 'API Tester' },
+            { to: '/image', icon: FileImage, label: 'Image Converter' },
         ]
     },
     {
@@ -42,7 +43,6 @@ export const TOOL_CATEGORIES = [
             { to: '/markdown', icon: FileText, label: 'Markdown' },
             { to: '/cron', icon: Clock, label: 'Cron Parser' },
             { to: '/unix', icon: Clock, label: 'Unix Timestamp' },
-            { to: '/image', icon: FileImage, label: 'Image Converter' },
             { to: '/qrcode', icon: QrCode, label: 'QR Code' },
             { to: '/pdf', icon: FileStack, label: 'PDF Tools' },
             { to: '/image-base64', icon: Image, label: 'Base64 Image' },
@@ -328,7 +328,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     gap: 'var(--space-md)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Link to="/" onClick={() => window.innerWidth <= 1024 && onClose()} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', textDecoration: 'none' }}>
+                        <Link to="/" onClick={() => { setQuery(''); window.innerWidth <= 1024 && onClose(); }} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', textDecoration: 'none' }}>
                             <Wand2 size={24} color="var(--primary)" />
                             <span className="text-gradient" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>Private Toolkit</span>
                         </Link>

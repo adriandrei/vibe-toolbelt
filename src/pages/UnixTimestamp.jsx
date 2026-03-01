@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Clock, Copy, RefreshCw, Calendar, Play, Pause } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 export default function UnixTimestamp() {
     useDocumentTitle('Unix Timestamp')
@@ -8,6 +9,8 @@ export default function UnixTimestamp() {
     const [isPaused, setIsPaused] = useState(false)
     const [input, setInput] = useState('')
     const [error, setError] = useState(null)
+
+    useSmartInput({ input: setInput })
 
     // Ticker
     useEffect(() => {

@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react'
 import CryptoJS from 'crypto-js'
 import { Copy, Hash as HashIcon } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 export default function Hash() {
     useDocumentTitle('Hash Generator')
     const [input, setInput] = useState('')
     const [hashes, setHashes] = useState({ md5: '', sha1: '', sha256: '', sha512: '' })
+
+    useSmartInput({ input: setInput })
 
     useEffect(() => {
         if (!input) {

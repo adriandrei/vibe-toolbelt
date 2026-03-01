@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { Link2, Copy, AlertCircle } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 export default function UrlParser() {
     useDocumentTitle('URL Parser')
     const [input, setInput] = useState('')
     const [parsed, setParsed] = useState(null)
     const [error, setError] = useState(null)
+
+    useSmartInput({ input: setInput })
 
     useEffect(() => {
         if (!input) {

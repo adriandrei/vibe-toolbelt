@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import {
     Send, Plus, Trash2, Clock, RotateCw, Globe, Code,
     FileJson, AlertCircle, X, Save, Folder, Settings,
-    ChevronRight, ChevronDown, Play, Edit2, Eye, Key, Copy, DownloadCloud
+    ChevronRight, ChevronDown, Play, Edit2, Eye, Key, Copy, DownloadCloud, Check
 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useLocalStorage } from '../hooks/useLocalStorage'
@@ -49,10 +49,11 @@ export default function ApiTester() {
     const [authData, setAuthData] = useState({ username: '', password: '', token: '' })
 
     // View State
-    const [responseTab, setResponseTab] = useState('preview') // preview | raw
+    const [responseTab, setResponseTab] = useState('raw') // preview | raw
     const [showCodeModal, setShowCodeModal] = useState(false)
     const [showImportModal, setShowImportModal] = useState(false)
     const [importText, setImportText] = useState('')
+    const [responseCopied, setResponseCopied] = useState(false)
 
     // Init Logic
     useEffect(() => {
@@ -446,10 +447,22 @@ export default function ApiTester() {
                             <button onClick={() => setResponseTab('raw')} style={{ padding: '6px 12px', background: responseTab === 'raw' ? 'var(--bg-app)' : 'transparent', color: responseTab === 'raw' ? 'var(--primary)' : 'var(--text-muted)', border: '1px solid', borderColor: responseTab === 'raw' ? 'var(--border)' : 'transparent', borderRadius: 4, cursor: 'pointer', fontSize: '0.85rem' }}>Raw</button>
                         </div>
                         {response && (
-                            <div style={{ display: 'flex', gap: 12, fontSize: '0.85rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem' }}>
                                 <span style={{ color: response.status < 300 ? '#10b981' : '#ef4444' }}>{response.status} {response.statusText}</span>
                                 <span style={{ color: 'var(--text-dim)' }}>{response.time}ms</span>
                                 <span style={{ color: 'var(--text-dim)' }}>{(response.size / 1024).toFixed(1)}KB</span>
+                                <button
+                                    onClick={() => {
+                                        const bodyStr = typeof response.body === 'object' ? JSON.stringify(response.body, null, 2) : response.body;
+                                        navigator.clipboard.writeText(bodyStr);
+                                        setResponseCopied(true);
+                                        setTimeout(() => setResponseCopied(false), 2000);
+                                    }}
+                                    style={{ padding: '4px 8px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-main)', marginLeft: 'var(--space-md)' }}
+                                    title="Copy Response Body"
+                                >
+                                    {responseCopied ? <Check size={14} color="#10b981" /> : <Copy size={14} />} {responseCopied ? 'Copied' : 'Copy'}
+                                </button>
                             </div>
                         )}
                     </div>
@@ -470,9 +483,25 @@ export default function ApiTester() {
                                         )}
                                     </div>
                                 ) : (
-                                    <SyntaxHighlighter language="json" style={vscDarkPlus} customStyle={{ margin: 0, padding: '16px', background: 'transparent' }} wrapLines={true}>
-                                        {typeof response.body === 'object' ? JSON.stringify(response.body, null, 2) : response.body}
-                                    </SyntaxHighlighter>
+                                    <div
+                                        tabIndex={0}
+                                        onClick={e => e.currentTarget.focus()}
+                                        onKeyDown={e => {
+                                            if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
+                                                e.preventDefault();
+                                                const range = document.createRange();
+                                                range.selectNodeContents(e.currentTarget);
+                                                const sel = window.getSelection();
+                                                sel.removeAllRanges();
+                                                sel.addRange(range);
+                                            }
+                                        }}
+                                        style={{ outline: 'none' }}
+                                    >
+                                        <SyntaxHighlighter language="json" style={vscDarkPlus} customStyle={{ margin: 0, padding: '16px', background: 'transparent' }} wrapLines={true}>
+                                            {typeof response.body === 'object' ? JSON.stringify(response.body, null, 2) : response.body}
+                                        </SyntaxHighlighter>
+                                    </div>
                                 )}
                             </>
                         )}

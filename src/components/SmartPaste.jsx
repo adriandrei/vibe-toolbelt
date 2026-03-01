@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, X, ArrowRight } from 'lucide-react';
 import { analyzeContent } from '../utils/analyzers';
@@ -8,6 +8,13 @@ export default function SmartPaste() {
     const [suggestion, setSuggestion] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
+    const btnRef = useRef(null);
+
+    useEffect(() => {
+        if (suggestion && btnRef.current) {
+            btnRef.current.focus();
+        }
+    }, [suggestion]);
 
     useEffect(() => {
         const handlePaste = (e) => {
@@ -25,6 +32,8 @@ export default function SmartPaste() {
 
             // If matched tool is current page, ignore
             if (result && location.pathname !== result.tool) {
+                // Attach the content we found so it can be passed via router state
+                result.content = text;
                 // Suggestion logic
                 setSuggestion(result);
 
@@ -52,9 +61,10 @@ export default function SmartPaste() {
             </div>
             <div className="actions">
                 <button
+                    ref={btnRef}
                     className="btn-go"
                     onClick={() => {
-                        navigate(suggestion.tool);
+                        navigate(suggestion.tool, { state: { input: suggestion.content } });
                         setSuggestion(null);
                     }}
                 >

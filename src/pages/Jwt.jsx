@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Shield, ShieldAlert, ShieldCheck, Key, CheckCircle, XCircle, Loader, Info } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import * as jose from 'jose'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 const decodePart = (part) => {
     try {
@@ -25,6 +26,8 @@ export default function Jwt() {
     const [secret, setSecret] = useState('')
     const [verificationResult, setVerificationResult] = useState(null) // null | 'valid' | 'invalid' | 'checking'
     const [verificationError, setVerificationError] = useState(null)
+
+    useSmartInput({ input: setToken })
 
     useEffect(() => {
         if (!token) {

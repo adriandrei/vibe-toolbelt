@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import cronstrue from 'cronstrue'
 import { Clock, Info } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 export default function CronParser() {
     useDocumentTitle('CRON Parsing')
@@ -9,6 +10,8 @@ export default function CronParser() {
     const [desc, setDesc] = useState('')
     const [nextDates, setNextDates] = useState([])
     const [error, setError] = useState('')
+
+    useSmartInput({ input: setCron })
 
     useEffect(() => {
         try {

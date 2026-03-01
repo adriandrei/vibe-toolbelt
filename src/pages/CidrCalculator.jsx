@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { Network, ArrowRight, Copy, Activity } from 'lucide-react'
 import { Address4, Address6 } from 'ip-address'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useSmartInput } from '../hooks/useSmartInput'
 
 export default function CidrCalculator() {
     useDocumentTitle('CIDR Calculator')
     const [input, setInput] = useState('')
     const [result, setResult] = useState(null)
     const [error, setError] = useState(null)
+
+    useSmartInput({ input: setInput })
 
     useEffect(() => {
         if (!input.trim()) {
