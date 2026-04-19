@@ -3,6 +3,7 @@ import { Copy, Trash2, Check, ArrowRightLeft } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useSmartInput } from '../hooks/useSmartInput'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 
 // Unicode safe Encode/Decode
 const toBase64 = (str) => {
@@ -29,6 +30,17 @@ export default function Base64() {
     const [copied, setCopied] = useState(false)
 
     useSmartInput({ input: setInput })
+
+    useRegisterAIContext({
+        tool: 'Base64 Converter',
+        getContext: () => ({ input, output }),
+        suggestedPrompts: [
+            'What does this decoded content contain?',
+            'Is this valid Base64?',
+            'What encoding format is this?',
+            'Are there any security concerns with this content?',
+        ],
+    }, [input, output])
 
     useEffect(() => {
         if (!input) {

@@ -4,7 +4,10 @@ import Sidebar from './Sidebar'
 import SmartPaste from './SmartPaste'
 import CommandPalette from './CommandPalette'
 import PrivacyBadge from './PrivacyBadge'
+import AIStatusBadge from './AIStatusBadge'
+import AIAssistant from './AIAssistant'
 import { usePipeline } from '../contexts/PipelineContext'
+import { useAI } from '../contexts/AIContext'
 import { ROUTE_MAP } from '../routes'
 import { X } from 'lucide-react'
 import { Suspense } from 'react'
@@ -16,6 +19,7 @@ export default function Layout({ children }) {
     const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024)
 
     const { pinnedToolRoute, setPinnedToolRoute } = usePipeline()
+    const { aiPanelOpen } = useAI()
     
     // Derived pinned component
     const PinnedComponent = pinnedToolRoute && ROUTE_MAP[pinnedToolRoute] ? ROUTE_MAP[pinnedToolRoute] : null
@@ -59,7 +63,8 @@ export default function Layout({ children }) {
 
             <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
             <SmartPaste />
-
+            {/* Global AI Assistant Panel */}
+            <AIAssistant />
 
             <div
                 className={isSidebarOpen ? 'desktop-sidebar-open' : ''}
@@ -73,47 +78,63 @@ export default function Layout({ children }) {
                     minWidth: 0 // Prevent flex child overflow issues
                 }}
             >
-                {/* Mobile Menu Trigger & Header */}
+                {/* Header Row */}
                 <div
-                    className="tablet-down"
                     style={{
-                        padding: 'var(--space-md)',
+                        padding: 'var(--space-md) var(--space-lg)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         borderBottom: '1px solid var(--border)',
-                        background: 'rgba(9, 9, 11, 0.8)',
+                        background: 'rgba(9, 9, 11, 0.4)',
                         backdropFilter: 'blur(10px)',
                         position: 'sticky',
                         top: 0,
-                        zIndex: 40
+                        zIndex: 40,
+                        height: '60px'
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', width: '100%' }}>
                         <button
+                            className="tablet-down"
                             onClick={() => setIsSidebarOpen(true)}
                             aria-label="Open menu"
                             style={{
                                 padding: '8px',
                                 color: 'var(--text-main)',
                                 cursor: 'pointer',
-                                display: 'flex'
+                                display: 'flex',
+                                border: 'none',
+                                background: 'none'
                             }}
                         >
-                            <Menu size={24} />
+                            <Menu size={20} />
                         </button>
-                        <span style={{ fontWeight: 600, fontSize: '1.2rem' }} className="text-gradient">Private Toolkit</span>
-                        <div style={{ marginLeft: 'auto' }}>
+                        
+                        <div className="tablet-down" style={{ fontWeight: 600, fontSize: '1.1rem' }}>
+                             <span className="text-gradient">Private Toolkit</span>
+                        </div>
+                        
+                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <AIStatusBadge />
+                            <div style={{ height: '16px', width: '1px', background: 'var(--border)' }}></div>
                             <PrivacyBadge />
                         </div>
                     </div>
-
                 </div>
 
                 {/* Desktop History Button */}
 
 
-                <main style={{ padding: showSplitPane ? '0' : 'var(--space-md) var(--space-md) var(--space-xl)', width: '100%', maxWidth: showSplitPane ? '100%' : '1600px', margin: '0 auto', display: showSplitPane ? 'flex' : 'block', height: showSplitPane ? 'calc(100vh - 60px)' : 'auto', overflow: 'hidden' }}>
+                <main style={{ 
+                    padding: showSplitPane ? '0' : 'var(--space-md) var(--space-md) var(--space-xl)', 
+                    width: '100%', 
+                    maxWidth: showSplitPane ? '100%' : '1600px', 
+                    margin: '0 auto', 
+                    display: showSplitPane ? 'flex' : 'block', 
+                    flex: 1,
+                    overflow: 'hidden' 
+                }}>
                     
                     {/* Left Pane: Current Route */}
                     <div style={{ flex: 1, minWidth: 0, padding: showSplitPane ? 'var(--space-md) var(--space-md) var(--space-xl)' : 0, overflowY: showSplitPane ? 'auto' : 'visible' }}>

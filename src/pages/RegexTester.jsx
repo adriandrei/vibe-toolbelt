@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { Copy, Check, Replace, BookOpen, X, ChevronRight } from 'lucide-react'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 // Regex Cheat Sheet Data
@@ -76,6 +77,21 @@ export default function RegexTester() {
     const [replaceWith, setReplaceWith] = useState('[$1]')
     const [showCheatSheet, setShowCheatSheet] = useState(false)
     const [copied, setCopied] = useState(false)
+
+    useRegisterAIContext({
+        tool: 'Regex Tester',
+        getContext: () => ({ 
+            input: `Pattern: /${regex}/${flags}\nText: ${text}`, 
+            output: `Matches: ${JSON.stringify(matches.error ? {error: matches.error} : matches.slice(0, 10))}` 
+        }),
+        suggestedPrompts: [
+            'Explain this regex pattern in plain English',
+            'How can I make this pattern more efficient?',
+            'Suggest a regex to match email addresses',
+            'Why is my regex not matching as expected?',
+            'Suggest a replacement pattern to wrap matches in quotes',
+        ],
+    }, [regex, flags, text, matches])
 
     // Parse Regex
     const matches = useMemo(() => {

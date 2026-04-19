@@ -2,10 +2,26 @@ import React, { useState, useMemo } from 'react'
 import { Type, AlignLeft, Hash, Clock, Trash2 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 
 export default function TextStats() {
     useDocumentTitle('Text Statistics')
     const [text, setText] = useState('')
+
+    useRegisterAIContext({
+        tool: 'Text Statistics',
+        getContext: () => ({ 
+            input: text.slice(0, 1000) + (text.length > 1000 ? '...' : ''), 
+            output: stats ? `Words: ${stats.words}, Time: ${stats.readTimeMin}m` : 'No stats' 
+        }),
+        suggestedPrompts: [
+            'Summarize this text in 3 bullet points',
+            'What is the tone and sentiment of this text?',
+            'Suggest 3 alternative titles for this text',
+            'How can I improve the readability of this writing?',
+            'Explain these statistics in plain English',
+        ],
+    }, [text, stats])
 
     const stats = useMemo(() => {
         if (!text) return null

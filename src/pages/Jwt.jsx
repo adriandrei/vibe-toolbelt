@@ -4,6 +4,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import * as jose from 'jose'
 import { useSmartInput } from '../hooks/useSmartInput'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 
 const decodePart = (part) => {
     try {
@@ -29,6 +30,20 @@ export default function Jwt() {
     const [verificationError, setVerificationError] = useState(null)
 
     useSmartInput({ input: setToken })
+
+    useRegisterAIContext({
+        tool: 'JWT Decoder',
+        getContext: () => ({
+            input: token,
+            output: decoded ? JSON.stringify(decoded.payload, null, 2) : '',
+        }),
+        suggestedPrompts: [
+            'Explain each claim in this payload',
+            'Is this token expired?',
+            'What algorithm is used and is it safe?',
+            'What is the purpose of this token?',
+        ],
+    }, [token, decoded])
 
     useEffect(() => {
         if (!token) {

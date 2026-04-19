@@ -7,6 +7,7 @@ import { DiffViewer } from '../components/DiffViewer'
 import { useSmartInput } from '../hooks/useSmartInput'
 import Editor from '@monaco-editor/react'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 
 // Simple XML Formatter
 function formatXml(xml, indentChar = '  ') {
@@ -41,6 +42,18 @@ export default function Formatters() {
     const [jqQuery, setJqQuery] = useState('') // Default empty (identity)
 
     useSmartInput({ input: setInput, mode: setMode })
+
+    useRegisterAIContext({
+        tool: 'Code Formatters',
+        getContext: () => ({ input, output }),
+        suggestedPrompts: [
+            'Explain the structure of this JSON',
+            'What does this SQL query do?',
+            'How can I optimize this query?',
+            'Are there any issues with this code?',
+            'Summarize what this XML represents',
+        ],
+    }, [input, output])
 
     const handleFormat = () => {
         if (!input.trim()) return

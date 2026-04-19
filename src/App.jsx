@@ -8,6 +8,8 @@ import { ToastProvider } from './components/ToastProvider'
 import { ThemeProvider } from './components/ThemeProvider'
 
 import { PipelineProvider } from './contexts/PipelineContext'
+import { AIProvider } from './contexts/AIContext'
+import AILoadingModal from './components/AILoadingModal'
 import { ROUTE_MAP, NotFound } from './routes'
 
 // Simple loading fallback
@@ -29,8 +31,9 @@ function App() {
       <ToastProvider>
         <HelmetProvider>
           <PipelineProvider>
-            <BrowserRouter>
-              <Layout>
+            <AIProvider>
+              <BrowserRouter>
+                <Layout>
                 <ErrorBoundary>
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
@@ -41,8 +44,10 @@ function App() {
                     </Routes>
                   </Suspense>
                 </ErrorBoundary>
-              </Layout>
-            </BrowserRouter>
+                </Layout>
+                <AILoadingModal />
+              </BrowserRouter>
+            </AIProvider>
           </PipelineProvider>
         </HelmetProvider>
       </ToastProvider>

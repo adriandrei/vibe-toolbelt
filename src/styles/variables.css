@@ -6,6 +6,7 @@
   /* Colors - Dark Mode Default */
   --bg-app: hsl(var(--hue), 20%, 8%);
   --bg-panel: hsl(var(--hue), 25%, 12%);
+  --bg-secondary: hsla(var(--hue), 25%, 12%, 0.95);
   --bg-card: hsla(var(--hue), 25%, 15%, 0.6);
 
   --text-main: hsl(var(--hue), 10%, 95%);
@@ -49,6 +50,7 @@
 :root[data-theme="light"] {
   --bg-app: hsl(var(--hue), 15%, 96%);
   --bg-panel: hsl(var(--hue), 12%, 100%);
+  --bg-secondary: hsla(var(--hue), 12%, 100%, 0.95);
   --bg-card: hsla(var(--hue), 15%, 100%, 0.8);
 
   --text-main: hsl(var(--hue), 30%, 12%);

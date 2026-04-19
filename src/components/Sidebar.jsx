@@ -11,7 +11,8 @@ import {
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
     Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap, Keyboard,
     Binary, ListOrdered, Server, ShieldAlert, Paintbrush, AlignLeft, FileCode,
-    Sun, Moon, Film, Pin
+    Sun, Moon, Film, Pin,
+    Brain, Settings, Sparkles, Bot
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 import { useTheme } from './ThemeProvider'
@@ -30,6 +31,14 @@ export const TOOL_CATEGORIES = [
             { to: '/inspect', icon: Search, label: 'Inspector' },
             { to: '/api', icon: Zap, label: 'API Tester' },
             { to: '/image', icon: FileImage, label: 'Image Converter' },
+        ]
+    },
+    {
+        name: 'AI & Intelligence',
+        icon: Sparkles,
+        items: [
+            { to: '/ai-settings', icon: Settings, label: 'AI Settings' },
+            /* future ai tools here */
         ]
     },
     {

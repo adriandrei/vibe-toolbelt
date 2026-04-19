@@ -3,6 +3,7 @@ import * as diff from 'diff'
 import { Lock, FileDiff, LayoutPanelLeft, AlignJustify, Copy, Check } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DiffViewer } from '../components/DiffViewer'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 
 export default function Diff() {
     useDocumentTitle('Secure Diff')
@@ -10,6 +11,20 @@ export default function Diff() {
     const [newText, setNewText] = useState('')
     const [viewMode, setViewMode] = useState('unified') // 'unified' | 'split'
     const [copied, setCopied] = useState(false)
+
+    useRegisterAIContext({
+        tool: 'Secure Text Diff',
+        getContext: () => ({ 
+            input: `Original:\n${oldText.slice(0, 500)}...\n\nNew:\n${newText.slice(0, 500)}...`, 
+            output: `Stats: ${stats.added} added, ${stats.removed} removed` 
+        }),
+        suggestedPrompts: [
+            'Summarize the changes between these two versions',
+            'Are there any breaking changes here?',
+            'Check for potential bugs in the added code',
+            'Explain the impact of this diff on performance',
+        ],
+    }, [oldText, newText, stats])
 
     // Compute diffs logic moved to DiffViewer
     // We still calculate lines for stats locally or we could move stats to DiffViewer later

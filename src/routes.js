@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 
 export const Home = lazy(() => import('./pages/Home'));
+export const AISettings = lazy(() => import('./pages/AISettings'));
 export const Base64 = lazy(() => import('./pages/Base64'));
 export const Jwt = lazy(() => import('./pages/Jwt'));
 export const Username = lazy(() => import('./pages/Username'));
@@ -63,6 +64,7 @@ export const NotFound = lazy(() => import('./pages/NotFound'));
 
 export const ROUTE_MAP = {
   '/': Home,
+  '/ai-settings': AISettings,
   '/base64': Base64,
   '/jwt': Jwt,
   '/username': Username,

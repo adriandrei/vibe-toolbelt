@@ -4,6 +4,7 @@ import { Copy, Hash as HashIcon } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useSmartInput } from '../hooks/useSmartInput'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 
 export default function Hash() {
     useDocumentTitle('Hash Generator')
@@ -11,6 +12,17 @@ export default function Hash() {
     const [hashes, setHashes] = useState({ md5: '', sha1: '', sha256: '', sha512: '' })
 
     useSmartInput({ input: setInput })
+
+    useRegisterAIContext({
+        tool: 'Hash Generator',
+        getContext: () => ({ input, output: Object.entries(hashes).map(([k,v]) => `${k.toUpperCase()}: ${v}`).join('\n') }),
+        suggestedPrompts: [
+            'Which algorithm should I use for password hashing?',
+            'What is the difference between MD5 and SHA-256?',
+            'Is MD5 safe to use?',
+            'How do I verify a hash?',
+        ],
+    }, [input, hashes])
 
     useEffect(() => {
         if (!input) {

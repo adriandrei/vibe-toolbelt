@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TOOL_CATEGORIES } from '../components/Sidebar'
 import SEO from '../components/SEO'
-import { Search, ArrowRight, Github, Shield, Zap, Globe, Share2, Linkedin } from 'lucide-react'
+import { Search, ArrowRight, Github, Shield, Zap, Globe, Share2, Linkedin, Sparkles, Bot, Cpu } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const containerVariants = {
@@ -278,6 +278,31 @@ export default function Home() {
                     <p style={{ fontSize: '1rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                         Install the toolbelt as a Progressive Web App (PWA). It heavily caches assets allowing you to perform encoding, decoding, formatting, and cryptography entirely offline without an internet connection.
                     </p>
+                </div>
+
+                {/* AI Feature - Distinct Look */}
+                <div className="glass-panel" style={{
+                    padding: '32px',
+                    borderRadius: '24px',
+                    background: 'linear-gradient(135deg, rgba(var(--primary-rgb), 0.15) 0%, rgba(var(--accent-rgb), 0.15) 100%)',
+                    border: '1px solid var(--primary)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                    boxShadow: '0 0 20px rgba(var(--primary-rgb), 0.2)'
+                }}>
+                    <div style={{ background: 'var(--primary)', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>
+                        <Sparkles size={24} color="#fff" />
+                    </div>
+                    <h3 style={{ fontSize: '1.3rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>In-Browser AI</h3>
+                    <p style={{ fontSize: '1rem', color: 'var(--text-main)', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
+                        Local LLMs running 100% on your device via WebGPU. Explain code, check JWTs, and generate regex without ever sending data to a cloud API.
+                    </p>
+                    <div style={{ marginTop: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>Phi-3.5</span>
+                        <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>Qwen-2.5</span>
+                        <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>100% Local</span>
+                    </div>
                 </div>
 
                 {/* Feature 3 */}
