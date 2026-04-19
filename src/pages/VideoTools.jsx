@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import ReactCrop from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
 import { Upload, Play, Pause, Scissors, Crop, Download, X, Film, VolumeX, FastForward, Maximize, Settings, Camera, Music, Type } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useEscape } from '../hooks/useEscape'
@@ -24,7 +26,8 @@ export default function VideoTools() {
 
     // Editor state
     const [trimRange, setTrimRange] = useState([0, 0])
-    const [crop, setCrop] = useState(null) // { x, y, width, height }
+    const [crop, setCrop] = useState() // { x, y, width, height }
+    const [aspect, setAspect] = useState(undefined)
     const [isCropping, setIsCropping] = useState(false)
     const [exportFormat, setExportFormat] = useState('mp4')
     const [isProcessing, setIsProcessing] = useState(false)
@@ -170,14 +173,14 @@ export default function VideoTools() {
             let videoFilters = []
             let audioFilters = []
 
-            if (crop) {
+            if (crop && crop.width && crop.height) {
                 const videoEl = videoRef.current
                 const scaleX = videoEl.videoWidth / videoEl.clientWidth
                 const scaleY = videoEl.videoHeight / videoEl.clientHeight
-                const realX = Math.round(crop.x * scaleX)
-                const realY = Math.round(crop.y * scaleY)
-                const realW = Math.round(crop.width * scaleX)
-                const realH = Math.round(crop.height * scaleY)
+                const realX = Math.floor((crop.x * scaleX) / 2) * 2
+                const realY = Math.floor((crop.y * scaleY) / 2) * 2
+                const realW = Math.floor((crop.width * scaleX) / 2) * 2
+                const realH = Math.floor((crop.height * scaleY) / 2) * 2
                 videoFilters.push(`crop=${realW}:${realH}:${realX}:${realY}`)
             }
 
@@ -348,32 +351,26 @@ export default function VideoTools() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
                     {/* Left Column: Preview */}
                     <div className="glass-panel" style={{ padding: 0, overflow: 'hidden', flex: '1 1 500px', minWidth: 0 }}>
-                        <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9' }}>
-                            <video
-                                ref={videoRef}
-                                src={videoURL}
-                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                onLoadedMetadata={onLoadedMetadata}
-                                onTimeUpdate={onTimeUpdate}
-                                onClick={togglePlay}
-                            />
-                            {/* Overlay Controls if Cropping */}
-                            {isCropping && (
-                                <div style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    border: '2px solid #ef4444',
-                                    pointerEvents: 'none'
-                                }}>
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                                        background: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: 4,
-                                        color: '#fff', fontSize: '0.8rem'
-                                    }}>
-                                        Crop Mode Active (Preview Only)
-                                    </div>
-                                </div>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#000', height: '100%', minHeight: '300px' }}>
+                            {isCropping ? (
+                                <ReactCrop crop={crop} onChange={c => setCrop(c)} aspect={aspect}>
+                                    <video
+                                        ref={videoRef}
+                                        src={videoURL}
+                                        style={{ maxHeight: '600px', maxWidth: '100%', display: 'block' }}
+                                        onLoadedMetadata={onLoadedMetadata}
+                                        onTimeUpdate={onTimeUpdate}
+                                    />
+                                </ReactCrop>
+                            ) : (
+                                <video
+                                    ref={videoRef}
+                                    src={videoURL}
+                                    style={{ maxHeight: '600px', maxWidth: '100%', display: 'block', cursor: 'pointer' }}
+                                    onLoadedMetadata={onLoadedMetadata}
+                                    onTimeUpdate={onTimeUpdate}
+                                    onClick={togglePlay}
+                                />
                             )}
                         </div>
 
@@ -485,52 +482,42 @@ export default function VideoTools() {
                                 <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: 8, color: 'var(--text-dim)' }}>
                                     Crop
                                 </label>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'min-content 1fr 1fr', gap: 8, marginBottom: 8 }}>
                                     <button
                                         onClick={() => {
-                                            if (!videoRef.current) return
-                                            const { videoWidth, videoHeight } = videoRef.current
-                                            const size = Math.min(videoWidth, videoHeight)
-                                            setCrop({
-                                                x: (videoWidth - size) / 2,
-                                                y: (videoHeight - size) / 2,
-                                                width: size,
-                                                height: size
-                                            })
-                                            setIsCropping(true)
+                                            setIsCropping(!isCropping)
+                                            if (isCropping) setCrop(undefined)
                                         }}
-                                        style={{ padding: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)', cursor: 'pointer' }}
+                                        style={{ padding: '8px 16px', background: isCropping ? 'var(--primary)' : 'var(--bg-input)', border: '1px solid var(--primary)', borderRadius: 6, color: isCropping ? '#fff' : 'var(--primary)', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
                                     >
-                                        Square (1:1)
+                                        <Crop size={16} /> {isCropping ? 'Active' : '+ Crop'}
                                     </button>
-                                    <button
-                                        onClick={() => {
-                                            if (!videoRef.current) return
-                                            const { videoWidth, videoHeight } = videoRef.current
-                                            // 9:16
-                                            const width = Math.min(videoWidth, videoHeight * 9 / 16)
-                                            const height = width * 16 / 9
-                                            setCrop({
-                                                x: (videoWidth - width) / 2,
-                                                y: (videoHeight - height) / 2,
-                                                width,
-                                                height
-                                            })
-                                            setIsCropping(true)
-                                        }}
-                                        style={{ padding: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)', cursor: 'pointer' }}
-                                    >
-                                        Portrait (9:16)
-                                    </button>
+                                    
+                                    {isCropping && (
+                                        <>
+                                            <button
+                                                onClick={() => setAspect(undefined)}
+                                                style={{ padding: 8, background: aspect === undefined ? 'rgba(255,255,255,0.1)' : 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)', cursor: 'pointer' }}
+                                            >
+                                                Freeform
+                                            </button>
+                                            <button
+                                                onClick={() => setAspect(1)}
+                                                style={{ padding: 8, background: aspect === 1 ? 'rgba(255,255,255,0.1)' : 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-main)', cursor: 'pointer' }}
+                                            >
+                                                Square (1:1)
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
 
                                 {isCropping && crop && (
                                     <div style={{ marginTop: 8 }}>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-                                            Active Crop: {Math.round(crop.width)}x{Math.round(crop.height)}
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                                            Drag on the video to define crop region.
                                         </div>
                                         <button
-                                            onClick={() => { setIsCropping(false); setCrop(null); }}
+                                            onClick={() => { setIsCropping(false); setCrop(undefined); setAspect(undefined); }}
                                             style={{
                                                 width: '100%', padding: 8,
                                                 background: 'rgba(239, 68, 68, 0.1)',

@@ -4,21 +4,33 @@ import Sidebar from './Sidebar'
 import SmartPaste from './SmartPaste'
 import CommandPalette from './CommandPalette'
 import PrivacyBadge from './PrivacyBadge'
+import { usePipeline } from '../contexts/PipelineContext'
+import { ROUTE_MAP } from '../routes'
+import { X } from 'lucide-react'
+import { Suspense } from 'react'
 
 
 export default function Layout({ children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024)
     const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024)
+
+    const { pinnedToolRoute, setPinnedToolRoute } = usePipeline()
+    
+    // Derived pinned component
+    const PinnedComponent = pinnedToolRoute && ROUTE_MAP[pinnedToolRoute] ? ROUTE_MAP[pinnedToolRoute] : null
+    const showSplitPane = isDesktop && PinnedComponent !== null
 
 
-    // Handle Resize
     useEffect(() => {
         const handleResize = () => {
-            if (window.innerWidth > 1024) {
+            const desktop = window.innerWidth > 1024
+            if (desktop) {
                 setIsSidebarOpen(true)
             } else {
                 setIsSidebarOpen(false)
             }
+            setIsDesktop(desktop)
         }
         window.addEventListener('resize', handleResize)
         return () => window.removeEventListener('resize', handleResize)
@@ -101,8 +113,32 @@ export default function Layout({ children }) {
                 {/* Desktop History Button */}
 
 
-                <main style={{ padding: 'var(--space-md) var(--space-md) var(--space-xl)', width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
-                    {children}
+                <main style={{ padding: showSplitPane ? '0' : 'var(--space-md) var(--space-md) var(--space-xl)', width: '100%', maxWidth: showSplitPane ? '100%' : '1600px', margin: '0 auto', display: showSplitPane ? 'flex' : 'block', height: showSplitPane ? 'calc(100vh - 60px)' : 'auto', overflow: 'hidden' }}>
+                    
+                    {/* Left Pane: Current Route */}
+                    <div style={{ flex: 1, minWidth: 0, padding: showSplitPane ? 'var(--space-md) var(--space-md) var(--space-xl)' : 0, overflowY: showSplitPane ? 'auto' : 'visible' }}>
+                        {children}
+                    </div>
+
+                    {/* Right Pane: Pinned Tool */}
+                    {showSplitPane && (
+                        <div style={{ flex: 1, minWidth: 0, borderLeft: '1px solid var(--border)', background: 'var(--bg-panel)', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>PINNED TOOL</span>
+                                <button 
+                                    onClick={() => setPinnedToolRoute(null)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 4 }}
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md) var(--space-md) var(--space-xl)' }}>
+                                <Suspense fallback={<div>Loading Pinned Tool...</div>}>
+                                    <PinnedComponent />
+                                </Suspense>
+                            </div>
+                        </div>
+                    )}
                 </main>
             </div>
         </div>

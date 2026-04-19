@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { format as formatSql } from 'sql-formatter'
 import jmespath from 'jmespath'
-import { Braces, Database, Copy, Check, Trash2, FileCode, FileJson, RefreshCw, Filter, AlignLeft, AlignJustify, Code, FileDiff } from 'lucide-react'
+import { Braces, Database, Copy, Check, Trash2, FileCode, FileJson, RefreshCw, Filter, AlignLeft, AlignJustify, Code, FileDiff, ArrowRightLeft } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DiffViewer } from '../components/DiffViewer'
 import { useSmartInput } from '../hooks/useSmartInput'
+import Editor from '@monaco-editor/react'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 
 // Simple XML Formatter
 function formatXml(xml, indentChar = '  ') {
@@ -250,28 +252,33 @@ export default function Formatters() {
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileCode size={16} /> Input</label>
-                        <button onClick={() => setInput('')} style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'flex', gap: 4 }}>
-                            <Trash2 size={12} /> Clear
-                        </button>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <PipelineRead onRead={setInput} />
+                            {input && (
+                                <button onClick={() => setInput('')} style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'flex', gap: 4, background: 'none', border: 'none', cursor: 'pointer', alignItems: 'center' }}>
+                                    <Trash2 size={12} /> Clear
+                                </button>
+                            )}
+                        </div>
                     </div>
-                    <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder={mode === 'json' ? 'Paste minified JSON...' : mode === 'sql' ? 'Paste messy SQL...' : 'Paste XML...'}
-                        style={{
-                            flex: 1,
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.85rem',
-                            resize: 'none',
-                            background: 'rgba(0,0,0,0.2)',
-                            minHeight: '100%',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-sm)',
-                            color: 'var(--text-main)',
-                            padding: 'var(--space-sm)'
-                        }}
-                        spellCheck="false"
-                    />
+                    <div style={{ flex: 1, minHeight: '300px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        <Editor
+                            height="100%"
+                            language={mode}
+                            theme="vs-dark"
+                            value={input}
+                            onChange={(val) => setInput(val || '')}
+                            options={{
+                                minimap: { enabled: false },
+                                fontSize: 14,
+                                fontFamily: 'var(--font-mono)',
+                                lineNumbers: "on",
+                                scrollBeyondLastLine: false,
+                                wordWrap: "on",
+                                padding: { top: 16 }
+                            }}
+                        />
+                    </div>
                     <button
                         onClick={handleFormat}
                         style={{
@@ -295,8 +302,7 @@ export default function Formatters() {
 
                 {/* Output */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)', alignItems: 'center' }}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileJson size={16} /> Output</label>
                                 <div style={{ display: 'flex', background: 'var(--bg-app)', borderRadius: 4, padding: 2 }}>
@@ -304,24 +310,28 @@ export default function Formatters() {
                                     <button onClick={() => setViewMode('diff')} style={{ padding: '2px 8px', borderRadius: 2, border: 'none', background: viewMode === 'diff' ? 'var(--primary)' : 'transparent', color: viewMode === 'diff' ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem' }}>Diff</button>
                                 </div>
                             </div>
-                            {output && viewMode === 'code' && (
-                                <button
-                                    onClick={handleCopy}
-                                    style={{
-                                        color: copied ? '#10b981' : 'var(--primary)',
-                                        fontSize: '0.8rem',
-                                        display: 'flex',
-                                        gap: 4,
-                                        background: 'transparent',
-                                        border: `1px solid ${copied ? '#10b981' : 'var(--primary)'}`,
-                                        padding: '2px 8px',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Copied' : 'Copy'}
-                                </button>
-                            )}
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <PipelineSend dataToSend={output} />
+                                {output && viewMode === 'code' && (
+                                    <button
+                                        onClick={handleCopy}
+                                        style={{
+                                            color: copied ? '#10b981' : 'var(--primary)',
+                                            fontSize: '0.8rem',
+                                            display: 'flex',
+                                            gap: 4,
+                                            alignItems: 'center',
+                                            background: 'transparent',
+                                            border: `1px solid ${copied ? '#10b981' : 'var(--primary)'}`,
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Copied' : 'Copy'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div style={{
                             flex: 1,
@@ -345,29 +355,29 @@ export default function Formatters() {
                                         <DiffViewer oldText={input} newText={output} viewMode="split" />
                                     </div>
                                 ) : (
-                                    <textarea
-                                        readOnly
-                                        value={output}
-                                        style={{
-                                            flex: 1,
-                                            width: '100%',
-                                            padding: 'var(--space-md)',
-                                            fontFamily: 'var(--font-mono)',
-                                            fontSize: '0.85rem',
-                                            background: 'transparent',
-                                            border: 'none',
-                                            resize: 'none',
-                                            color: mode === 'sql' ? '#a5b4fc' : mode === 'xml' ? '#fdba74' : '#86efac',
-                                            overflow: 'auto'
-                                        }}
-                                        spellCheck="false"
-                                    />
+                                    <div style={{ flex: 1, height: '100%', minHeight: '300px', overflow: 'hidden' }}>
+                                        <Editor
+                                            height="100%"
+                                            language={mode}
+                                            theme="vs-dark"
+                                            value={output}
+                                            options={{
+                                                readOnly: true,
+                                                minimap: { enabled: false },
+                                                fontSize: 14,
+                                                fontFamily: 'var(--font-mono)',
+                                                lineNumbers: "on",
+                                                scrollBeyondLastLine: false,
+                                                wordWrap: "on",
+                                                padding: { top: 16 }
+                                            }}
+                                        />
+                                    </div>
                                 )
                             )}
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
     )
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Copy, Type, Eraser } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 
 export default function CaseConverter() {
     useDocumentTitle('Case Converter')
@@ -95,10 +96,11 @@ export default function CaseConverter() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 600, color: 'var(--text-dim)' }}>Input</span>
                         <div style={{ display: 'flex', gap: 8 }}>
+                            <PipelineRead onRead={setInput} />
                             <button
                                 onClick={() => setInput('')}
                                 title="Clear input"
-                                style={{ color: 'var(--text-muted)', cursor: 'pointer' }}
+                                style={{ color: 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}
                             >
                                 <Eraser size={16} />
                             </button>
@@ -172,27 +174,31 @@ export default function CaseConverter() {
                                         </div>
                                     </div>
 
-                                    <button
-                                        onClick={() => copyToClipboard(result)}
-                                        style={{
-                                            padding: '8px',
-                                            borderRadius: 'var(--radius-sm)',
-                                            color: 'var(--text-dim)',
-                                            cursor: 'pointer',
-                                            border: '1px solid transparent'
-                                        }}
-                                        title="Copy"
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.color = 'var(--primary)'
-                                            e.currentTarget.style.background = 'rgba(var(--primary-rgb), 0.1)'
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.color = 'var(--text-dim)'
-                                            e.currentTarget.style.background = 'transparent'
-                                        }}
-                                    >
-                                        <Copy size={18} />
-                                    </button>
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <PipelineSend dataToSend={result} style={{ padding: '4px', border: 'none' }} />
+                                        <button
+                                            onClick={() => copyToClipboard(result)}
+                                            style={{
+                                                padding: '8px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                color: 'var(--text-dim)',
+                                                cursor: 'pointer',
+                                                border: '1px solid transparent',
+                                                background: 'transparent'
+                                            }}
+                                            title="Copy"
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.color = 'var(--primary)'
+                                                e.currentTarget.style.background = 'rgba(var(--primary-rgb), 0.1)'
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.color = 'var(--text-dim)'
+                                                e.currentTarget.style.background = 'transparent'
+                                            }}
+                                        >
+                                            <Copy size={18} />
+                                        </button>
+                                    </div>
                                 </div>
                             )
                         })}

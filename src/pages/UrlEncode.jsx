@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { Link2, Copy, Check, ArrowDownUp, Trash2 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 
 export default function UrlEncode() {
     useDocumentTitle('URL Encoder / Decoder')
@@ -86,9 +87,12 @@ export default function UrlEncode() {
                     <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Link2 size={14} color="var(--primary)" /> Input
                     </label>
-                    <button onClick={() => { setInput(''); setOutput(''); setError(null) }} style={{ color: 'var(--text-dim)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Trash2 size={12} /> Clear
-                    </button>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                        <PipelineRead onRead={handleInput} />
+                        <button onClick={() => { setInput(''); setOutput(''); setError(null) }} style={{ color: 'var(--text-dim)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer' }}>
+                            <Trash2 size={12} /> Clear
+                        </button>
+                    </div>
                 </div>
                 <textarea
                     value={input}
@@ -124,16 +128,20 @@ export default function UrlEncode() {
             <div className="glass-panel" style={{ padding: 'var(--space-md)', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
                     <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Output</label>
-                    {output && (
-                        <button onClick={copy} style={{
-                            padding: '4px 12px', borderRadius: 'var(--radius-sm)',
-                            background: copied ? 'var(--accent)' : 'var(--primary)', color: '#fff',
-                            display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 500
-                        }}>
-                            {copied ? <Check size={12} /> : <Copy size={12} />}
-                            {copied ? 'Copied!' : 'Copy'}
-                        </button>
-                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <PipelineSend dataToSend={output} />
+                        {output && (
+                            <button onClick={copy} style={{
+                                padding: '4px 12px', borderRadius: 'var(--radius-sm)',
+                                background: copied ? 'var(--accent)' : 'var(--primary)', color: '#fff',
+                                display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 500,
+                                border: 'none', cursor: 'pointer'
+                            }}>
+                                {copied ? <Check size={12} /> : <Copy size={12} />}
+                                {copied ? 'Copied!' : 'Copy'}
+                            </button>
+                        )}
+                    </div>
                 </div>
                 {error ? (
                     <div style={{ color: '#ef4444', fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>{error}</div>

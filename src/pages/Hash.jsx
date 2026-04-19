@@ -3,6 +3,7 @@ import CryptoJS from 'crypto-js'
 import { Copy, Hash as HashIcon } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useSmartInput } from '../hooks/useSmartInput'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 
 export default function Hash() {
     useDocumentTitle('Hash Generator')
@@ -35,7 +36,10 @@ export default function Hash() {
             </div>
 
             <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
-                <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>Input Text</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+                    <label style={{ color: 'var(--text-muted)' }}>Input Text</label>
+                    <PipelineRead onRead={setInput} />
+                </div>
                 <textarea
                     value={input}
                     onChange={e => setInput(e.target.value)}
@@ -49,12 +53,15 @@ export default function Hash() {
                     <div key={algo} className="glass-panel" style={{ padding: 'var(--space-sm) var(--space-md)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                             <span style={{ textTransform: 'uppercase', fontWeight: 600, fontSize: '0.8rem', color: 'var(--primary)' }}>{algo}</span>
-                            <button
-                                onClick={() => copyToClipboard(hash)}
-                                style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}
-                            >
-                                <Copy size={12} /> Copy
-                            </button>
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <PipelineSend dataToSend={hash} />
+                                <button
+                                    onClick={() => copyToClipboard(hash)}
+                                    style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', background: 'none', border: 'none', cursor: 'pointer' }}
+                                >
+                                    <Copy size={12} /> Copy
+                                </button>
+                            </div>
                         </div>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', wordBreak: 'break-all', color: hash ? 'var(--text-main)' : 'var(--text-dim)' }}>
                             {hash || '...'}

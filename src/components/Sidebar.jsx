@@ -11,11 +11,12 @@ import {
     ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
     Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap, Keyboard,
     Binary, ListOrdered, Server, ShieldAlert, Paintbrush, AlignLeft, FileCode,
-    Sun, Moon, Film
+    Sun, Moon, Film, Pin
 } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 import { useTheme } from './ThemeProvider'
 import PrivacyBadge from './PrivacyBadge'
+import { usePipeline } from '../contexts/PipelineContext'
 
 // Map of categories and tools
 export const TOOL_CATEGORIES = [
@@ -129,6 +130,8 @@ export const TOOL_CATEGORIES = [
 const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
     const location = useLocation()
     const isActive = location.pathname === item.to
+    const { setPinnedToolRoute, pinnedToolRoute } = usePipeline()
+    const isPinned = pinnedToolRoute === item.to
 
     return (
         <div
@@ -151,7 +154,7 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
                     fontSize: '0.9rem',
                     fontWeight: isActive ? 500 : 400,
                     transition: 'all 0.2s',
-                    paddingRight: '36px', // Space for star
+                    paddingRight: '60px', // Space for star and pin
                     minHeight: '44px' /* Ensure min touch target height */
                 }}
             >
@@ -159,30 +162,51 @@ const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
                 <span>{item.label}</span>
             </Link>
 
-            <button
-                className={`fav-btn ${isFav ? 'active' : ''}`}
-                aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
-                onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onToggleFav(item.to)
-                }}
-                style={{
-                    position: 'absolute',
-                    right: 8,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    border: 'none',
-                    background: 'none',
-                    color: isFav ? '#eab308' : 'var(--text-dim)',
-                    cursor: 'pointer',
-                    padding: '8px',
-                    opacity: isFav ? 1 : 0, // Hidden by default unless fav, handled by CSS hover
-                    transition: 'opacity 0.2s'
-                }}
-            >
-                <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
-            </button>
+            <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>
+                <button
+                    className={`fav-btn ${isPinned ? 'active' : ''}`}
+                    title={isPinned ? "Unpin tool" : "Pin tool to split view"}
+                    onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setPinnedToolRoute(isPinned ? null : item.to)
+                    }}
+                    style={{
+                        border: 'none',
+                        background: 'none',
+                        color: isPinned ? 'var(--primary)' : 'var(--text-dim)',
+                        cursor: 'pointer',
+                        padding: '4px 6px',
+                        opacity: isPinned ? 1 : 0, // Relies on fav-btn hover logic in CSS
+                        transition: 'opacity 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                >
+                    <Pin size={14} fill={isPinned ? 'currentColor' : 'none'} />
+                </button>
+
+                <button
+                    className={`fav-btn ${isFav ? 'active' : ''}`}
+                    aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+                    onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        onToggleFav(item.to)
+                    }}
+                    style={{
+                        border: 'none',
+                        background: 'none',
+                        color: isFav ? '#eab308' : 'var(--text-dim)',
+                        cursor: 'pointer',
+                        padding: '4px 6px',
+                        opacity: isFav ? 1 : 0,
+                        transition: 'opacity 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                >
+                    <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
+                </button>
+            </div>
         </div>
     )
 }

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Type, AlignLeft, Hash, Clock, Trash2 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 
 export default function TextStats() {
     useDocumentTitle('Text Statistics')
@@ -75,9 +76,14 @@ export default function TextStats() {
                 <div className="glass-panel" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
                         <label style={{ color: 'var(--text-muted)' }}>Input Text</label>
-                        <button onClick={() => setText('')} style={{ color: 'var(--text-dim)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Trash2 size={12} /> Clear
-                        </button>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <PipelineRead onRead={setText} />
+                            {text && (
+                                <button onClick={() => setText('')} style={{ color: 'var(--text-dim)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer' }}>
+                                    <Trash2 size={12} /> Clear
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <textarea
                         value={text}
@@ -96,6 +102,9 @@ export default function TextStats() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                     {stats ? (
                         <>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-xs)' }}>
+                                <PipelineSend dataToSend={JSON.stringify(stats, null, 2)} />
+                            </div>
                             {statCard(<Type size={20} />, 'Words', stats.words)}
                             {statCard(<Hash size={20} />, 'Characters', stats.chars, `${stats.bytes} bytes`)}
                             {statCard(<AlignLeft size={20} />, 'Lines', stats.lines, `${stats.paragraphs} paragraphs`)}

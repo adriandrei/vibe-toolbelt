@@ -3,6 +3,7 @@ import { Shield, ShieldAlert, ShieldCheck, Key, CheckCircle, XCircle, Loader, In
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import * as jose from 'jose'
 import { useSmartInput } from '../hooks/useSmartInput'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 
 const decodePart = (part) => {
     try {
@@ -134,9 +135,10 @@ export default function Jwt() {
 
                 {/* Input */}
                 <div style={{ marginBottom: 'var(--space-xl)' }}>
-                    <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: 'var(--space-sm)' }}>
-                        Paste JWT Token
-                    </label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+                        <label style={{ color: 'var(--text-muted)' }}>Paste JWT Token</label>
+                        <PipelineRead onRead={setToken} />
+                    </div>
                     <textarea
                         value={token}
                         onChange={(e) => setToken(e.target.value.trim())}
@@ -278,10 +280,13 @@ export default function Jwt() {
 
                         {/* Payload */}
                         <div>
-                            <h3 style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#a855f7' }}></span>
-                                Payload
-                            </h3>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+                                <h3 style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#a855f7' }}></span>
+                                    Payload
+                                </h3>
+                                <PipelineSend dataToSend={JSON.stringify(decoded.payload, null, 2)} />
+                            </div>
                             <pre className="glass-panel" style={{
                                 padding: 'var(--space-md)',
                                 margin: 0,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Copy, Trash2, Check, ArrowRightLeft } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useSmartInput } from '../hooks/useSmartInput'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 
 // Unicode safe Encode/Decode
 const toBase64 = (str) => {
@@ -89,14 +90,17 @@ export default function Base64() {
                         <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                             {mode === 'encode' ? 'Text to Encode' : 'Base64 to Decode'}
                         </label>
-                        {input && (
-                            <button
-                                onClick={() => setInput('')}
-                                style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}
-                            >
-                                <Trash2 size={12} /> Clear
-                            </button>
-                        )}
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <PipelineRead onRead={setInput} />
+                            {input && (
+                                <button
+                                    onClick={() => setInput('')}
+                                    style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer' }}
+                                >
+                                    <Trash2 size={12} /> Clear
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <textarea
                         value={input}
@@ -110,22 +114,27 @@ export default function Base64() {
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
                         <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Result</label>
-                        <button
-                            onClick={handleCopy}
-                            disabled={!output}
-                            style={{
-                                color: copied ? 'var(--accent)' : 'var(--primary)',
-                                fontSize: '0.9rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                cursor: output ? 'pointer' : 'not-allowed',
-                                opacity: output ? 1 : 0.5
-                            }}
-                        >
-                            {copied ? <Check size={14} /> : <Copy size={14} />}
-                            {copied ? 'Copied!' : 'Copy Result'}
-                        </button>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <PipelineSend dataToSend={output} />
+                            <button
+                                onClick={handleCopy}
+                                disabled={!output}
+                                style={{
+                                    color: copied ? 'var(--accent)' : 'var(--primary)',
+                                    fontSize: '0.9rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    cursor: output ? 'pointer' : 'not-allowed',
+                                    opacity: output ? 1 : 0.5,
+                                    background: 'none',
+                                    border: 'none'
+                                }}
+                            >
+                                {copied ? <Check size={14} /> : <Copy size={14} />}
+                                {copied ? 'Copied!' : 'Copy Result'}
+                            </button>
+                        </div>
                     </div>
                     <textarea
                         readOnly
