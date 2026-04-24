@@ -6,9 +6,11 @@ import 'react-image-crop/dist/ReactCrop.css'
 import { Upload, Play, Pause, Scissors, Crop, Download, X, Film, VolumeX, FastForward, Maximize, Settings, Camera, Music, Type } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useEscape } from '../hooks/useEscape'
+import { usePipeline } from '../contexts/PipelineContext'
 
 export default function VideoTools() {
     useDocumentTitle('Video Tools')
+    const { pipelineData, setPipelineData } = usePipeline()
 
     // FFmpeg state
     const [loaded, setLoaded] = useState(false)
@@ -79,6 +81,27 @@ export default function VideoTools() {
     useEffect(() => {
         loadFFmpeg()
     }, [])
+
+    // Handle incoming data from pipeline
+    useEffect(() => {
+        if (pipelineData && pipelineData.type === 'video' && pipelineData.file) {
+            const file = pipelineData.file
+            setVideoFile(file)
+            setVideoURL(URL.createObjectURL(file))
+            // Clear pipeline after consuming to avoid reload on re-renders
+            setPipelineData(null)
+            
+            // Reset editor state
+            setCrop(null)
+            setIsCropping(false)
+            setTrimRange([0, 0])
+            setMuteAudio(false)
+            setPlaybackSpeed(1)
+            setDownscale('original')
+            setFadeTarget('none')
+            setCustomAudioFile(null)
+        }
+    }, [pipelineData, setPipelineData])
 
     // Video Handlers
     const handleFileUpload = (e) => {

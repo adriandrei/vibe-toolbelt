@@ -7,6 +7,7 @@ import {
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useEscape } from '../hooks/useEscape'
+import { useTheme } from '../components/ThemeProvider'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -18,6 +19,7 @@ const AUTH_TYPES = ['None', 'Basic', 'Bearer']
 
 export default function ApiTester() {
     useDocumentTitle('API Tester')
+    const { theme } = useTheme()
 
     // Persistent State
     const [history, setHistory] = useLocalStorage('api-history', [])
@@ -473,13 +475,22 @@ export default function ApiTester() {
                         {response && (
                             <>
                                 {responseTab === 'preview' ? (
-                                    <div style={{ width: '100%', height: '100%', background: '#fff' }}>
+                                    <div style={{ width: '100%', height: '100%', background: theme === 'dark' ? '#1a1a1a' : '#fff', color: theme === 'dark' ? '#e4e4e7' : '#18181b' }}>
                                         {response.headers.find(h => h[0].toLowerCase() === 'content-type' && h[1].includes('image')) ? (
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#0d0d0d' }}>
                                                 <img src={url} alt="Response" style={{ maxWidth: '100%', maxHeight: '100%' }} />
                                             </div>
                                         ) : (
-                                            <iframe srcDoc={response.body} style={{ width: '100%', height: '100%', border: 'none' }} title="Response Preview" sandbox="allow-scripts" />
+                                            <iframe 
+                                                srcDoc={
+                                                    typeof response.body === 'object' 
+                                                        ? `<html><body style="font-family: monospace; padding: 20px; white-space: pre-wrap; word-break: break-all; background: ${theme === 'dark' ? '#1a1a1a' : '#fff'}; color: ${theme === 'dark' ? '#e4e4e7' : '#18181b'};">${JSON.stringify(response.body, null, 2)}</body></html>` 
+                                                        : response.body
+                                                } 
+                                                style={{ width: '100%', height: '100%', border: 'none' }} 
+                                                title="Response Preview" 
+                                                sandbox="allow-scripts" 
+                                            />
                                         )}
                                     </div>
                                 ) : (

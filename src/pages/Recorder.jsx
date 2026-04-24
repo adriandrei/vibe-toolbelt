@@ -1,10 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Video, Mic, StopCircle, PlayCircle, Download, Monitor, Camera, X, PictureInPicture, Image as ImageIcon, Volume2 } from 'lucide-react'
+import { useBlocker, useNavigate } from 'react-router-dom'
+import { Video, Mic, StopCircle, PlayCircle, Download, Monitor, Camera, X, PictureInPicture, Image as ImageIcon, Volume2, AlertCircle, Scissors } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { usePipeline } from '../contexts/PipelineContext'
 import gifshot from 'gifshot'
 
 export default function Recorder() {
     useDocumentTitle('Screen Recorder')
+
+    const { setPipelineData } = usePipeline()
+    const navigate = useNavigate()
 
     // State
     const [isRecording, setIsRecording] = useState(false)
@@ -25,7 +30,20 @@ export default function Recorder() {
     const animationFrameRef = useRef(null)
     const audioContextRef = useRef(null)
 
-    // Setup & Teardown
+    // External Navigation Guard (beforeunload)
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (isRecording) {
+                e.preventDefault()
+                e.returnValue = 'Recording in progress. Are you sure you want to leave?'
+                return e.returnValue
+            }
+        }
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    }, [isRecording])
+
+    // Global Teardown (Unmount only)
     useEffect(() => {
         return () => {
             stopAllStreams()
@@ -33,6 +51,23 @@ export default function Recorder() {
             if (audioContextRef.current) audioContextRef.current.close()
         }
     }, [])
+
+    // Internal Navigation Blocker
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) =>
+            isRecording && currentLocation.pathname !== nextLocation.pathname
+    )
+
+    useEffect(() => {
+        if (blocker.state === 'blocked') {
+            const confirmed = window.confirm('A recording is currently in progress. If you leave, the recording will be lost. Are you sure you want to leave?')
+            if (confirmed) {
+                blocker.proceed()
+            } else {
+                blocker.reset()
+            }
+        }
+    }, [blocker])
 
     const stopAllStreams = () => {
         [screenStreamRef, camStreamRef, micStreamRef].forEach(ref => {
@@ -279,6 +314,15 @@ export default function Recorder() {
         }
     }
 
+    const sendToEditor = () => {
+        if (recordedChunks.length === 0) return
+        const blob = new Blob(recordedChunks, { type: 'video/webm' })
+        // Create a File object from the blob for better compatibility with VideoTools
+        const file = new File([blob], `recording-${new Date().getTime()}.webm`, { type: 'video/webm' })
+        setPipelineData({ file, type: 'video' })
+        navigate('/video')
+    }
+
     const togglePiP = async () => {
         try {
             if (document.pictureInPictureElement) {
@@ -423,6 +467,17 @@ export default function Recorder() {
                             }}
                         >
                             <ImageIcon size={18} /> Export GIF
+                        </button>
+                        <button
+                            onClick={sendToEditor}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 24px', fontSize: '1rem',
+                                background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer', fontWeight: 600,
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                            }}
+                        >
+                            <Scissors size={18} /> Edit in Studio
                         </button>
                     </div>
                 )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { Menu, Search } from 'lucide-react'
 import Sidebar from './Sidebar'
 import SmartPaste from './SmartPaste'
@@ -10,10 +10,10 @@ import { usePipeline } from '../contexts/PipelineContext'
 import { useAI } from '../contexts/AIContext'
 import { ROUTE_MAP } from '../routes'
 import { X } from 'lucide-react'
-import { Suspense } from 'react'
+import { Outlet } from 'react-router-dom'
 
 
-export default function Layout({ children }) {
+export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024)
     const [isSearchOpen, setIsSearchOpen] = useState(false)
     const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024)
@@ -138,7 +138,9 @@ export default function Layout({ children }) {
                     
                     {/* Left Pane: Current Route */}
                     <div style={{ flex: 1, minWidth: 0, padding: showSplitPane ? 'var(--space-md) var(--space-md) var(--space-xl)' : 0, overflowY: showSplitPane ? 'auto' : 'visible' }}>
-                        {children}
+                        <Suspense fallback={<div style={{ padding: '2rem', color: 'var(--text-muted)' }}>Loading...</div>}>
+                            <Outlet />
+                        </Suspense>
                     </div>
 
                     {/* Right Pane: Pinned Tool */}

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 import { HelmetProvider } from 'react-helmet-async'
 import './styles/responsive.css'
@@ -25,6 +25,28 @@ const PageLoader = () => (
   </div>
 )
 
+const router = createBrowserRouter([
+  {
+    element: (
+      <Layout />
+    ),
+    children: [
+      ...Object.entries(ROUTE_MAP).map(([path, Component]) => ({
+        path,
+        element: (
+          <ErrorBoundary>
+            <Component />
+          </ErrorBoundary>
+        ),
+      })),
+      {
+        path: '*',
+        element: <NotFound />,
+      },
+    ],
+  },
+])
+
 function App() {
   return (
     <ThemeProvider>
@@ -32,21 +54,8 @@ function App() {
         <HelmetProvider>
           <PipelineProvider>
             <AIProvider>
-              <BrowserRouter>
-                <Layout>
-                <ErrorBoundary>
-                  <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                      {Object.entries(ROUTE_MAP).map(([path, Component]) => (
-                        <Route key={path} path={path} element={<Component />} />
-                      ))}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </ErrorBoundary>
-                </Layout>
-                <AILoadingModal />
-              </BrowserRouter>
+              <RouterProvider router={router} />
+              <AILoadingModal />
             </AIProvider>
           </PipelineProvider>
         </HelmetProvider>
