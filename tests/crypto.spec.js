@@ -29,7 +29,7 @@ test.describe('JWT Decoder & Verifier', () => {
         // Section should appear after a valid JWT is decoded
         await expect(page.getByText('Verify Signature')).toBeVisible();
         // Algorithm badge should show HS256
-        await expect(page.getByText('HS256')).toBeVisible();
+        await expect(page.getByText('HS256', { exact: true })).toBeVisible();
     });
 
     test('Verifies valid HS256 signature correctly', async ({ page }) => {
@@ -169,22 +169,22 @@ test.describe('Bcrypt Hash Generator & Verifier', () => {
 
     test('Verifies correct password against hash — shows Match', async ({ page }) => {
         // Pre-computed hash for "testpassword" with 4 rounds (fast for CI)
-        // $2a$04$... computed offline
-        const knownHash = '$2a$04$YRer2VIeMEBdoLbqwV4qseoiJ9aaVjGrBKV.0BTHqbE0rMFzXUdwS';
-
+        // $2b$04$... computed offline
+        const knownHash = '$2b$04$734W222w4/c8b8y4aJeuY./h3ja/uZZTwveRNOLeUX5y0nD3gR/Ja';
+ 
         await page.getByPlaceholder('Enter password...').fill('testpassword');
         await page.getByPlaceholder('$2a$10$...').fill(knownHash);
-
+ 
         // Wait for verify (debounced + async)
         await expect(page.getByText('Match! Password is correct.')).toBeVisible({ timeout: 8000 });
     });
-
+ 
     test('Verifies wrong password against hash — shows No match', async ({ page }) => {
-        const knownHash = '$2a$04$YRer2VIeMEBdoLbqwV4qseoiJ9aaVjGrBKV.0BTHqbE0rMFzXUdwS';
-
+        const knownHash = '$2b$04$734W222w4/c8b8y4aJeuY./h3ja/uZZTwveRNOLeUX5y0nD3gR/Ja';
+ 
         await page.getByPlaceholder('Enter password...').fill('wrongpassword');
         await page.getByPlaceholder('$2a$10$...').fill(knownHash);
-
+ 
         await expect(page.getByText('No match.')).toBeVisible({ timeout: 8000 });
     });
 });
@@ -231,7 +231,7 @@ test.describe('OTP / TOTP Generator', () => {
 
     test('QR code SVG is rendered for authenticator app', async ({ page }) => {
         // OTP page uses QRCodeSVG — renders an <svg> element
-        await expect(page.locator('svg')).toBeVisible({ timeout: 5000 });
+        await expect(page.locator('main svg').first()).toBeVisible({ timeout: 5000 });
     });
 
     test('Custom secret produces a token', async ({ page }) => {

@@ -33,11 +33,15 @@ test.describe('Text Tools', () => {
         await page.goto('/formatters');
 
         const uglyJson = '{"foo":"bar"}';
-        await page.locator('textarea').first().fill(uglyJson);
+        await page.waitForSelector('.monaco-editor');
+        await page.evaluate((val) => {
+            window.monaco?.editor?.getModels()?.[0]?.setValue(val);
+        }, uglyJson);
         await page.getByRole('button', { name: 'Process' }).click();
 
-        const output = page.locator('textarea[readonly]');
-        const val = await output.inputValue();
+        const val = await page.evaluate(() => {
+            return window.monaco?.editor?.getModels()?.[1]?.getValue();
+        });
         expect(val).toContain('"foo": "bar"');
         expect(val).toContain('\n'); // Should be multi-line
     });
@@ -63,10 +67,15 @@ test.describe('Text Tools', () => {
         await page.getByRole('button', { name: 'SQL' }).click();
 
         const messySQL = 'select * from users where id=1';
-        await page.locator('textarea').first().fill(messySQL);
+        await page.waitForSelector('.monaco-editor');
+        await page.evaluate((val) => {
+            window.monaco?.editor?.getModels()?.[0]?.setValue(val);
+        }, messySQL);
         await page.getByRole('button', { name: 'Process' }).click();
 
-        const formatted = await page.locator('textarea[readonly]').inputValue();
+        const formatted = await page.evaluate(() => {
+            return window.monaco?.editor?.getModels()?.[1]?.getValue();
+        });
         expect(formatted).toContain('SELECT'); // Should uppercase keywords
         expect(formatted).toContain('\n'); // Should have line breaks
     });
@@ -74,16 +83,19 @@ test.describe('Text Tools', () => {
     test('Formatters switches between modes', async ({ page }) => {
         await page.goto('/formatters');
 
-        // Start with JSON
-        await expect(page.getByPlaceholder(/JSON/i)).toBeVisible();
+        // Start with JSON: JMESPath filter is visible, dialect select is not
+        await expect(page.getByPlaceholder(/JMESPath Filter/i)).toBeVisible();
+        await expect(page.locator('select')).not.toBeVisible();
 
-        // Switch to SQL
+        // Switch to SQL: JMESPath filter is not visible, dialect select is visible
         await page.getByRole('button', { name: 'SQL' }).click();
-        await expect(page.getByPlaceholder(/SQL/i)).toBeVisible();
+        await expect(page.getByPlaceholder(/JMESPath Filter/i)).not.toBeVisible();
+        await expect(page.locator('select')).toBeVisible();
 
-        // Switch back to JSON
-        await page.getByRole('button', { name: 'JSON' }).click();
-        await expect(page.getByPlaceholder(/JSON/i)).toBeVisible();
+        // Switch back to JSON: JMESPath filter is visible, dialect select is not
+        await page.getByRole('button', { name: 'JSON', exact: true }).click();
+        await expect(page.getByPlaceholder(/JMESPath Filter/i)).toBeVisible();
+        await expect(page.locator('select')).not.toBeVisible();
     });
 
     test('Markdown renders code blocks', async ({ page }) => {

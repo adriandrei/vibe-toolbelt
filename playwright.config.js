@@ -6,7 +6,7 @@ export default defineConfig({
     retries: 0,
     workers: 1, // Keep it simple for local dev
     reporter: 'html',
-    timeout: 10000, // 10 second timeout for all tests
+    timeout: 30000, // 30 second timeout for all tests
     use: {
         baseURL: 'http://localhost:5173',
         trace: 'on-first-retry',

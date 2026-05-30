@@ -12,6 +12,23 @@ export default function Diff() {
     const [viewMode, setViewMode] = useState('unified') // 'unified' | 'split'
     const [copied, setCopied] = useState(false)
 
+    // Compute diffs logic moved to DiffViewer
+    // We still calculate lines for stats locally or we could move stats to DiffViewer later
+    const unifiedDiff = useMemo(() => {
+        if (!oldText && !newText) return []
+        return diff.diffLines(oldText, newText)
+    }, [oldText, newText])
+
+    // Stats
+    const stats = useMemo(() => {
+        let added = 0, removed = 0
+        unifiedDiff.forEach(part => {
+            if (part.added) added += part.value.split('\n').length - 1
+            if (part.removed) removed += part.value.split('\n').length - 1
+        })
+        return { added, removed }
+    }, [unifiedDiff])
+
     useRegisterAIContext({
         tool: 'Secure Text Diff',
         getContext: () => ({ 
@@ -25,13 +42,6 @@ export default function Diff() {
             'Explain the impact of this diff on performance',
         ],
     }, [oldText, newText, stats])
-
-    // Compute diffs logic moved to DiffViewer
-    // We still calculate lines for stats locally or we could move stats to DiffViewer later
-    const unifiedDiff = useMemo(() => {
-        if (!oldText && !newText) return []
-        return diff.diffLines(oldText, newText)
-    }, [oldText, newText])
 
     const splitDiff = useMemo(() => {
         if (!oldText && !newText) return { left: [], right: [] }
@@ -72,16 +82,6 @@ export default function Diff() {
 
         return { left, right }
     }, [oldText, newText])
-
-    // Stats
-    const stats = useMemo(() => {
-        let added = 0, removed = 0
-        unifiedDiff.forEach(part => {
-            if (part.added) added += part.value.split('\n').length - 1
-            if (part.removed) removed += part.value.split('\n').length - 1
-        })
-        return { added, removed }
-    }, [unifiedDiff])
 
     const handleCopyPatch = () => {
         const patch = diff.createPatch('file', oldText, newText)

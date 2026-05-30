@@ -18,7 +18,7 @@ test.describe('Generator Tools', () => {
         expect(Array.isArray(json)).toBe(true);
         expect(json.length).toBe(10);
         expect(json[0]).toHaveProperty('id');
-        expect(json[0]).toHaveProperty('name');
+        expect(json[0].user).toHaveProperty('name');
     });
 
     test('Username Generator creates names', async ({ page }) => {
