@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react'
-import { Copy, Check, Replace, BookOpen, X, ChevronRight } from 'lucide-react'
+import { Copy, Check, Replace, BookOpen, X, ChevronRight, Sparkles } from 'lucide-react'
 import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useAI } from '../contexts/AIContext'
 
 // Regex Cheat Sheet Data
 const CHEAT_SHEET = [
@@ -77,21 +78,65 @@ export default function RegexTester() {
     const [replaceWith, setReplaceWith] = useState('[$1]')
     const [showCheatSheet, setShowCheatSheet] = useState(false)
     const [copied, setCopied] = useState(false)
+    
+    const { aiStatus, chat } = useAI()
+    const [showAiPrompt, setShowAiPrompt] = useState(false)
+    const [aiPrompt, setAiPrompt] = useState('')
+    const [isGenerating, setIsGenerating] = useState(false)
 
-    useRegisterAIContext({
-        tool: 'Regex Tester',
-        getContext: () => ({ 
-            input: `Pattern: /${regex}/${flags}\nText: ${text}`, 
-            output: `Matches: ${JSON.stringify(matches.error ? {error: matches.error} : matches.slice(0, 10))}` 
-        }),
-        suggestedPrompts: [
-            'Explain this regex pattern in plain English',
-            'How can I make this pattern more efficient?',
-            'Suggest a regex to match email addresses',
-            'Why is my regex not matching as expected?',
-            'Suggest a replacement pattern to wrap matches in quotes',
-        ],
-    }, [regex, flags, text, matches])
+    const handleAiRegex = async (e) => {
+        e.preventDefault()
+        if (!aiPrompt.trim() || isGenerating) return
+
+        setIsGenerating(true)
+        let accumulated = ''
+
+        const systemPrompt = `You are a regex generator. Given a description of what text needs to be matched, generate a JavaScript regular expression and its flags.
+Return ONLY a raw JSON object string with no markdown framing, no code blocks, and no other text.
+The JSON object must have EXACTLY two string fields:
+- "pattern": the regular expression pattern (do not wrap in slashes, do not double-escape characters unless necessary inside a JSON string value)
+- "flags": any flags needed (e.g. "g", "gi", or "" for none)
+Example JSON output:
+{"pattern": "\\\\d{3}-\\\\d{3}-\\\\d{4}", "flags": "g"}`
+
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: aiPrompt }
+        ]
+
+        try {
+            await chat(messages, {
+                onToken: (token) => {
+                    accumulated += token
+                },
+                onDone: () => {
+                    setIsGenerating(false)
+                    try {
+                        let cleaned = accumulated.trim()
+                        if (cleaned.startsWith('```')) {
+                            cleaned = cleaned.replace(/^```(json)?\n/, '').replace(/\n```$/, '')
+                        }
+                        const result = JSON.parse(cleaned)
+                        if (result.pattern !== undefined) {
+                            setRegex(result.pattern)
+                            setFlags(result.flags || '')
+                            setShowAiPrompt(false)
+                            setAiPrompt('')
+                        }
+                    } catch (err) {
+                        console.error('Failed to parse regex JSON', err, accumulated)
+                        alert('Could not parse the AI response as a valid regex definition. Please try rephrasing your prompt.')
+                    }
+                },
+                onAbort: () => {
+                    setIsGenerating(false)
+                }
+            })
+        } catch (err) {
+            console.error('Regex generation failed', err)
+            setIsGenerating(false)
+        }
+    }
 
     // Parse Regex
     const matches = useMemo(() => {
@@ -139,6 +184,21 @@ export default function RegexTester() {
             return null
         }
     }, [regex, flags, text, replaceWith, mode])
+
+    useRegisterAIContext({
+        tool: 'Regex Tester',
+        getContext: () => ({ 
+            input: `Pattern: /${regex}/${flags}\nText: ${text}`, 
+            output: `Matches: ${JSON.stringify(matches.error ? {error: matches.error} : matches.slice(0, 10))}` 
+        }),
+        suggestedPrompts: [
+            'Explain this regex pattern in plain English',
+            'How can I make this pattern more efficient?',
+            'Suggest a regex to match email addresses',
+            'Why is my regex not matching as expected?',
+            'Suggest a replacement pattern to wrap matches in quotes',
+        ],
+    }, [regex, flags, text, matches])
 
     const toggleFlag = (flag) => {
         setFlags(prev => prev.includes(flag) ? prev.replace(flag, '') : prev + flag)
@@ -250,7 +310,73 @@ export default function RegexTester() {
 
                 {/* Regex Input */}
                 <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-                    <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 8, display: 'block' }}>Regular Expression</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>Regular Expression</label>
+                        <button
+                            onClick={() => {
+                                if (aiStatus !== 'ready') {
+                                    alert('Please load the local AI model first in settings (AI Settings) to generate patterns with AI!')
+                                    return
+                                }
+                                setShowAiPrompt(!showAiPrompt)
+                            }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '4px 10px',
+                                background: showAiPrompt ? 'rgba(168, 85, 247, 0.2)' : 'var(--primary)',
+                                color: '#fff',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.75rem',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <Sparkles size={12} />
+                            {aiStatus === 'ready' ? (showAiPrompt ? 'Close AI Prompt' : 'Generate with AI') : 'Enable AI (Load Model)'}
+                        </button>
+                    </div>
+
+                    {showAiPrompt && (
+                        <form onSubmit={handleAiRegex} style={{ display: 'flex', gap: 8, marginBottom: 12, animation: 'fadeIn 0.2s ease' }}>
+                            <input
+                                type="text"
+                                value={aiPrompt}
+                                onChange={e => setAiPrompt(e.target.value)}
+                                placeholder="Describe what you want to match (e.g. hex colors, IPv4 address)..."
+                                disabled={isGenerating}
+                                style={{
+                                    flex: 1,
+                                    padding: '8px 12px',
+                                    fontSize: '0.9rem',
+                                    borderRadius: 'var(--radius-sm)'
+                                }}
+                            />
+                            <button
+                                type="submit"
+                                disabled={isGenerating || !aiPrompt.trim()}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: isGenerating ? 'var(--border)' : 'var(--primary)',
+                                    color: '#fff',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    border: 'none',
+                                    cursor: isGenerating ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6
+                                }}
+                            >
+                                {isGenerating ? 'Generating...' : 'Generate'}
+                            </button>
+                        </form>
+                    )}
+
                     <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-app)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                         <div style={{ padding: '0 12px', color: 'var(--text-dim)', fontSize: '1.2rem' }}>/</div>
                         <input
@@ -301,7 +427,7 @@ export default function RegexTester() {
                                     padding: '4px 8px',
                                     borderRadius: 4,
                                     border: `1px solid ${flags.includes(f) ? 'var(--primary)' : 'var(--border)'}`,
-                                    background: flags.includes(f) ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent',
+                                    background: flags.includes(f) ? 'var(--primary-glow)' : 'transparent',
                                     color: flags.includes(f) ? 'var(--primary)' : 'var(--text-muted)',
                                     cursor: 'pointer',
                                     fontSize: '0.8rem',

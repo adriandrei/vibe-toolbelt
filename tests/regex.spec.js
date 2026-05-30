@@ -27,4 +27,17 @@ test.describe('Regex Tester', () => {
         // Wait specifically for the text to appear
         await expect(page.locator('body')).toContainText('Match Details (2)', { timeout: 5000 });
     });
+
+    test('User lookbehind regex matches multiple times', async ({ page }) => {
+        const regexInput = page.locator('main input[type="text"]').first();
+        await regexInput.clear();
+        await regexInput.type('(?<!\\S)\\d\\S*(?!\\S)', { delay: 50 });
+
+        const testArea = page.locator('textarea').first();
+        await testArea.clear();
+        await testArea.type('Hello 1onme1 one1 1one 2twho ', { delay: 50 });
+
+        // Wait for matches to update and assert that it finds 3 matches
+        await expect(page.locator('body')).toContainText('Match Details (3)', { timeout: 5000 });
+    });
 });

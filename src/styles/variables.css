@@ -15,8 +15,10 @@
 
   --primary: hsl(var(--hue), 90%, 65%);
   --primary-glow: hsla(var(--hue), 90%, 65%, 0.4);
+  --primary-rgb: 139, 92, 246;
 
   --accent: hsl(280, 90%, 60%);
+  --accent-rgb: 236, 72, 153;
   /* Purple/Pink accent */
 
   --border: hsla(var(--hue), 20%, 80%, 0.1);
@@ -59,6 +61,9 @@
 
   --primary: hsl(var(--hue), 80%, 50%);
   --primary-glow: hsla(var(--hue), 80%, 50%, 0.15);
+  --primary-rgb: 99, 102, 241;
+
+  --accent-rgb: 219, 39, 119;
 
   --border: hsla(var(--hue), 20%, 20%, 0.12);
   --border-hover: hsla(var(--hue), 20%, 20%, 0.25);

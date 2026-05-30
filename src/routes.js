@@ -60,6 +60,7 @@ export const TextStats = lazy(() => import('./pages/TextStats'));
 export const HexViewer = lazy(() => import('./pages/HexViewer'));
 export const PrivacyScanner = lazy(() => import('./pages/PrivacyScanner'));
 export const VideoTools = lazy(() => import('./pages/VideoTools'));
+export const TypeConverter = lazy(() => import('./pages/TypeConverter'));
 export const NotFound = lazy(() => import('./pages/NotFound'));
 
 export const ROUTE_MAP = {
@@ -123,4 +124,5 @@ export const ROUTE_MAP = {
   '/hex': HexViewer,
   '/privacy-scanner': PrivacyScanner,
   '/video': VideoTools,
+  '/type-converter': TypeConverter,
 };

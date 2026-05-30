@@ -50,6 +50,7 @@ export const TOOL_CATEGORIES = [
             { to: '/hex', icon: FileCode, label: 'Hex Viewer' },
             { to: '/formatters', icon: Braces, label: 'Formatters' },
             { to: '/converter', icon: ArrowRightLeft, label: 'JSON <> YAML' },
+            { to: '/type-converter', icon: FileCode, label: 'JSON to Type' },
             { to: '/markdown', icon: FileText, label: 'Markdown' },
             { to: '/cron', icon: Clock, label: 'Cron Parser' },
             { to: '/unix', icon: Clock, label: 'Unix Timestamp' },

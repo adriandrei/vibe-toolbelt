@@ -1,11 +1,52 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { FileText, Eye } from 'lucide-react'
+import { FileText, Eye, Sparkles } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useAI } from '../contexts/AIContext'
 
 export default function Markdown() {
     useDocumentTitle('Markdown Preview')
     const [input, setInput] = useState('# Hello World\n\n- Item 1\n- Item 2\n\n```js\nconsole.log("Code block")\n```')
+    const { aiStatus, chat } = useAI()
+    const [isImproving, setIsImproving] = useState(false)
+
+    const handleAiImprove = async () => {
+        if (aiStatus !== 'ready') {
+            alert('Please load the local AI model first in the settings (AI Settings) page before running in-page AI tasks!')
+            return
+        }
+
+        setIsImproving(true)
+        let accumulated = ''
+        
+        const systemPrompt = `You are a helpful Markdown editor assistant. Improve the user's markdown document below. 
+Fix any spelling or grammar errors, format the lists cleanly, ensure all code blocks are properly fenced and correct, and output ONLY the improved markdown document. 
+Do not include any conversational talk, preamble, introduction, warnings, or explanation outside the markdown block itself. 
+Return ONLY the raw markdown content.`
+
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: input }
+        ]
+
+        try {
+            await chat(messages, {
+                onToken: (token) => {
+                    accumulated += token
+                    setInput(accumulated)
+                },
+                onDone: () => {
+                    setIsImproving(false)
+                },
+                onAbort: () => {
+                    setIsImproving(false)
+                }
+            })
+        } catch (err) {
+            console.error('AI improvement failed', err)
+            setIsImproving(false)
+        }
+    }
 
     return (
         <div style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
@@ -16,9 +57,32 @@ export default function Markdown() {
             <div className="split-pane">
                 {/* Editor */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-md)' }}>
-                    <label style={{ marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <FileText size={16} /> Editor
-                    </label>
+                    <div style={{ marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                            <FileText size={16} /> Editor
+                        </label>
+                        <button
+                            onClick={handleAiImprove}
+                            disabled={isImproving}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '6px 12px',
+                                background: isImproving ? 'var(--border)' : 'var(--primary)',
+                                color: '#fff',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.8rem',
+                                cursor: isImproving ? 'not-allowed' : 'pointer',
+                                fontWeight: 600,
+                                border: 'none',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <Sparkles size={13} style={{ animation: isImproving ? 'spin 1.5s linear infinite' : 'none' }} />
+                            {isImproving ? 'Improving...' : aiStatus === 'ready' ? 'Improve with AI' : 'Enable AI (Load Model)'}
+                        </button>
+                    </div>
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
