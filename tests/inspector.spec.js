@@ -14,9 +14,10 @@ test.describe('Universal Inspector', () => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('{"name": "test", "value": 123}')
 
-        await expect(page.getByText('Detected Format')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Detected format' })).toBeVisible()
         await expect(page.getByText('JSON', { exact: true })).toBeVisible()
-        await expect(page.getByText(/Formatted JSON Preview/i)).toBeVisible()
+        await expect(page.getByRole('button', { name: /Open in Formatters/ })).toBeVisible()
+        await expect(page.getByText(/Formatted JSON preview/i)).toBeVisible()
     })
 
     test('Detects JWT token', async ({ page }) => {
@@ -24,8 +25,8 @@ test.describe('Universal Inspector', () => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill(jwt)
 
-        await expect(page.getByText('JWT Token')).toBeVisible()
-        await expect(page.getByText(/JWT Decoded Preview/i)).toBeVisible()
+        await expect(page.getByText(/JSON Web Token/)).toBeVisible()
+        await expect(page.getByText(/JWT decoded preview/i)).toBeVisible()
         // Check for decoded content
         await expect(page.getByText('"name": "John Doe"')).toBeVisible()
     })
@@ -34,7 +35,8 @@ test.describe('Universal Inspector', () => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('123e4567-e89b-12d3-a456-426614174000')
 
-        await expect(page.locator('.glass-panel').getByText('UUID', { exact: true })).toBeVisible()
+        await expect(page.getByText(/UUID · v1/)).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'UUID details' })).toBeVisible()
     })
 
     test('Detects URL format', async ({ page }) => {
@@ -48,79 +50,80 @@ test.describe('Universal Inspector', () => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('test@example.com')
 
-        await expect(page.getByText('Email Address')).toBeVisible()
+        await expect(page.getByText(/Email address/).first()).toBeVisible()
     })
 
     test('Detects IPv4 address', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('192.168.1.1')
 
-        await expect(page.getByText('IPv4 Address')).toBeVisible()
+        await expect(page.getByText('IPv4 address')).toBeVisible()
     })
 
     test('Detects IPv6 address', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('2001:0db8:85a3:0000:0000:8a2e:0370:7334')
 
-        await expect(page.getByText('IPv6 Address')).toBeVisible()
+        await expect(page.getByText('IPv6 address')).toBeVisible()
     })
 
     test('Detects MAC Address', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('00:1A:2B:3C:4D:5E')
 
-        await expect(page.getByText('MAC Address')).toBeVisible()
+        await expect(page.getByText(/MAC address/)).toBeVisible()
     })
 
     test('Detects Unix Timestamp', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('1609459200') // 2021-01-01
 
-        await expect(page.locator('.glass-panel').filter({ hasText: 'Detected Format' }).getByText('Unix Timestamp', { exact: true })).toBeVisible()
-        await expect(page.getByText(/Timestamp Interpretation/i)).toBeVisible()
+        await expect(page.getByText('Unix timestamp (s)')).toBeVisible()
+        await expect(page.getByText(/Timestamp interpretation/i)).toBeVisible()
     })
 
     test('Detects ISO 8601 Date', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('2021-01-01T00:00:00Z')
 
-        await expect(page.getByText('ISO 8601 Date')).toBeVisible()
+        await expect(page.getByText('ISO 8601 date')).toBeVisible()
     })
 
     test('Detects Semantic Version', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('1.0.0-beta.1')
 
-        await expect(page.getByText('Semantic Version')).toBeVisible()
+        await expect(page.getByText(/Semantic version/)).toBeVisible()
     })
 
     test('Detects Hex Color', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('#ff0000')
 
-        await expect(page.getByText('Hex Color')).toBeVisible()
+        await expect(page.getByText('Colour', { exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: /Open in Color Converter/ })).toBeVisible()
     })
 
     test('Detects Cron Expression', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('*/5 * * * *')
 
-        await expect(page.getByText('Cron Expression')).toBeVisible()
+        await expect(page.getByText('Cron expression')).toBeVisible()
     })
 
     test('Detects CIDR notation', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('192.168.1.0/24')
 
-        await expect(page.getByText('CIDR Notation')).toBeVisible()
+        await expect(page.getByText('IPv4 CIDR block')).toBeVisible()
     })
 
     test('Detects Base64 and decodes it', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('SGVsbG8gV29ybGQ=') // "Hello World"
 
-        await expect(page.getByText('Base64 Encoded')).toBeVisible()
-        await expect(page.getByText(/Base64 Decoded Preview/i)).toBeVisible()
+        await expect(page.getByText('Base64 text')).toBeVisible()
+        await expect(page.getByText(/Base64 decoded preview/i)).toBeVisible()
         await expect(page.getByText('Hello World')).toBeVisible()
     })
 
@@ -130,15 +133,15 @@ test.describe('Universal Inspector', () => {
         const hex = '0123456789abcdef0123456789abcdef01'
         await input.fill(hex)
 
-        await expect(page.getByText('Hexadecimal')).toBeVisible()
+        await expect(page.getByText(/Hexadecimal data/)).toBeVisible()
     })
 
     test('Shows statistics section', async ({ page }) => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('Hello World!')
 
-        await expect(page.locator('h3', { hasText: 'Statistics' })).toBeVisible()
-        const statsCard = page.locator('.glass-panel', { hasText: 'Statistics' })
+        await expect(page.getByRole('heading', { name: 'Statistics' })).toBeVisible()
+        const statsCard = page.locator('.card', { has: page.getByRole('heading', { name: 'Statistics' }) })
         await expect(statsCard.getByText('12', { exact: true }).first()).toBeVisible() // 12 chars (and bytes)
         await expect(statsCard.getByText('2', { exact: true })).toBeVisible() // 2 words
     })
@@ -147,7 +150,7 @@ test.describe('Universal Inspector', () => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('aaaaaaaaaa') // Low entropy input
 
-        await expect(page.getByText('Shannon Entropy')).toBeVisible()
+        await expect(page.getByText('Shannon entropy')).toBeVisible()
         await expect(page.getByText(/Low/i)).toBeVisible()
     })
 
@@ -155,7 +158,7 @@ test.describe('Universal Inspector', () => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('test')
 
-        await expect(page.locator('h3', { hasText: 'Hash Values' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Hash values' })).toBeVisible()
 
         // SHA-256 for 'test'
         const sha256 = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
@@ -166,7 +169,7 @@ test.describe('Universal Inspector', () => {
         const input = page.getByPlaceholder(/paste any text/i)
         await input.fill('hello world')
 
-        await expect(page.locator('h3', { hasText: 'Character Frequency' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Character frequency' })).toBeVisible()
         await expect(page.getByText('l', { exact: true })).toBeVisible()
         await expect(page.getByText('3 (27.3%)')).toBeVisible() // 3 'l's in 11 chars ~ 27.3%
     })

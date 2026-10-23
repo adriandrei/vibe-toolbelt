@@ -10,7 +10,7 @@ test.describe('Security Tools', () => {
         await expect(page.getByPlaceholder('Result will appear here...')).toHaveValue('SGVsbG8gV29ybGQ=');
 
         // Switch to Decode
-        await page.getByRole('button', { name: 'decode' }).click();
+        await page.locator('main').getByRole('button', { name: 'Decode', exact: true }).click();
         await page.getByPlaceholder('Paste Base64 here...').fill('SGVsbG8gV29ybGQ=');
         await expect(page.getByPlaceholder('Result will appear here...')).toHaveValue('Hello World');
     });
@@ -29,14 +29,11 @@ test.describe('Security Tools', () => {
     test('UUID Generator generates UUIDs', async ({ page }) => {
         await page.goto('/uuid');
 
-        // Default generates 5 UUIDs
-        const resultBox = page.locator('textarea[readonly]');
-        await expect(resultBox).not.toBeEmpty();
-
-        const content = await resultBox.inputValue();
-        const lines = content.split('\n');
-        expect(lines.length).toBe(5);
-        expect(lines[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+        // Default: five v4 UUIDs, each with its own copy button
+        await expect(page.getByRole('button', { name: /^Copy UUID \d+$/ })).toHaveCount(5);
+        const text = await page.locator('main').innerText();
+        const uuids = text.match(/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi) || [];
+        expect(uuids.length).toBeGreaterThanOrEqual(5);
     });
 
     test('JWT Decoder decodes token parts', async ({ page }) => {
@@ -57,22 +54,15 @@ test.describe('Security Tools', () => {
         await page.getByPlaceholder('Enter message to hash...').fill('message');
         await page.getByPlaceholder('Secret Key').fill('secret');
 
-        // SHA256 HMAC of 'message' with key 'secret':
-        // 8b5f48702995c1598c573db1e21866a9b825d4a794d169d7065a97f945d8b28d
-        const output = page.getByPlaceholder('HMAC will appear here...');
-        await expect(output).toHaveValue(/8b5f4870/);
+        // HMAC-SHA256 of 'message' with key 'secret'
+        await expect(page.locator('main')).toContainText('8b5f48702995c1598c573db1e21866a9b825d4a794d169d7060a03605796360b');
     });
 
     test('RSA Key Generator creates keys', async ({ page }) => {
         await page.goto('/rsa');
-        // It's 2048 by default. It takes time.
-        // We'll switch to 1024 to be faster if possible, or just click generate.
-        await page.selectOption('select', '1024');
-        await page.getByRole('button', { name: 'Generate New Keys' }).click();
-
-        // Wait for generation
-        const privateKey = page.locator('textarea').nth(1);
-        await expect(privateKey).toContainText('BEGIN RSA PRIVATE KEY', { timeout: 15000 });
+        await page.getByRole('button', { name: /Generate new keys/i }).click();
+        await expect(page.locator('main')).toContainText('BEGIN PUBLIC KEY', { timeout: 15000 });
+        await expect(page.locator('main')).toContainText('BEGIN PRIVATE KEY');
     });
 
     test('Password Auditor evaluates strength', async ({ page }) => {
@@ -81,7 +71,7 @@ test.describe('Security Tools', () => {
 
         // Check for strength label (Weak/Very Weak/Fair/Good/Strong)
         const content = page.locator('body');
-        await expect(content).toContainText(/Weak|Fair|Good|Strong/);
+        await expect(content).toContainText(/weak|fair|good|strong/i);
     });
 
     test('Password shows multiple strength levels', async ({ page }) => {
@@ -89,11 +79,11 @@ test.describe('Security Tools', () => {
 
         // Test very weak
         await page.getByPlaceholder('Type a password...').fill('123');
-        await expect(page.locator('body')).toContainText(/Very Weak|Weak/);
+        await expect(page.locator('body')).toContainText(/very weak|weak/i);
 
         // Test strong
         await page.getByPlaceholder('Type a password...').fill('Tr0ng!P@ssw0rd#2024$');
-        await expect(page.locator('body')).toContainText(/Strong|Good/);
+        await expect(page.locator('body')).toContainText(/strong|good/i);
     });
 
     test('Password toggle shows/hides password', async ({ page }) => {
@@ -105,41 +95,28 @@ test.describe('Security Tools', () => {
         // Should start as password type
         await expect(input).toHaveAttribute('type', 'password');
 
-        // Click show button (Eye icon button)
-        await page.locator('button').last().click();
+        await page.getByRole('button', { name: 'Show password' }).click();
         await expect(input).toHaveAttribute('type', 'text');
     });
 
-    test('RSA generates different key sizes', async ({ page }) => {
+    test('RSA offers only secure key sizes and generates them', async ({ page }) => {
         await page.goto('/rsa');
-
-        // Test 2048-bit
-        await page.selectOption('select', '2048');
-        await page.getByRole('button', { name: 'Generate New Keys' }).click();
-
-        const publicKey = await page.locator('textarea').first().inputValue();
-        // Key format varies, just check it exists and has content
-        expect(publicKey.length).toBeGreaterThan(200);
-        expect(publicKey).toContain('BEGIN');
+        await expect(page.getByRole('button', { name: '2048-bit' })).toBeVisible();
+        await expect(page.getByRole('button', { name: '1024-bit' })).toHaveCount(0);
+        await page.getByRole('button', { name: '3072-bit' }).click();
+        await page.getByRole('button', { name: /Generate new keys/i }).click();
+        await expect(page.locator('main')).toContainText('BEGIN PUBLIC KEY', { timeout: 30000 });
+        await expect(page.locator('main')).toContainText('3072');
     });
 
     test('RSA regenerates different keys', async ({ page }) => {
         await page.goto('/rsa');
-
-        await page.selectOption('select', '1024');
-        await page.getByRole('button', { name: 'Generate New Keys' }).click();
-
-        const firstKey = await page.locator('textarea').first().inputValue();
-        expect(firstKey.length).toBeGreaterThan(100);
-
-        // Regenerate
-        await page.getByRole('button', { name: 'Generate New Keys' }).click();
-        const secondKey = await page.locator('textarea').first().inputValue();
-
-        // Keys should both exist and be valid
-        expect(secondKey.length).toBeGreaterThan(100);
-        expect(firstKey).toContain('BEGIN');
-        expect(secondKey).toContain('BEGIN');
+        const generate = page.getByRole('button', { name: /Generate new keys/i });
+        await generate.click();
+        await expect(page.locator('main')).toContainText('BEGIN PUBLIC KEY', { timeout: 15000 });
+        const pem = () => page.locator('main').innerText().then(t => t.match(/-----BEGIN PUBLIC KEY-----[\s\S]+?-----END PUBLIC KEY-----/)?.[0]);
+        const first = await pem();
+        await generate.click();
+        await expect.poll(pem, { timeout: 15000 }).not.toBe(first);
     });
-
 });

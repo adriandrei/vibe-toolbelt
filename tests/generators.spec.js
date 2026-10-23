@@ -45,8 +45,9 @@ test.describe('Generator Tools', () => {
         // Just verify the tool works with different counts
         await page.getByRole('button', { name: 'Generate New Names' }).click();
 
-        // Should have results visible
-        await expect(page.locator('.glass-panel').first()).toBeVisible();
+        await expect(page.getByRole('button', { name: /^Copy (?!all)/ })).toHaveCount(5);
+        await page.getByLabel('How many', { exact: true }).fill('8');
+        await expect(page.getByRole('button', { name: /^Copy (?!all)/ })).toHaveCount(8);
     });
 
     test('Converter transforms JSON to YAML', async ({ page }) => {
@@ -57,17 +58,11 @@ test.describe('Generator Tools', () => {
         // Input area
         await page.getByPlaceholder('Paste JSON here...').fill(jsonInput);
 
-        // Output should automatically update (useEffect)
-        const output = page.locator('textarea[readonly]');
-
-        // Expect YAML
-        // key: value
-        // list:
-        //   - 1
-        //   - 2
-        await expect(output).toHaveValue(/key: value/);
-        await expect(output).toHaveValue(/list:/);
-        await expect(output).toHaveValue(/- 1/);
+        // Output updates live
+        const output = page.locator('main pre').first();
+        await expect(output).toContainText('key: value');
+        await expect(output).toContainText('list:');
+        await expect(output).toContainText('- 1');
     });
 
     test('Faker supports CSV format', async ({ page }) => {
@@ -116,11 +111,9 @@ test.describe('Generator Tools', () => {
         const yamlInput = 'key: value\nlist:\n  - 1\n  - 2';
         await page.getByPlaceholder(/Paste YAML/i).fill(yamlInput);
 
-        const output = await page.locator('textarea[readonly]').inputValue();
-        // Output should be JSON format
-        expect(output).toContain('key');
-        expect(output).toContain('value');
-        expect(output).toContain('list');
+        const output = page.locator('main pre').first();
+        await expect(output).toContainText('"key": "value"');
+        await expect(output).toContainText('"list"');
     });
 
     test('Converter handles invalid JSON', async ({ page }) => {

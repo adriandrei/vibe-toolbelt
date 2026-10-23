@@ -1,46 +1,56 @@
-import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { usePane } from '../contexts/pane'
 
 /**
- * useSmartInput
- * Automatically pre-fills component state from React Router location state.
- * 
- * @param {Object} stateSetters - An object mapping state keys to their respective React setState functions.
- *                 Example: { input: setInput, mode: setMode }
- *                 It will look for `location.state.input` and `location.state.mode`.
+ * useSmartInput — prefills a page from "smart" navigation state
+ * (see utils/smartNav.js).
+ *
+ *   useSmartInput({ input: setInput, mode: setMode }, { onInject })
+ *
+ * - Each key in `setters` is looked up in the navigation state; non-empty
+ *   values are passed to the setter (strings are trimmed).
+ * - `onInject(values)` runs after injection, e.g. to switch a mode or run the
+ *   conversion straight away.
+ * - Only the main pane consumes the state; a tool pinned in the split view
+ *   never takes input meant for the page beside it.
+ * - The state is cleared afterwards (search and hash are kept), so a refresh
+ *   doesn't re-apply it.
  */
-export function useSmartInput(stateSetters) {
-    const location = useLocation();
-    const navigate = useNavigate();
+export function useSmartInput(setters, { onInject } = {}) {
+    const location = useLocation()
+    const navigate = useNavigate()
+    const { kind } = usePane()
+    const settersRef = useRef(setters)
+    const onInjectRef = useRef(onInject)
 
     useEffect(() => {
-        if (location.state) {
-            let hasInjected = false;
+        settersRef.current = setters
+        onInjectRef.current = onInject
+    })
 
-            // Loop through the provided state setters
-            Object.keys(stateSetters).forEach(key => {
-                if (location.state[key] !== undefined && location.state[key] !== null) {
-                    // Update the state using the provided setter
-                    stateSetters[key](location.state[key]);
-                    hasInjected = true;
-                }
-            });
+    useEffect(() => {
+        if (kind !== 'main') return
+        const state = location.state
+        if (!state || state.smart !== true) return
 
-            // Once we have consumed the smart input state, we replace the history state
-            // to clear it out, so refreshing the page doesn't keep replacing the user's new input with the old one
-            if (hasInjected) {
-                // Keep other state params, but remove the ones we just injected
-                const nextState = { ...location.state };
-                Object.keys(stateSetters).forEach(key => {
-                    delete nextState[key];
-                });
-
-                // Replace the history so state is cleared
-                navigate(location.pathname, {
-                    replace: true,
-                    state: Object.keys(nextState).length > 0 ? nextState : undefined
-                });
+        const injected = {}
+        for (const key of Object.keys(settersRef.current || {})) {
+            let value = state[key]
+            if (value === undefined || value === null) continue
+            if (typeof value === 'string') {
+                value = value.trim()
+                if (!value) continue
             }
+            settersRef.current[key](value)
+            injected[key] = value
         }
-    }, [location.state, location.pathname, navigate, stateSetters]);
+
+        // Clear the consumed state, keeping the rest of the URL
+        navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null })
+
+        if (Object.keys(injected).length > 0) onInjectRef.current?.(injected)
+        // Run once per navigation entry
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.key, kind])
 }

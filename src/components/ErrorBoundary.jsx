@@ -1,134 +1,93 @@
 import React from 'react'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { AlertTriangle, Home, RefreshCw } from 'lucide-react'
 
+/**
+ * Catches render errors in one tool so the rest of the app keeps working.
+ * Give it a `resetKey` (e.g. the route path): when the key changes, the error
+ * is cleared, so a crash never follows you to the next page.
+ */
 export default class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props)
-        this.state = { hasError: false, error: null }
+        this.state = { hasError: false, error: null, resetKey: props.resetKey }
     }
 
     static getDerivedStateFromError(error) {
         return { hasError: true, error }
     }
 
+    static getDerivedStateFromProps(props, state) {
+        if (props.resetKey !== state.resetKey) {
+            return { hasError: false, error: null, resetKey: props.resetKey }
+        }
+        return null
+    }
+
     componentDidCatch(error, errorInfo) {
-        console.error('[ErrorBoundary]', error, errorInfo)
+        // Kept in production builds on purpose (console.error is not stripped)
+        console.error('[ErrorBoundary]', error, errorInfo?.componentStack)
     }
 
     handleRetry = () => {
         this.setState({ hasError: false, error: null })
     }
 
-    handleGoHome = () => {
-        this.setState({ hasError: false, error: null })
-        window.location.href = '/'
-    }
-
     render() {
-        if (this.state.hasError) {
-            return (
-                <div style={{
+        if (!this.state.hasError) return this.props.children
+
+        const { compact, onGoHome } = this.props
+        return (
+            <div
+                role="alert"
+                style={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    minHeight: '60vh',
+                    minHeight: compact ? 'auto' : '50vh',
                     textAlign: 'center',
-                    padding: 'var(--space-xl)'
+                    padding: compact ? 'var(--space-lg)' : 'var(--space-xl)',
+                    gap: 'var(--space-md)',
+                }}
+            >
+                <div style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'var(--danger-bg)',
+                    color: 'var(--danger)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                 }}>
-                    <div style={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: '50%',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: 'var(--space-lg)'
-                    }}>
-                        <AlertTriangle size={32} color="#ef4444" />
-                    </div>
-
-                    <h2 style={{
-                        fontSize: '1.5rem',
-                        fontWeight: 600,
-                        color: 'var(--text-main)',
-                        marginBottom: 'var(--space-sm)'
-                    }}>
-                        Something went wrong
-                    </h2>
-
-                    <p style={{
-                        color: 'var(--text-muted)',
-                        maxWidth: '400px',
-                        marginBottom: 'var(--space-md)',
-                        lineHeight: 1.6
-                    }}>
-                        This tool encountered an unexpected error. Your data is safe — nothing was sent anywhere.
-                    </p>
-
-                    {this.state.error && (
-                        <pre style={{
-                            padding: 'var(--space-md)',
-                            background: 'rgba(239, 68, 68, 0.08)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                            borderRadius: 'var(--radius-md)',
-                            color: '#f87171',
-                            fontSize: '0.8rem',
-                            fontFamily: 'var(--font-mono)',
-                            maxWidth: '500px',
-                            overflow: 'auto',
-                            marginBottom: 'var(--space-lg)',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            textAlign: 'left'
-                        }}>
-                            {this.state.error.message}
-                        </pre>
-                    )}
-
-                    <div style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap', justifyContent: 'center' }}>
-                        <button
-                            onClick={this.handleRetry}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                padding: '12px 24px',
-                                background: 'var(--primary)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: 'var(--radius-md)',
-                                cursor: 'pointer',
-                                fontWeight: 600,
-                                boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
-                            }}
-                        >
-                            <RefreshCw size={18} /> Try Again
-                        </button>
-
-                        <button
-                            onClick={this.handleGoHome}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                padding: '12px 24px',
-                                background: 'transparent',
-                                color: 'var(--text-main)',
-                                border: '1px solid var(--border)',
-                                borderRadius: 'var(--radius-md)',
-                                cursor: 'pointer',
-                                fontWeight: 500
-                            }}
-                        >
-                            <Home size={18} /> Go Home
-                        </button>
-                    </div>
+                    <AlertTriangle size={28} aria-hidden="true" />
                 </div>
-            )
-        }
 
-        return this.props.children
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    Something went wrong
+                </h2>
+
+                <p style={{ color: 'var(--text-muted)', maxWidth: 420, lineHeight: 1.6 }}>
+                    This tool hit an unexpected error. Your data is safe: nothing was sent anywhere.
+                </p>
+
+                {this.state.error && (
+                    <pre className="code-well" style={{ maxWidth: 520, width: '100%', color: 'var(--danger)', textAlign: 'left', margin: 0 }}>
+                        {this.state.error.message || String(this.state.error)}
+                    </pre>
+                )}
+
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button type="button" className="btn btn-primary" onClick={this.handleRetry}>
+                        <RefreshCw size={16} aria-hidden="true" /> Try again
+                    </button>
+                    {onGoHome !== false && (
+                        <a className="btn btn-secondary" href="/" onClick={onGoHome}>
+                            <Home size={16} aria-hidden="true" /> Go home
+                        </a>
+                    )}
+                </div>
+            </div>
+        )
     }
 }

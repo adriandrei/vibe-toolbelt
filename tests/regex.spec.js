@@ -6,7 +6,7 @@ test.describe('Regex Tester', () => {
     });
 
     test('Loads correctly', async ({ page }) => {
-        await expect(page.locator('h2')).toHaveText('Regex Tester');
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText('Regex Tester');
     });
 
     test('Matches pattern correctly', async ({ page }) => {

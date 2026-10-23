@@ -1,28 +1,83 @@
-:root {
-  /* Dynamic Hue for easy theming */
-  --hue: 250;
-  /* Deep Purple/Indigo vibe */
+/*
+  Design tokens.
 
-  /* Colors - Dark Mode Default */
+  Dark is the default theme; [data-theme="light"] overrides it. The theme and
+  --hue are set on <html> before first paint by the inline script in index.html
+  and kept in sync by ThemeProvider.
+
+  ThemeProvider also computes these per hue at runtime (CSS values below are
+  fallbacks): --on-primary, --primary-text, --primary-rgb, --accent-rgb.
+
+  Usage rules:
+  - Fills, borders, focus rings: --primary. Text and icons in the accent
+    colour: --primary-text. Text on a --primary fill: --on-primary.
+  - Status colours: --success / --warning / --danger / --info for text and
+    icons, and the matching *-bg token for tinted backgrounds.
+  - Surfaces: --bg-app (page), --bg-panel (cards), --bg-input (fields),
+    --bg-inset (code/output wells), --bg-subtle (chips, stripes),
+    --bg-hover (hover/active fills), --bg-elevated (menus, modals).
+*/
+
+:root {
+  color-scheme: dark;
+
+  --hue: 250;
+
+  /* Surfaces */
   --bg-app: hsl(var(--hue), 20%, 8%);
   --bg-panel: hsl(var(--hue), 25%, 12%);
   --bg-secondary: hsla(var(--hue), 25%, 12%, 0.95);
   --bg-card: hsla(var(--hue), 25%, 15%, 0.6);
+  --bg-input: hsl(var(--hue), 22%, 7.5%);
+  --bg-inset: hsl(var(--hue), 22%, 6.5%);
+  --bg-subtle: hsla(var(--hue), 30%, 92%, 0.04);
+  --bg-hover: hsla(var(--hue), 30%, 92%, 0.08);
+  --bg-elevated: hsl(var(--hue), 24%, 14%);
+  --bg-header: hsla(var(--hue), 22%, 8%, 0.72);
+  --stage: hsl(var(--hue), 18%, 5%);
+  --on-stage: hsl(var(--hue), 10%, 92%);
+  --overlay: rgba(4, 3, 10, 0.62);
 
+  /* Text */
   --text-main: hsl(var(--hue), 10%, 95%);
   --text-muted: hsl(var(--hue), 10%, 80%);
   --text-dim: hsl(var(--hue), 10%, 65%);
+  --text-secondary: var(--text-muted);
+  --text-code: hsl(var(--hue), 30%, 88%);
 
+  /* Brand */
   --primary: hsl(var(--hue), 90%, 65%);
-  --primary-glow: hsla(var(--hue), 90%, 65%, 0.4);
-  --primary-rgb: 139, 92, 246;
+  --primary-hover: hsl(var(--hue), 90%, 70%);
+  --primary-text: hsl(var(--hue), 95%, 78%);
+  --primary-glow: hsla(var(--hue), 90%, 65%, 0.18);
+  --primary-light: var(--primary-glow);
+  --primary-border: hsla(var(--hue), 90%, 65%, 0.45);
+  --primary-shadow: 0 6px 20px hsla(var(--hue), 90%, 55%, 0.28);
+  --on-primary: #ffffff;
+  --primary-rgb: 128, 102, 245;
 
-  --accent: hsl(280, 90%, 60%);
-  --accent-rgb: 236, 72, 153;
-  /* Purple/Pink accent */
+  --accent: hsl(calc(var(--hue) + 30), 90%, 62%);
+  --accent-text: hsl(calc(var(--hue) + 30), 95%, 78%);
+  --accent-rgb: 177, 89, 242;
 
+  /* Status */
+  --success: hsl(152, 60%, 52%);
+  --success-bg: hsla(152, 60%, 52%, 0.12);
+  --success-border: hsla(152, 60%, 52%, 0.35);
+  --warning: hsl(38, 92%, 58%);
+  --warning-bg: hsla(38, 92%, 58%, 0.12);
+  --warning-border: hsla(38, 92%, 58%, 0.35);
+  --danger: hsl(0, 84%, 68%);
+  --danger-bg: hsla(0, 84%, 64%, 0.12);
+  --danger-border: hsla(0, 84%, 64%, 0.35);
+  --info: hsl(210, 90%, 68%);
+  --info-bg: hsla(210, 90%, 64%, 0.12);
+  --info-border: hsla(210, 90%, 64%, 0.35);
+
+  /* Lines */
   --border: hsla(var(--hue), 20%, 80%, 0.1);
   --border-hover: hsla(var(--hue), 20%, 80%, 0.2);
+  --border-strong: hsla(var(--hue), 20%, 80%, 0.3);
 
   /* Glassmorphism */
   --glass-bg: hsla(var(--hue), 25%, 12%, 0.5);
@@ -30,7 +85,13 @@
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
   --backdrop-blur: 12px;
 
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
+
   /* Spacing */
+  --space-xxs: 0.125rem;
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
@@ -43,32 +104,73 @@
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Layout */
+  --sidebar-width: 280px;
+  --header-height: 60px;
 
   /* Font */
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-family: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
+
   --bg-app: hsl(var(--hue), 15%, 96%);
   --bg-panel: hsl(var(--hue), 12%, 100%);
   --bg-secondary: hsla(var(--hue), 12%, 100%, 0.95);
   --bg-card: hsla(var(--hue), 15%, 100%, 0.8);
+  --bg-input: hsl(var(--hue), 20%, 98.5%);
+  --bg-inset: hsl(var(--hue), 18%, 95.5%);
+  --bg-subtle: hsla(var(--hue), 30%, 20%, 0.04);
+  --bg-hover: hsla(var(--hue), 30%, 20%, 0.07);
+  --bg-elevated: hsl(var(--hue), 12%, 100%);
+  --bg-header: hsla(var(--hue), 15%, 98%, 0.78);
+  --stage: hsl(var(--hue), 14%, 90%);
+  --on-stage: hsl(var(--hue), 30%, 15%);
+  --overlay: rgba(20, 16, 40, 0.35);
 
   --text-main: hsl(var(--hue), 30%, 12%);
-  --text-muted: hsl(var(--hue), 15%, 40%);
-  --text-dim: hsl(var(--hue), 10%, 55%);
+  --text-muted: hsl(var(--hue), 15%, 36%);
+  --text-dim: hsl(var(--hue), 10%, 45%);
+  --text-code: hsl(var(--hue), 35%, 22%);
 
   --primary: hsl(var(--hue), 80%, 50%);
-  --primary-glow: hsla(var(--hue), 80%, 50%, 0.15);
-  --primary-rgb: 99, 102, 241;
+  --primary-hover: hsl(var(--hue), 80%, 45%);
+  --primary-text: hsl(var(--hue), 75%, 36%);
+  --primary-glow: hsla(var(--hue), 80%, 50%, 0.12);
+  --primary-border: hsla(var(--hue), 80%, 50%, 0.4);
+  --primary-shadow: 0 6px 18px hsla(var(--hue), 80%, 45%, 0.22);
+  --primary-rgb: 76, 26, 230;
 
-  --accent-rgb: 219, 39, 119;
+  --accent: hsl(calc(var(--hue) + 30), 75%, 52%);
+  --accent-text: hsl(calc(var(--hue) + 30), 70%, 38%);
+  --accent-rgb: 165, 33, 222;
+
+  --success: hsl(155, 80%, 26%);
+  --success-bg: hsla(155, 70%, 40%, 0.1);
+  --success-border: hsla(155, 70%, 32%, 0.35);
+  --warning: hsl(30, 95%, 32%);
+  --warning-bg: hsla(38, 95%, 50%, 0.12);
+  --warning-border: hsla(32, 95%, 40%, 0.35);
+  --danger: hsl(0, 72%, 42%);
+  --danger-bg: hsla(0, 80%, 55%, 0.08);
+  --danger-border: hsla(0, 72%, 45%, 0.3);
+  --info: hsl(212, 85%, 38%);
+  --info-bg: hsla(212, 85%, 50%, 0.08);
+  --info-border: hsla(212, 85%, 40%, 0.3);
 
   --border: hsla(var(--hue), 20%, 20%, 0.12);
   --border-hover: hsla(var(--hue), 20%, 20%, 0.25);
+  --border-strong: hsla(var(--hue), 20%, 20%, 0.35);
 
   --glass-bg: hsla(var(--hue), 15%, 100%, 0.7);
   --glass-border: hsla(var(--hue), 20%, 20%, 0.08);
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+
+  --shadow-sm: 0 1px 2px rgba(20, 16, 40, 0.08);
+  --shadow-md: 0 8px 24px rgba(20, 16, 40, 0.1);
+  --shadow-lg: 0 24px 60px rgba(20, 16, 40, 0.18);
 }

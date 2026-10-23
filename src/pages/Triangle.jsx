@@ -1,140 +1,177 @@
-import React, { useState } from 'react'
-import { Copy } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowDown, ArrowDownLeft, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUp, ArrowUpLeft, ArrowUpRight } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import SliderField from '../components/ui/SliderField'
+import ColorField from '../components/ui/ColorField'
+import CodeBlock from '../components/ui/CodeBlock'
+import SegmentedControl from '../components/ui/SegmentedControl'
+import { PipelineSend } from '../components/PipelineFeature'
+
+// 3×3 picker; the middle cell is empty
+const DIRECTIONS = [
+    { value: 'top-left', label: 'Top left', icon: ArrowUpLeft },
+    { value: 'top', label: 'Up', icon: ArrowUp },
+    { value: 'top-right', label: 'Top right', icon: ArrowUpRight },
+    { value: 'left', label: 'Left', icon: ArrowLeft },
+    null,
+    { value: 'right', label: 'Right', icon: ArrowRight },
+    { value: 'bottom-left', label: 'Bottom left', icon: ArrowDownLeft },
+    { value: 'bottom', label: 'Down', icon: ArrowDown },
+    { value: 'bottom-right', label: 'Bottom right', icon: ArrowDownRight },
+]
+
+const TECHNIQUES = [
+    { value: 'border', label: 'Borders' },
+    { value: 'clip-path', label: 'clip-path' },
+]
+
+// clip-path polygons for each direction (the shape fills a width × height box)
+const POLYGONS = {
+    top: '50% 0, 100% 100%, 0 100%',
+    bottom: '0 0, 100% 0, 50% 100%',
+    left: '0 50%, 100% 0, 100% 100%',
+    right: '0 0, 100% 50%, 0 100%',
+    'top-left': '0 0, 100% 0, 0 100%',
+    'top-right': '0 0, 100% 0, 100% 100%',
+    'bottom-left': '0 0, 100% 100%, 0 100%',
+    'bottom-right': '100% 0, 100% 100%, 0 100%',
+}
+
+const MAX_PREVIEW_HEIGHT = 360
+const px = (n) => `${Math.round(n * 100) / 100}px`
+
+/**
+ * CSS declarations for a triangle that is exactly `w` × `h` pixels.
+ * Border technique: a zero-size box whose coloured border is the triangle
+ * and whose transparent neighbouring borders cut it diagonally.
+ */
+function triangleDeclarations({ direction, w, h, color, technique }) {
+    if (technique === 'clip-path') {
+        return [
+            ['width', px(w)],
+            ['height', px(h)],
+            ['background', color],
+            ['clip-path', `polygon(${POLYGONS[direction]})`],
+        ]
+    }
+    const solid = (n) => `${px(n)} solid ${color}`
+    const clear = (n) => `${px(n)} solid transparent`
+    const sides = {
+        top: [['border-left', clear(w / 2)], ['border-right', clear(w / 2)], ['border-bottom', solid(h)]],
+        bottom: [['border-left', clear(w / 2)], ['border-right', clear(w / 2)], ['border-top', solid(h)]],
+        left: [['border-top', clear(h / 2)], ['border-bottom', clear(h / 2)], ['border-right', solid(w)]],
+        right: [['border-top', clear(h / 2)], ['border-bottom', clear(h / 2)], ['border-left', solid(w)]],
+        'top-left': [['border-top', solid(h)], ['border-right', clear(w)]],
+        'top-right': [['border-top', solid(h)], ['border-left', clear(w)]],
+        'bottom-left': [['border-bottom', solid(h)], ['border-right', clear(w)]],
+        'bottom-right': [['border-bottom', solid(h)], ['border-left', clear(w)]],
+    }
+    return [['width', '0'], ['height', '0'], ...sides[direction]]
+}
+
+const camel = (prop) => prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
 
 export default function Triangle() {
-    useDocumentTitle('Triangle Generator')
     const [direction, setDirection] = useState('top')
+    const [width, setWidth] = useState(120)
+    const [height, setHeight] = useState(104)
     const [color, setColor] = useState('#10b981')
-    const [width, setWidth] = useState(100)
+    const [technique, setTechnique] = useState('border')
 
-    // Logic for CSS triangle border trick
-    // Top: border-left/right transp, border-bottom color
-    const getStyles = () => {
-        const solid = `${width}px solid ${color}`
-        const transp = `${width}px solid transparent`
+    // Scale the preview down so a big triangle never overflows the stage
+    const stageRef = useRef(null)
+    const [stageWidth, setStageWidth] = useState(0)
+    useEffect(() => {
+        const el = stageRef.current
+        if (!el || typeof ResizeObserver === 'undefined') return undefined
+        const observer = new ResizeObserver(([entry]) => setStageWidth(entry.contentRect.width))
+        observer.observe(el)
+        return () => observer.disconnect()
+    }, [])
+    const scale = stageWidth > 0 ? Math.min(1, stageWidth / width, MAX_PREVIEW_HEIGHT / height) : 1
 
-        const base = {
-            width: 0,
-            height: 0,
-            borderLeft: transp,
-            borderRight: transp,
-            borderBottom: solid
-        }
-
-        switch (direction) {
-            case 'top': return { ...base, borderTop: 'none', borderBottom: solid, borderLeft: transp, borderRight: transp };
-            case 'bottom': return { ...base, borderBottom: 'none', borderTop: solid, borderLeft: transp, borderRight: transp };
-            case 'left': return { ...base, borderLeft: 'none', borderRight: solid, borderTop: transp, borderBottom: transp };
-            case 'right': return { ...base, borderRight: 'none', borderLeft: solid, borderTop: transp, borderBottom: transp };
-            default: return base;
-        }
-    }
-
-    const styleObj = getStyles()
-
-    const cssOutput = `width: 0;
-height: 0;
-border-style: solid;
-border-width: ${direction === 'top' || direction === 'bottom' ? `0 ${width}px ${width}px ${width}px` : `${width}px ${direction === 'left' ? width + 'px' : '0'} ${width}px ${direction === 'right' ? width + 'px' : '0'}`};
-border-color: ${direction === 'top' ? `transparent transparent ${color} transparent` :
-            direction === 'bottom' ? `${color} transparent transparent transparent` :
-                direction === 'left' ? `transparent ${color} transparent transparent` :
-                    `transparent transparent transparent ${color}`
-        };`
-    // Note: The specific shorthand border-width/color above is approximate, usually it's cleaner to list explicitly.
-    // Let's generate cleaner CSS for the user.
-
-    const generateCleanCss = () => {
-        let borders = ''
-        const w = width + 'px'
-        if (direction === 'top') {
-            borders = `border-left: ${w} solid transparent;
-border-right: ${w} solid transparent;
-border-bottom: ${w} solid ${color};`
-        } else if (direction === 'bottom') {
-            borders = `border-left: ${w} solid transparent;
-border-right: ${w} solid transparent;
-border-top: ${w} solid ${color};`
-        } else if (direction === 'left') {
-            borders = `border-top: ${w} solid transparent;
-border-bottom: ${w} solid transparent;
-border-right: ${w} solid ${color};`
-        } else { // right
-            borders = `border-top: ${w} solid transparent;
-border-bottom: ${w} solid transparent;
-border-left: ${w} solid ${color};`
-        }
-
-        return `width: 0;
-height: 0;
-${borders}`
-    }
+    const declarations = triangleDeclarations({ direction, w: width, h: height, color, technique })
+    const css = declarations.map(([prop, value]) => `${prop}: ${value};`).join('\n')
+    const shapeStyle = Object.fromEntries(declarations.map(([prop, value]) => [camel(prop), value]))
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
-                <h2 className="text-gradient">Triangle Generator</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Pure CSS triangles generator.</p>
-            </div>
+        <div className="page page-wide">
+            <ToolHeader />
 
             <div className="split-pane">
-                <div className="glass-panel" style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Direction</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            {['top', 'bottom', 'left', 'right'].map(d => (
-                                <button
-                                    key={d}
-                                    onClick={() => setDirection(d)}
-                                    style={{
-                                        padding: 8,
-                                        borderRadius: 6,
-                                        border: `1px solid ${direction === d ? 'var(--primary)' : 'var(--border)'}`,
-                                        background: direction === d ? 'var(--primary-glow)' : 'transparent',
-                                        color: direction === d ? 'var(--primary)' : 'var(--text-muted)',
-                                        cursor: 'pointer',
-                                        textTransform: 'capitalize'
-                                    }}
-                                >
-                                    {d}
-                                </button>
-                            ))}
+                        <span className="field-label">Direction</span>
+                        <div role="group" aria-label="Direction" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 2.75rem)', gap: 6 }}>
+                            {DIRECTIONS.map((d, i) => {
+                                if (!d) return <span key={i} aria-hidden="true" />
+                                const active = direction === d.value
+                                const Icon = d.icon
+                                return (
+                                    <button
+                                        key={d.value}
+                                        type="button"
+                                        className={`chip ${active ? 'is-active' : ''}`}
+                                        aria-pressed={active}
+                                        aria-label={d.label}
+                                        title={d.label}
+                                        onClick={() => setDirection(d.value)}
+                                        style={{ width: '2.75rem', height: '2.75rem', padding: 0, justifyContent: 'center', borderRadius: 'var(--radius-sm)' }}
+                                    >
+                                        <Icon size={18} aria-hidden="true" />
+                                    </button>
+                                )
+                            })}
                         </div>
                     </div>
 
+                    <SliderField label="Width (px)" value={width} onChange={setWidth} min={2} max={600} unit="px" showInput />
                     <div>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Color</label>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ width: 40, height: 40, border: 'none', background: 'none' }} />
-                            <input type="text" value={color} onChange={e => setColor(e.target.value)} style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }} />
-                        </div>
+                        <SliderField label="Height (px)" value={height} onChange={setHeight} min={2} max={600} unit="px" showInput />
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ marginTop: 'var(--space-xs)' }}
+                            onClick={() => setHeight(Math.max(2, Math.round(width * Math.sqrt(3) / 2)))}
+                            title="Set the height to width × √3 / 2"
+                        >
+                            Make equilateral
+                        </button>
                     </div>
-
+                    <ColorField label="Colour" value={color} onChange={setColor} />
                     <div>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>Size ({width}px)</label>
-                        <input type="range" min="10" max="300" value={width} onChange={e => setWidth(Number(e.target.value))} style={{ width: '100%' }} />
-                    </div>
-
-                    <div style={{ marginTop: 'auto' }}>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>CSS</label>
-                        <div style={{ position: 'relative' }}>
-                            <pre style={{ display: 'block', padding: 12, background: 'rgba(0,0,0,0.3)', borderRadius: 6, fontSize: '0.8rem', overflow: 'auto' }}>
-                                {generateCleanCss()}
-                            </pre>
-                            <button
-                                onClick={() => navigator.clipboard.writeText(generateCleanCss())}
-                                style={{ position: 'absolute', right: 8, top: 8, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                            >
-                                <Copy size={16} />
-                            </button>
+                        <span className="field-label">Technique</span>
+                        <SegmentedControl ariaLabel="CSS technique" value={technique} onChange={setTechnique} options={TECHNIQUES} size="sm" />
+                        <div className="field-hint">
+                            {technique === 'border'
+                                ? 'Classic border trick: works everywhere, but the triangle can only be a solid colour.'
+                                : 'A clipped box: can use gradients or images as its background.'}
                         </div>
                     </div>
                 </div>
 
-                {/* Preview */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border)', minHeight: '300px' }}>
-                    <div style={styleObj} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', minWidth: 0 }}>
+                    <div className="card card-compact" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                        <div
+                            ref={stageRef}
+                            className="stage"
+                            style={{ minHeight: 300, padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <div style={{ width: width * scale, height: height * scale, flexShrink: 0 }}>
+                                <div
+                                    role="img"
+                                    aria-label={`Triangle pointing ${DIRECTIONS.find(d => d?.value === direction)?.label.toLowerCase()}, ${width} by ${height} pixels`}
+                                    style={{ ...shapeStyle, transform: scale < 1 ? `scale(${scale})` : undefined, transformOrigin: '0 0' }}
+                                />
+                            </div>
+                        </div>
+                        <div className="field-hint" style={{ margin: 0, textAlign: 'center' }}>
+                            {width} × {height} px{scale < 1 ? ` · shown at ${Math.round(scale * 100)}% to fit` : ''}
+                        </div>
+                    </div>
+                    <div className="card card-compact">
+                        <CodeBlock code={css} language="css" title="CSS" copyLabel="Copy CSS" actions={<PipelineSend dataToSend={css} />} />
+                    </div>
                 </div>
             </div>
         </div>

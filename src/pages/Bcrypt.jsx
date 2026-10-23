@@ -1,197 +1,331 @@
-import React, { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import bcrypt from 'bcryptjs'
-import { Shield, Check, X, RefreshCw, Copy, Eye, EyeOff } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { ArrowDownToLine, Eye, EyeOff, Loader2, ShieldCheck, ShieldQuestion } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import CopyButton from '../components/ui/CopyButton'
+import Field from '../components/ui/Field'
+import SliderField from '../components/ui/SliderField'
+import StatusBanner from '../components/ui/StatusBanner'
+import { PipelineSend } from '../components/PipelineFeature'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
+import { useWorkerClient } from '../utils/workerClient'
+import { utf8Length } from '../utils/encoding'
+
+const MIN_COST = 4
+const MAX_COST = 15
+const DEFAULT_MS_AT_10 = 80 // rough bcryptjs speed before we've measured this device
+const AUTO_CHECK_LIMIT_MS = 3000 // slower checks need a click
+const HASH_RE = /^\$2([aby])\$(\d{2})\$([./A-Za-z0-9]{22})([./A-Za-z0-9]{31})$/
+
+const Spinner = (props) => <Loader2 {...props} className="spin" />
+
+function formatMs(ms) {
+    if (ms < 1000) return `${Math.max(1, Math.round(ms))} ms`
+    if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`
+    return `${Math.round(ms / 60_000)} min`
+}
+
+function estimateMs(msAt10, cost) {
+    return msAt10 * 2 ** (cost - 10)
+}
+
+// Explains why a string isn't a bcrypt hash; null when it looks valid.
+function validateHash(value) {
+    if (HASH_RE.test(value)) {
+        const cost = bcrypt.getRounds(value)
+        if (cost < 4 || cost > 31) return `Cost ${cost} is out of range (bcrypt allows 4–31).`
+        return null
+    }
+    if (!value.startsWith('$2')) return 'A bcrypt hash starts with $2a$, $2b$ or $2y$.'
+    if (/^\$2x\$/.test(value)) return '$2x$ hashes (an old, buggy PHP variant) aren’t supported.'
+    if (!/^\$2[aby]\$/.test(value)) return `Unknown bcrypt version “${value.slice(0, 4)}”. Expected $2a$, $2b$ or $2y$.`
+    if (!/^\$2[aby]\$\d{2}\$/.test(value)) return 'The cost must be two digits, e.g. $2b$10$.'
+    if (value.length !== 60) return `A bcrypt hash has 60 characters; this one has ${value.length}.`
+    return 'The salt and hash may only use the characters ./A–Z a–z 0–9.'
+}
+
+function RevealButton({ shown, onToggle, label }) {
+    return (
+        <button
+            type="button"
+            className="icon-btn"
+            aria-label={shown ? `Hide ${label}` : `Show ${label}`}
+            aria-pressed={shown}
+            title={shown ? `Hide ${label}` : `Show ${label}`}
+            onClick={onToggle}
+        >
+            {shown ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+        </button>
+    )
+}
+
+function TruncationWarning({ password }) {
+    if (!bcrypt.truncates(password)) return null
+    return (
+        <StatusBanner tone="warning" title="Only the first 72 bytes count">
+            This password is {utf8Length(password)} bytes in UTF-8. bcrypt ignores everything after byte 72, so any password with the same first 72 bytes matches too.
+        </StatusBanner>
+    )
+}
 
 export default function Bcrypt() {
-    useDocumentTitle('Bcrypt Hash Generator & Verifier')
+    // Hashing
+    const [password, setPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
+    const [cost, setCost] = useState(10)
+    const [hashResult, setHashResult] = useState(null) // { id, hash, ms } | { id, error }
+    const [hashProgress, setHashProgress] = useState(null) // { id, value }
+    const [msAt10, setMsAt10] = useState(DEFAULT_MS_AT_10)
+    const hashClient = useWorkerClient(() => new Worker(new URL('../workers/bcrypt.worker.js', import.meta.url), { type: 'module' }))
 
-    // Hash State
-    const [input, setInput] = useState('')
-    const [rounds, setRounds] = useState(10)
-    const [hash, setHash] = useState('')
-    const [isHashing, setIsHashing] = useState(false)
-    const [copied, setCopied] = useState(false)
+    // Checking
+    const [checkPassword, setCheckPassword] = useState('')
+    const [showCheckPassword, setShowCheckPassword] = useState(false)
+    const [checkHash, setCheckHash] = useState('')
+    const [checkResult, setCheckResult] = useState(null) // { id, match, ms } | { id, error }
+    const [checkProgress, setCheckProgress] = useState(null)
+    const [confirmedSlowId, setConfirmedSlowId] = useState(null)
+    const checkClient = useWorkerClient(() => new Worker(new URL('../workers/bcrypt.worker.js', import.meta.url), { type: 'module' }))
 
-    // Verify State
-    const [verifyText, setVerifyText] = useState('')
-    const [verifyHash, setVerifyHash] = useState('')
-    const [match, setMatch] = useState(null) // null | true | false
-    const [isVerifying, setIsVerifying] = useState(false)
-
-    // Generated hash effect
+    // ---- hashing: debounced, and a newer input cancels the running job ----
+    const hashId = `${cost}\u0000${password}`
     useEffect(() => {
-        const generate = async () => {
-            if (!input) { setHash(''); return }
-            setIsHashing(true)
-            // Small delay to allow UI to render pending state
-            setTimeout(() => {
-                try {
-                    const h = bcrypt.hashSync(input, rounds)
-                    setHash(h)
-                } catch (e) {
-                    setHash('Error generating hash')
-                }
-                setIsHashing(false)
-            }, 100)
+        if (!password) return undefined
+        let cancelled = false
+        const timer = setTimeout(() => {
+            hashClient
+                .request('hash', { password, cost }, {
+                    onProgress: (value) => {
+                        if (!cancelled) setHashProgress({ id: hashId, value })
+                    },
+                })
+                .then((res) => {
+                    if (cancelled) return
+                    setHashResult({ id: hashId, ...res })
+                    if (cost >= 8) setMsAt10(res.ms / 2 ** (cost - 10))
+                })
+                .catch((error) => {
+                    if (!cancelled && !error.cancelled) setHashResult({ id: hashId, error: error.message })
+                })
+        }, 400)
+        return () => {
+            cancelled = true
+            clearTimeout(timer)
+            hashClient.cancel()
         }
-        const timer = setTimeout(generate, 500) // Debounce
-        return () => clearTimeout(timer)
-    }, [input, rounds])
+    }, [password, cost, hashId, hashClient])
 
-    // Verification effect
+    const hashCurrent = hashResult?.id === hashId ? hashResult : null
+    const hashing = !!password && !hashCurrent
+    const hashProgressValue = hashProgress?.id === hashId ? hashProgress.value : 0
+    const generated = hashCurrent?.hash || ''
+    const parts = generated ? generated.match(HASH_RE) : null
+
+    // ---- checking ----
+    const trimmedHash = checkHash.trim()
+    const hashError = trimmedHash ? validateHash(trimmedHash) : null
+    const checkCost = trimmedHash && !hashError ? bcrypt.getRounds(trimmedHash) : null
+    const checkEstimate = checkCost ? estimateMs(msAt10, checkCost) : 0
+    const checkId = `${checkPassword}\u0000${trimmedHash}`
+    const canCheck = !!checkPassword && !!trimmedHash && !hashError
+    const needsConfirm = canCheck && checkEstimate > AUTO_CHECK_LIMIT_MS && confirmedSlowId !== checkId
+
     useEffect(() => {
-        if (!verifyText || !verifyHash) { setMatch(null); return }
-        setIsVerifying(true)
-        setTimeout(() => {
-            try {
-                // bcrypt.compareSync is blocking but fast enough for single checks usually
-                const isMatch = bcrypt.compareSync(verifyText, verifyHash)
-                setMatch(isMatch)
-            } catch (e) {
-                setMatch(false)
-            }
-            setIsVerifying(false)
-        }, 100)
-    }, [verifyText, verifyHash])
+        if (!canCheck || needsConfirm) return undefined
+        let cancelled = false
+        const timer = setTimeout(() => {
+            checkClient
+                .request('compare', { password: checkPassword, hash: trimmedHash }, {
+                    onProgress: (value) => {
+                        if (!cancelled) setCheckProgress({ id: checkId, value })
+                    },
+                })
+                .then((res) => {
+                    if (!cancelled) setCheckResult({ id: checkId, ...res })
+                })
+                .catch((error) => {
+                    if (!cancelled && !error.cancelled) setCheckResult({ id: checkId, error: error.message })
+                })
+        }, 400)
+        return () => {
+            cancelled = true
+            clearTimeout(timer)
+            checkClient.cancel()
+        }
+    }, [canCheck, needsConfirm, checkPassword, trimmedHash, checkId, checkClient])
 
-    const copy = () => {
-        navigator.clipboard.writeText(hash)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-    }
+    const checkCurrent = checkResult?.id === checkId ? checkResult : null
+    const checking = canCheck && !needsConfirm && !checkCurrent
+    const checkProgressValue = checkProgress?.id === checkId ? checkProgress.value : 0
+
+    const estimate = estimateMs(msAt10, cost)
+    const costHint = useMemo(() => {
+        const level = cost < 10 ? 'Below the usual minimum of 10: fine for tests, too fast for real passwords.' : cost <= 12 ? 'A common choice for web apps.' : 'Strong, but slow for logins on busy servers.'
+        return `${level} About ${formatMs(estimate)} per hash on this device.`
+    }, [cost, estimate])
+
+    useRegisterAIContext({
+        tool: 'Bcrypt',
+        getContext: () => ({
+            input: `Cost factor: ${cost}`,
+            output: generated ? `Generated hash: ${generated}` : '',
+        }),
+        suggestedPrompts: [
+            'Which cost factor should I use?',
+            'Why does the same password give a different hash each time?',
+            'What is the 72-byte limit in bcrypt?',
+            'Should I use bcrypt or Argon2?',
+        ],
+    })
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-                <h2 className="text-gradient" style={{ fontSize: '2rem' }}>Bcrypt Generator & Verifier</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: 'var(--space-sm)' }}>
-                    Secure password hashing using bcrypt
-                </p>
-            </div>
+        <div className="page page-medium">
+            <ToolHeader />
 
-            <div style={{ display: 'grid', gap: 'var(--space-lg)' }}>
-                {/* Generator Section */}
-                <div className="glass-panel" style={{ padding: 'var(--space-lg)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)', color: 'var(--primary)' }}>
-                        <RefreshCw size={20} />
-                        <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Generate Hash</h3>
+            <div className="split-pane" style={{ alignItems: 'start' }}>
+                <section className="card" style={{ display: 'grid', gap: 'var(--space-md)' }}>
+                    <div role="heading" aria-level={2} className="section-title">
+                        <ShieldCheck size={18} aria-hidden="true" style={{ color: 'var(--primary-text)' }} /> Hash a password
                     </div>
 
-                    <div style={{ display: 'grid', gap: 'var(--space-md)' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>Password</label>
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={e => setInput(e.target.value)}
-                                placeholder="Enter password to hash..."
-                                style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', fontSize: '1rem' }}
-                            />
-                        </div>
+                    <Field
+                        label="Password"
+                        labelAction={<RevealButton shown={showPassword} onToggle={() => setShowPassword(v => !v)} label="password" />}
+                    >
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Enter password to hash..."
+                            autoComplete="off"
+                            spellCheck={false}
+                            data-1p-ignore
+                            data-lpignore="true"
+                        />
+                    </Field>
 
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-                                <label style={{ color: 'var(--text-muted)' }}>Salt Rounds</label>
-                                <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{rounds}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="4"
-                                max="16" // Cap at 16 for browser performance
-                                value={rounds}
-                                onChange={e => setRounds(Number(e.target.value))}
-                                style={{ width: '100%', accentColor: 'var(--primary)' }}
-                            />
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: 4 }}>
-                                Higher rounds = slower hashing (more secure). Browser limit ~12-14.
+                    <SliderField
+                        label="Cost factor"
+                        value={cost}
+                        onChange={setCost}
+                        min={MIN_COST}
+                        max={MAX_COST}
+                        format={(v) => `${v} · 2^${v} = ${(2 ** v).toLocaleString()} rounds`}
+                        hint={costHint}
+                    />
+
+                    <TruncationWarning password={password} />
+
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', marginBottom: 'var(--space-xs)' }}>
+                            <span className="field-label" style={{ marginBottom: 0 }}>bcrypt hash</span>
+                            <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                                <PipelineSend dataToSend={generated} disabled={hashing} label="Send" />
+                                <CopyButton text={generated} label="Copy hash" disabled={!generated || hashing} />
                             </div>
                         </div>
-
-                        <div style={{ position: 'relative' }}>
-                            <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>Bcrypt Hash</label>
-                            <div style={{
-                                padding: '16px', borderRadius: 'var(--radius-md)',
-                                background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)',
-                                minHeight: '60px', display: 'flex', alignItems: 'center'
-                            }}>
-                                {isHashing ? (
-                                    <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>Hashing...</span>
-                                ) : (
-                                    <span style={{ color: hash ? 'var(--text-main)' : 'var(--text-dim)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all', fontSize: '0.9rem' }}>
-                                        {hash || 'Result will appear here...'}
-                                    </span>
-                                )}
-                            </div>
-                            {hash && (
-                                <button onClick={copy} style={{
-                                    position: 'absolute', right: 10, top: 38,
-                                    padding: '6px 12px', borderRadius: 'var(--radius-sm)',
-                                    background: copied ? 'var(--accent)' : 'var(--primary)', color: '#fff',
-                                    display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 500
-                                }}>
-                                    {copied ? <Check size={14} /> : <Copy size={14} />}
-                                    {copied ? 'Copied' : 'Copy'}
-                                </button>
+                        <div className="code-well" style={{ minHeight: '3.2rem', wordBreak: 'break-all', opacity: hashing && generated ? 0.55 : 1 }} aria-live="polite" aria-busy={hashing}>
+                            {!password ? (
+                                <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-family)' }}>Type a password to hash it.</span>
+                            ) : hashCurrent?.error ? (
+                                <span style={{ color: 'var(--danger)', fontFamily: 'var(--font-family)' }}>{hashCurrent.error}</span>
+                            ) : generated ? (
+                                <span>{generated}</span>
+                            ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-dim)', fontFamily: 'var(--font-family)' }}>
+                                    <Spinner size={14} aria-hidden="true" /> Hashing… {hashProgressValue > 0 && `${Math.round(hashProgressValue * 100)}%`}
+                                </span>
                             )}
                         </div>
-                    </div>
-                </div>
-
-                {/* Verify Section */}
-                <div className="glass-panel" style={{ padding: 'var(--space-lg)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)', color: 'var(--accent)' }}>
-                        <Shield size={20} />
-                        <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Check Password</h3>
-                    </div>
-
-                    <div style={{ display: 'grid', gap: 'var(--space-md)' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>Password to check</label>
-                            <input
-                                type="text"
-                                value={verifyText}
-                                onChange={e => setVerifyText(e.target.value)}
-                                placeholder="Enter password..."
-                                style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)' }}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>Hash to check against</label>
-                            <input
-                                type="text"
-                                value={verifyHash}
-                                onChange={e => setVerifyHash(e.target.value.trim())}
-                                placeholder="$2a$10$..."
-                                style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}
-                            />
-                        </div>
-
-                        {verifyText && verifyHash && (
-                            <div style={{
-                                padding: '16px', borderRadius: 'var(--radius-md)',
-                                background: match === true ? 'rgba(34,197,94,0.1)' : match === false ? 'rgba(239,68,68,0.1)' : 'transparent',
-                                border: match === true ? '1px solid #22c55e' : match === false ? '1px solid #ef4444' : 'none',
-                                display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center'
-                            }}>
-                                {isVerifying ? (
-                                    <span style={{ color: 'var(--text-muted)' }}>Verifying...</span>
-                                ) : match === true ? (
-                                    <>
-                                        <div style={{ background: '#22c55e', borderRadius: '50%', padding: 4, display: 'flex' }}><Check size={16} color="#fff" /></div>
-                                        <span style={{ color: '#22c55e', fontWeight: 600 }}>Match! Password is correct.</span>
-                                    </>
-                                ) : match === false ? (
-                                    <>
-                                        <div style={{ background: '#ef4444', borderRadius: '50%', padding: 4, display: 'flex' }}><X size={16} color="#fff" /></div>
-                                        <span style={{ color: '#ef4444', fontWeight: 600 }}>No match.</span>
-                                    </>
-                                ) : null}
+                        {hashing && <progress max={1} value={hashProgressValue} aria-label="Hashing progress" style={{ width: '100%', marginTop: 'var(--space-xs)' }} />}
+                        {parts && !hashing && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', marginTop: 'var(--space-xs)', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                                <span className="badge">version 2{parts[1]}</span>
+                                <span className="badge">cost {Number(parts[2])}</span>
+                                <span className="badge" title={parts[3]}>22-char salt</span>
+                                <span className="badge" title={parts[4]}>31-char hash</span>
+                                <span>· made in {formatMs(hashCurrent.ms)}</span>
                             </div>
                         )}
+                        {parts && !hashing && (
+                            <div className="field-hint">A new random salt is used each time, so the same password gives a different hash. All of them verify.</div>
+                        )}
                     </div>
-                </div>
+                </section>
+
+                <section className="card" style={{ display: 'grid', gap: 'var(--space-md)' }}>
+                    <div role="heading" aria-level={2} className="section-title">
+                        <ShieldQuestion size={18} aria-hidden="true" style={{ color: 'var(--primary-text)' }} /> Check a password
+                    </div>
+
+                    <Field
+                        label="Password to check"
+                        labelAction={<RevealButton shown={showCheckPassword} onToggle={() => setShowCheckPassword(v => !v)} label="password to check" />}
+                    >
+                        <input
+                            type={showCheckPassword ? 'text' : 'password'}
+                            value={checkPassword}
+                            onChange={(e) => setCheckPassword(e.target.value)}
+                            placeholder="Enter password..."
+                            autoComplete="off"
+                            spellCheck={false}
+                            data-1p-ignore
+                            data-lpignore="true"
+                        />
+                    </Field>
+
+                    <Field
+                        label="bcrypt hash"
+                        labelAction={generated && !hashing ? (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCheckHash(generated)}>
+                                <ArrowDownToLine size={14} aria-hidden="true" /> Use generated hash
+                            </button>
+                        ) : null}
+                        error={hashError ? `Invalid hash: ${hashError}` : null}
+                        hint={checkCost ? `Cost ${checkCost}: about ${formatMs(checkEstimate)} to check on this device.` : 'A 60-character hash such as $2b$10$…'}
+                    >
+                        <input
+                            type="text"
+                            value={checkHash}
+                            onChange={(e) => setCheckHash(e.target.value)}
+                            placeholder="$2a$10$..."
+                            autoComplete="off"
+                            spellCheck={false}
+                            className="mono"
+                        />
+                    </Field>
+
+                    <TruncationWarning password={checkPassword} />
+
+                    <div aria-live="polite">
+                        {needsConfirm ? (
+                            <StatusBanner
+                                tone="info"
+                                title={`This hash uses cost ${checkCost}`}
+                                action={<button type="button" className="btn btn-sm btn-primary" onClick={() => setConfirmedSlowId(checkId)}>Check (≈ {formatMs(checkEstimate)})</button>}
+                            >
+                                Checking it keeps a background thread busy for about {formatMs(checkEstimate)}.
+                            </StatusBanner>
+                        ) : checking ? (
+                            <div style={{ display: 'grid', gap: 'var(--space-xs)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    <Spinner size={14} aria-hidden="true" /> Checking… {checkProgressValue > 0 && `${Math.round(checkProgressValue * 100)}%`}
+                                </div>
+                                <progress max={1} value={checkProgressValue} aria-label="Checking progress" style={{ width: '100%' }} />
+                            </div>
+                        ) : checkCurrent?.error ? (
+                            <StatusBanner tone="danger" title="Couldn’t check the password">{checkCurrent.error}</StatusBanner>
+                        ) : checkCurrent ? (
+                            checkCurrent.match ? (
+                                <StatusBanner tone="success" title="Match">The password is correct for this hash (checked in {formatMs(checkCurrent.ms)}).</StatusBanner>
+                            ) : (
+                                <StatusBanner tone="danger" title="No match">This password doesn’t produce this hash.</StatusBanner>
+                            )
+                        ) : !hashError && (
+                            <div className="field-hint" style={{ marginTop: 0 }}>Enter a password and a hash to check them.</div>
+                        )}
+                    </div>
+                </section>
             </div>
         </div>
     )

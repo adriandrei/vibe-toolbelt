@@ -1,324 +1,183 @@
-import React, { useState, useMemo } from 'react'
-import { Copy, Check, FileCode, ArrowRightLeft, Braces, Sparkles } from 'lucide-react'
+import { useId, useMemo, useState } from 'react'
+import { Braces, Download, FileCode, Sparkles, Trash2 } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import SegmentedControl from '../components/ui/SegmentedControl'
+import CodeBlock from '../components/ui/CodeBlock'
+import CopyButton from '../components/ui/CopyButton'
+import StatusBanner from '../components/ui/StatusBanner'
+import EmptyState from '../components/ui/EmptyState'
+import Field from '../components/ui/Field'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useSmartInput } from '../hooks/useSmartInput'
 import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { generateTypes, normalizeRootName, parseJsonSample } from '../utils/typegen'
+import { downloadText } from '../utils/download'
 
-// Recursive Type Generation Engine
-function jsonToTypeScript(val, name = 'RootObject') {
-    const subInterfaces = []
-    
-    function capitalize(str) {
-        return str.charAt(0).toUpperCase() + str.slice(1)
-    }
+const TARGETS = [
+    { value: 'typescript', label: 'TypeScript', prism: 'typescript', copy: 'Copy TypeScript', file: 'types.ts', mime: 'text/plain' },
+    { value: 'go', label: 'Go', prism: 'go', copy: 'Copy Go', file: 'types.go', mime: 'text/plain' },
+    { value: 'schema', label: 'JSON Schema', prism: 'json', copy: 'Copy schema', file: 'schema.json', mime: 'application/json' },
+]
 
-    function buildInterface(obj, interfaceName) {
-        if (obj === null || typeof obj !== 'object') return
-        
-        let str = `export interface ${interfaceName} {\n`
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                const value = obj[key]
-                const type = typeof value
-                
-                if (value === null) {
-                    str += `    ${key}: any;\n`
-                } else if (Array.isArray(value)) {
-                    if (value.length === 0) {
-                        str += `    ${key}: any[];\n`
-                    } else {
-                        const firstElem = value[0]
-                        const firstType = typeof firstElem
-                        if (firstElem === null) {
-                            str += `    ${key}: any[];\n`
-                        } else if (firstType === 'object') {
-                            const childName = capitalize(key) + 'Item'
-                            str += `    ${key}: ${childName}[];\n`
-                            buildInterface(firstElem, childName)
-                        } else {
-                            str += `    ${key}: ${firstType}[];\n`
-                        }
-                    }
-                } else if (type === 'object') {
-                    const childName = capitalize(key)
-                    str += `    ${key}: ${childName};\n`
-                    buildInterface(value, childName)
-                } else {
-                    str += `    ${key}: ${type};\n`
-                }
-            }
-        }
-        str += `}`
-        subInterfaces.push(str)
-    }
+const SAMPLE = `[
+  {
+    "id": 101,
+    "name": "Vibe Workstation",
+    "price": 1299.0,
+    "active": true,
+    "tags": ["frontend", "offline"],
+    "owner": { "name": "Jane", "role": "Lead Developer" },
+    "discontinuedAt": null
+  },
+  {
+    "id": 102,
+    "name": "Travel Kit",
+    "price": 89.5,
+    "active": false,
+    "tags": [],
+    "owner": { "name": "Sam", "role": "Designer", "email": "sam@example.com" },
+    "discontinuedAt": "2024-02-01"
+  }
+]`
 
-    buildInterface(val, name)
-    return subInterfaces.reverse().join('\n\n')
-}
-
-function jsonToGo(val, name = 'RootObject') {
-    const subStructs = []
-    
-    function capitalize(str) {
-        return str.replace(/(^\w|_\w|-\w)/g, (match) => match.replace(/[-_]/g, '').toUpperCase())
-    }
-
-    function buildStruct(obj, structName) {
-        if (obj === null || typeof obj !== 'object') return
-        
-        let str = `type ${structName} struct {\n`
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                const value = obj[key]
-                const type = typeof value
-                const goName = capitalize(key)
-                
-                if (value === null) {
-                    str += `    ${goName} interface{} \`json:"${key}"\`\n`
-                } else if (Array.isArray(value)) {
-                    if (value.length === 0) {
-                        str += `    ${goName} []interface{} \`json:"${key}"\`\n`
-                    } else {
-                        const firstElem = value[0]
-                        const firstType = typeof firstElem
-                        if (firstElem === null) {
-                            str += `    ${goName} []interface{} \`json:"${key}"\`\n`
-                        } else if (firstType === 'object') {
-                            const childName = capitalize(key) + 'Item'
-                            str += `    ${goName} []${childName} \`json:"${key}"\`\n`
-                            buildStruct(firstElem, childName)
-                        } else {
-                            let goType = firstType === 'number' ? 'float64' : firstType
-                            str += `    ${goName} []${goType} \`json:"${key}"\`\n`
-                        }
-                    }
-                } else if (type === 'object') {
-                    const childName = capitalize(key)
-                    str += `    ${goName} ${childName} \`json:"${key}"\`\n`
-                    buildStruct(value, childName)
-                } else {
-                    let goType = type === 'number' ? 'float64' : type === 'boolean' ? 'bool' : type
-                    str += `    ${goName} ${goType} \`json:"${key}"\`\n`
-                }
-            }
-        }
-        str += `}`
-        subStructs.push(str)
-    }
-
-    buildStruct(val, name)
-    return subStructs.reverse().join('\n\n')
-}
-
-function jsonToJsonSchema(val) {
-    function buildSchema(obj) {
-        if (obj === null) return { type: "null" }
-        
-        const type = typeof obj
-        if (Array.isArray(obj)) {
-            if (obj.length === 0) {
-                return { type: "array", items: {} }
-            }
-            return { type: "array", items: buildSchema(obj[0]) }
-        } else if (type === 'object') {
-            const properties = {}
-            const required = []
-            for (const key in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                    properties[key] = buildSchema(obj[key])
-                    required.push(key)
-                }
-            }
-            return {
-                type: "object",
-                properties,
-                required
-            }
-        } else {
-            let schemaType = type === 'number' ? 'number' : type === 'boolean' ? 'boolean' : 'string'
-            return { type: schemaType }
-        }
-    }
-    
-    const schema = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "GeneratedSchema",
-        ...buildSchema(val)
-    }
-    return JSON.stringify(schema, null, 2)
+function describeJsonError(text, error) {
+    const message = String(error?.message || error)
+    if (/line \d+ column \d+/.test(message)) return message
+    const pos = message.match(/at position (\d+)/)
+    if (!pos) return message
+    const before = text.slice(0, Number(pos[1]))
+    const line = before.split('\n').length
+    return `${message} (line ${line}, column ${Number(pos[1]) - before.lastIndexOf('\n')})`
 }
 
 export default function TypeConverter() {
-    useDocumentTitle('Type Converter')
-    const [jsonInput, setJsonInput] = useState('{\n  "id": 101,\n  "name": "Vibe Workstation",\n  "active": true,\n  "tags": ["frontend", "offline"],\n  "owner": {\n    "name": "Jane",\n    "role": "Lead Developer"\n  }\n}')
-    const [targetType, setTargetType] = useState('typescript') // 'typescript' | 'go' | 'schema'
-    const [copied, setCopied] = useState(false)
+    const inputId = useId()
+    const rootId = useId()
+    const [input, setInput] = useState(SAMPLE)
+    const [target, setTarget] = useState('typescript')
+    const [rootName, setRootName] = useState('Root')
 
-    // Parsing & validation
-    const parsedData = useMemo(() => {
-        if (!jsonInput.trim()) return { error: 'Please enter JSON code' }
+    const debounced = useDebouncedValue(input, input.length > 100_000 ? 500 : 150)
+    const parsed = useMemo(() => {
+        if (!debounced.trim()) return { empty: true }
         try {
-            const data = JSON.parse(jsonInput.trim())
-            return { data }
-        } catch (err) {
-            return { error: 'Invalid JSON: ' + err.message }
+            return { value: parseJsonSample(debounced) }
+        } catch (e) {
+            return { error: describeJsonError(debounced, e) }
         }
-    }, [jsonInput])
+    }, [debounced])
 
-    // Target structural output
-    const conversionResult = useMemo(() => {
-        if (parsedData.error) return ''
-        const val = parsedData.data
+    const typeName = normalizeRootName(rootName)
+    const output = useMemo(
+        () => ('value' in parsed ? generateTypes(parsed.value, { target, rootName: typeName }) : ''),
+        [parsed, target, typeName]
+    )
+    const targetInfo = TARGETS.find(t => t.value === target) ?? TARGETS[0]
+    const status = input.trim() === '' ? 'empty' : parsed.error ? 'invalid' : 'valid'
 
-        if (targetType === 'typescript') {
-            return jsonToTypeScript(val)
-        } else if (targetType === 'go') {
-            return jsonToGo(val)
-        } else if (targetType === 'schema') {
-            return jsonToJsonSchema(val)
-        }
-        return ''
-    }, [parsedData, targetType])
+    useSmartInput({ input: (value) => typeof value === 'string' && setInput(value) })
 
-    // AI context hook registration
     useRegisterAIContext({
-        tool: 'JSON to Type Converter',
-        getContext: () => ({
-            input: jsonInput,
-            output: conversionResult
-        }),
+        tool: 'JSON to Types',
+        getContext: () => ({ input, output }),
         suggestedPrompts: [
-            'Make this TypeScript definition support optional fields',
-            'Convert these structs into Go and add XML tags too',
-            'Explain the JSON schema constraints shown here',
-            'Add custom regex patterns to the JSON Schema fields'
-        ]
-    }, [jsonInput, conversionResult])
-
-    const handleCopy = () => {
-        if (!conversionResult) return
-        navigator.clipboard.writeText(conversionResult)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-    }
+            'Which fields should really be optional?',
+            'Add JSDoc comments to these types',
+            'Write a validation function for this type',
+            'Explain the JSON Schema constraints shown here',
+        ],
+    })
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-                <h2 className="text-gradient" style={{ fontSize: '2rem' }}>JSON to Type Converter</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Paste raw JSON and convert it client-side into TypeScript, Go Structs, or JSON Schema.</p>
-            </div>
+        <div className="page page-wide page-type-converter">
+            <ToolHeader />
+
+            <section className="card card-compact" aria-label="Output options" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-sm) var(--space-lg)' }}>
+                <div>
+                    <div className="field-label">Generate</div>
+                    <SegmentedControl ariaLabel="Output language" options={TARGETS} value={target} onChange={setTarget} />
+                </div>
+                <Field
+                    label="Root type name"
+                    hint={typeName !== rootName.trim() ? `Used as ${typeName}` : null}
+                    style={{ minWidth: 180, flex: '0 1 240px' }}
+                >
+                    <input
+                        id={rootId}
+                        type="text"
+                        value={rootName}
+                        onChange={e => setRootName(e.target.value)}
+                        placeholder="Root"
+                        spellCheck={false}
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        style={{ padding: '0.5rem 0.75rem', fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}
+                    />
+                </Field>
+            </section>
 
             <div className="split-pane">
-                {/* JSON Input Area */}
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Braces size={16} /> Raw JSON Input
-                        </span>
-                        {parsedData.error ? (
-                            <span style={{ fontSize: '0.8rem', color: '#ef4444' }}>✕ Invalid JSON</span>
-                        ) : (
-                            <span style={{ fontSize: '0.8rem', color: '#22c55e' }}>✓ Valid JSON</span>
-                        )}
+                <div className="card card-compact" role="region" aria-label="JSON input" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', minHeight: 34 }}>
+                        <label htmlFor={inputId} className="section-title">
+                            <Braces size={16} aria-hidden="true" /> JSON sample
+                            {status === 'valid' && <span className="badge badge-success">Valid</span>}
+                            {status === 'invalid' && <span className="badge badge-danger">Invalid</span>}
+                        </label>
+                        <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                            <PipelineRead onRead={setInput} />
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInput(SAMPLE)}>
+                                <Sparkles size={14} aria-hidden="true" /> Sample
+                            </button>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInput('')} disabled={!input}>
+                                <Trash2 size={14} aria-hidden="true" /> Clear
+                            </button>
+                        </div>
                     </div>
                     <textarea
-                        value={jsonInput}
-                        onChange={(e) => setJsonInput(e.target.value)}
-                        placeholder="Paste your JSON here..."
-                        style={{
-                            width: '100%',
-                            flex: 1,
-                            minHeight: '400px',
-                            background: 'var(--bg-app)',
-                            border: `1px solid ${parsedData.error ? 'rgba(239, 68, 68, 0.4)' : 'var(--border)'}`,
-                            borderRadius: 'var(--radius-md)',
-                            padding: '12px',
-                            color: 'var(--text-main)',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.875rem',
-                            resize: 'vertical',
-                            lineHeight: 1.5
-                        }}
+                        id={inputId}
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        placeholder="Paste a JSON object or an array of objects…"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoComplete="off"
+                        aria-invalid={status === 'invalid' || undefined}
+                        className={status === 'invalid' ? 'field-invalid' : ''}
+                        style={{ minHeight: 'clamp(260px, 50vh, 600px)', fontSize: '0.85rem', lineHeight: 1.5, padding: '0.75rem' }}
                     />
-                    {parsedData.error && (
-                        <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: 8, fontFamily: 'var(--font-mono)' }}>
-                            {parsedData.error}
-                        </div>
-                    )}
+                    <div className="field-hint" style={{ marginTop: 0 }}>
+                        Every item of every array is inspected: keys missing from some items become optional, and mixed values become unions.
+                    </div>
                 </div>
 
-                {/* Target Type Conversion Results */}
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)', flexWrap: 'wrap', gap: 8 }}>
-                        {/* Selector Tabs */}
-                        <div style={{ display: 'flex', gap: 4 }}>
-                            {['typescript', 'go', 'schema'].map(type => (
-                                <button
-                                    key={type}
-                                    onClick={() => setTargetType(type)}
-                                    style={{
-                                        padding: '6px 12px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        background: targetType === type ? 'var(--primary)' : 'rgba(255,255,255,0.02)',
-                                        color: targetType === type ? '#fff' : 'var(--text-muted)',
-                                        border: `1px solid ${targetType === type ? 'var(--primary)' : 'var(--border)'}`,
-                                        fontSize: '0.8rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        textTransform: 'uppercase',
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    {type === 'schema' ? 'JSON Schema' : type}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Copy Button */}
-                        {conversionResult && (
-                            <button
-                                onClick={handleCopy}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    padding: '6px 12px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    background: 'transparent',
-                                    border: '1px solid var(--border)',
-                                    color: copied ? '#22c55e' : 'var(--text-muted)',
-                                    fontSize: '0.8rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s'
-                                }}
-                            >
-                                {copied ? <Check size={14} /> : <Copy size={14} />}
-                                {copied ? 'Copied!' : 'Copy Schema'}
-                            </button>
-                        )}
+                <div className="card card-compact" role="region" aria-label="Generated types" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', minHeight: 34 }}>
+                        <div className="section-title" role="heading" aria-level={2}><FileCode size={16} aria-hidden="true" /> {targetInfo.label}</div>
+                        <CopyButton text={output} label={targetInfo.copy} />
                     </div>
 
-                    {/* Result block */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '400px' }}>
-                        <textarea
-                            readOnly
-                            value={conversionResult}
-                            placeholder="Result will appear here..."
-                            style={{
-                                width: '100%',
-                                flex: 1,
-                                background: 'rgba(0,0,0,0.2)',
-                                border: '1px solid var(--border)',
-                                borderRadius: 'var(--radius-md)',
-                                padding: '12px',
-                                color: '#a5b4fc',
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: '0.875rem',
-                                resize: 'none',
-                                lineHeight: 1.5,
-                                outline: 'none'
-                            }}
-                        />
+                    {parsed.error && status === 'invalid' && (
+                        <StatusBanner tone="danger" title="Invalid JSON">
+                            <span className="mono" style={{ fontSize: '0.82rem' }}>{parsed.error}</span>
+                        </StatusBanner>
+                    )}
+
+                    {output ? (
+                        <CodeBlock code={output} language={targetInfo.prism} maxHeight="clamp(260px, 65vh, 760px)" wrap={false} showCopy={false} />
+                    ) : (
+                        <div className="code-well" style={{ minHeight: 'clamp(260px, 50vh, 600px)', display: 'flex' }}>
+                            <EmptyState title={status === 'invalid' ? 'Fix the JSON to see types' : 'Types appear here'} style={{ margin: 'auto' }}>
+                                {status === 'invalid' ? 'The sample must be valid JSON.' : 'Paste a JSON sample, such as an API response.'}
+                            </EmptyState>
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                        <PipelineSend dataToSend={output} disabled={!output} />
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => downloadText(output, targetInfo.file, targetInfo.mime)} disabled={!output}>
+                            <Download size={14} aria-hidden="true" /> Download
+                        </button>
                     </div>
                 </div>
             </div>

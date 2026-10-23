@@ -1,0 +1,511 @@
+/*
+  On-device AI UI: assistant panel, answers, progress indicators and the
+  loading dialog. Colours come from the design tokens (src/styles/variables.css).
+*/
+
+/* ---------- Progress ---------- */
+.ai-progress {
+    position: relative;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
+    box-shadow: inset 0 0 0 1px var(--border);
+    overflow: hidden;
+}
+
+.ai-progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary);
+    transition: width 0.3s ease;
+}
+
+.ai-progress.is-indeterminate .ai-progress-fill {
+    width: 35%;
+    animation: aiIndeterminate 1.3s ease-in-out infinite;
+}
+
+@keyframes aiIndeterminate {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(290%); }
+}
+
+.ai-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-xs);
+}
+
+.ai-progress-meta .mono {
+    color: var(--text-main);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* ---------- Loading dialog ---------- */
+.ai-load-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.ai-load-dialog p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.ai-load-note {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-start;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.ai-load-note svg {
+    flex-shrink: 0;
+    margin-top: 0.2em;
+    color: var(--text-dim);
+}
+
+.ai-details summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.ai-details pre {
+    margin-top: var(--space-xs);
+    max-height: 160px;
+    font-size: 0.75rem;
+}
+
+/* ---------- Assistant panel ---------- */
+.ai-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(380px, 100vw);
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-panel);
+    color: var(--text-main);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    animation: aiPanelIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-panel:focus {
+    outline: none;
+}
+
+@keyframes aiPanelIn {
+    from { transform: translateX(32px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.ai-panel-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 10px 8px 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    min-height: var(--header-height);
+}
+
+.ai-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--primary-glow);
+    border: 1px solid var(--primary-border);
+    color: var(--primary-text);
+}
+
+.ai-avatar-sm {
+    width: 24px;
+    height: 24px;
+    margin-top: 2px;
+}
+
+.ai-panel-heading {
+    flex: 1;
+    min-width: 0;
+}
+
+.ai-panel-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.ai-panel-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ai-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.ai-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+/* ---------- Empty / not-ready states ---------- */
+.ai-empty {
+    margin: auto 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-xs);
+}
+
+.ai-empty-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-glow);
+    color: var(--primary-text);
+    margin-bottom: var(--space-xs);
+}
+
+.ai-empty-icon.is-muted {
+    background: var(--bg-hover);
+    color: var(--text-muted);
+}
+
+.ai-empty-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-main);
+}
+
+.ai-empty-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    max-width: 40ch;
+}
+
+.ai-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-xs);
+}
+
+.ai-empty .ai-progress-block {
+    width: 100%;
+    text-align: left;
+}
+
+.ai-link {
+    color: var(--primary-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-size: 0.85rem;
+}
+
+.ai-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    width: 100%;
+    margin-top: var(--space-sm);
+}
+
+.ai-suggestions-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-align: left;
+}
+
+.ai-suggestion {
+    width: 100%;
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-subtle);
+    color: var(--text-main);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ai-suggestion:hover:not(:disabled) {
+    background: var(--primary-glow);
+    border-color: var(--primary-border);
+}
+
+/* ---------- Messages ---------- */
+.ai-msg {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.ai-msg-user {
+    justify-content: flex-end;
+}
+
+.ai-msg-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.ai-bubble {
+    padding: 0.6rem 0.8rem;
+    border-radius: 14px;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.ai-bubble-user {
+    max-width: 88%;
+    background: var(--primary);
+    color: var(--on-primary);
+    border-bottom-right-radius: 4px;
+    white-space: pre-wrap;
+}
+
+.ai-bubble-assistant {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+    color: var(--text-main);
+}
+
+.ai-msg-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.ai-msg-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-top: 2px;
+}
+
+.ai-typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px 0;
+}
+
+.ai-typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    animation: pulse 1s ease-in-out infinite;
+}
+
+.ai-typing span:nth-child(2) { animation-delay: 0.15s; }
+.ai-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+.ai-cursor {
+    display: inline-block;
+    width: 0.45em;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    border-radius: 1px;
+    background: var(--primary);
+    animation: blink 1s step-end infinite;
+}
+
+/* ---------- Markdown answers ---------- */
+.ai-md {
+    min-width: 0;
+}
+
+.ai-md > * + * {
+    margin-top: 0.6em;
+}
+
+.ai-md p,
+.ai-md li {
+    overflow-wrap: anywhere;
+}
+
+.ai-md ul,
+.ai-md ol {
+    padding-left: 1.35em;
+}
+
+.ai-md li + li {
+    margin-top: 0.2em;
+}
+
+.ai-md h1,
+.ai-md h2,
+.ai-md h3,
+.ai-md h4,
+.ai-md h5,
+.ai-md h6 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.ai-md a {
+    color: var(--primary-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.ai-md blockquote {
+    border-left: 3px solid var(--border-strong);
+    padding-left: 0.75em;
+    color: var(--text-muted);
+}
+
+.ai-md hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+}
+
+.ai-md .ai-inline-code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    background: var(--bg-hover);
+    color: var(--text-code);
+    overflow-wrap: anywhere;
+}
+
+.ai-md-codeblock pre {
+    font-size: 0.78rem !important;
+}
+
+.ai-md-table {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.ai-md table {
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.ai-md th,
+.ai-md td {
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.ai-md th {
+    background: var(--bg-hover);
+    font-weight: 600;
+}
+
+/* ---------- Composer ---------- */
+.ai-composer {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    padding: var(--space-sm) var(--space-md) var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    background: var(--bg-panel);
+}
+
+.ai-composer-row {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-end;
+}
+
+.ai-composer textarea {
+    flex: 1;
+    min-height: 0;
+    max-height: 160px;
+    resize: none;
+    padding: 0.6rem 0.75rem;
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    overflow-y: auto;
+}
+
+.ai-send {
+    width: 2.6rem;
+    height: 2.6rem;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.ai-composer-hint {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-align: center;
+}
+
+.ai-composer .status-banner {
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
+}
+
+.ai-footer-card {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* Animations that would end invisible or jumpy without motion */
+@media (prefers-reduced-motion: reduce) {
+    .ai-progress.is-indeterminate .ai-progress-fill {
+        animation: none;
+        width: 100%;
+        opacity: 0.45;
+    }
+
+    .ai-typing span,
+    .ai-cursor {
+        animation: none;
+    }
+}

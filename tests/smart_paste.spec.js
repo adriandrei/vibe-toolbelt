@@ -1,77 +1,70 @@
 import { test, expect } from '@playwright/test';
+import { pasteOnPage, SAMPLE_JWT } from './helpers.js';
 
-test.describe('Smart Paste Feature', () => {
+test.describe('Smart Paste', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
-        await page.waitForTimeout(500); // Ensure app is loaded
+        await expect(page.locator('main h1').first()).toBeVisible();
     });
 
-    test('Detects Base64 content on paste', async ({ page, browserName }) => {
-        if (browserName === 'webkit') test.skip();
-
-        await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
-
-        // Dispatch paste event on document.body
-        await page.evaluate(() => {
-            const data = new DataTransfer();
-            data.setData('text', 'SGVsbG8gV29ybGQ='); // Hello World
-
-            const event = new ClipboardEvent('paste', {
-                clipboardData: data,
-                bubbles: true,
-                cancelable: true,
-                composed: true
-            });
-            document.body.dispatchEvent(event);
-        });
-
-        // Debug: Check if toast appears
+    test('Base64 opens the decoder with the decoded text', async ({ page }) => {
+        await pasteOnPage(page, 'SGVsbG8gV29ybGQ=');
         const toast = page.locator('.smart-toast');
-        await expect(toast).toBeVisible({ timeout: 5000 });
-        await expect(toast).toContainText('Looks like Base64 Decoder content');
-
-        // Click Open Tool
-        await page.getByRole('button', { name: /Open Tool/i }).click();
+        await expect(toast).toBeVisible();
+        await expect(toast).toContainText(/Base64/);
+        await toast.getByRole('button', { name: /Open/ }).click();
         await expect(page).toHaveURL('/base64');
+        await expect(page.locator('main')).toContainText('Hello World');
     });
 
-    test('Detects JSON content on paste', async ({ page }) => {
-        const json = '{"foo":"bar"}';
-
-        await page.evaluate((text) => {
-            const data = new DataTransfer();
-            data.setData('text', text); // use 'text' instead of 'text/plain' for wider compatibility
-            const event = new ClipboardEvent('paste', {
-                clipboardData: data,
-                bubbles: true,
-                cancelable: true,
-                composed: true
-            });
-            document.body.dispatchEvent(event);
-        }, json);
-
+    test('JSON suggests the formatter', async ({ page }) => {
+        await pasteOnPage(page, '{"foo":"bar"}');
         const toast = page.locator('.smart-toast');
-        await expect(toast).toBeVisible({ timeout: 5000 });
-        await expect(toast).toContainText('Looks like JSON Formatter content');
+        await expect(toast).toContainText(/JSON/);
+        await toast.getByRole('button', { name: /Open/ }).click();
+        await expect(page).toHaveURL('/formatters');
     });
 
-    test('Detects JWT content on paste', async ({ page }) => {
-        const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-
-        await page.evaluate((text) => {
-            const data = new DataTransfer();
-            data.setData('text', text);
-            const event = new ClipboardEvent('paste', {
-                clipboardData: data,
-                bubbles: true,
-                cancelable: true,
-                composed: true
-            });
-            document.body.dispatchEvent(event);
-        }, jwt);
-
+    test('JWT opens the decoder and decodes it', async ({ page }) => {
+        await pasteOnPage(page, SAMPLE_JWT);
         const toast = page.locator('.smart-toast');
-        await expect(toast).toBeVisible({ timeout: 5000 });
-        await expect(toast).toContainText('Looks like JWT Decoder content');
+        await expect(toast).toContainText(/JSON Web Token/);
+        await toast.getByRole('button', { name: /Open/ }).click();
+        await expect(page).toHaveURL('/jwt');
+        await expect(page.locator('main')).toContainText('John Doe');
+    });
+
+    test('A 10-digit Unix timestamp goes to the timestamp converter, not Base64', async ({ page }) => {
+        await pasteOnPage(page, '1700000000');
+        const toast = page.locator('.smart-toast');
+        await expect(toast).toContainText(/Unix timestamp/);
+        await toast.getByRole('button', { name: /Open/ }).click();
+        await expect(page).toHaveURL('/unix');
+        await expect(page.locator('main')).toContainText('2023-11-14');
+    });
+
+    test('Ordinary words are not intercepted', async ({ page }) => {
+        await pasteOnPage(page, 'password123');
+        await page.waitForTimeout(400);
+        await expect(page.locator('.smart-toast')).toHaveCount(0);
+    });
+
+    test('Pasting into a text field is left alone', async ({ page }) => {
+        const search = page.getByRole('searchbox', { name: 'Search tools' });
+        await search.focus();
+        await page.evaluate((jwt) => {
+            const data = new DataTransfer();
+            data.setData('text/plain', jwt);
+            document.activeElement.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+        }, SAMPLE_JWT);
+        await page.waitForTimeout(400);
+        await expect(page.locator('.smart-toast')).toHaveCount(0);
+    });
+
+    test('Escape dismisses the suggestion', async ({ page }) => {
+        await pasteOnPage(page, '{"a":1}');
+        await expect(page.locator('.smart-toast')).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.smart-toast')).toHaveCount(0);
     });
 });

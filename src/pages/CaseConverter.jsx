@@ -1,209 +1,88 @@
-import React, { useState } from 'react'
-import { Copy, Type, Eraser } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useMemo, useState } from 'react'
+import { Trash2, Wand2 } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import Field from '../components/ui/Field'
+import CopyButton from '../components/ui/CopyButton'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { CASES } from '../utils/caseConvert'
+
+const EXAMPLE = 'XMLHttpRequest getHTTPResponseCode\nuser_id2Name\nhello, world! iPhone NASA ärgerÜber'
+const PREVIEW_LIMIT = 5000
+
+function ResultRow({ label, value, perLine }) {
+    const shown = value.length > PREVIEW_LIMIT ? `${value.slice(0, PREVIEW_LIMIT)}…` : value
+    return (
+        <li style={{ listStyle: 'none', padding: 'var(--space-sm) var(--space-md)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-subtle)', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.03em' }}>
+                    {label}
+                    {perLine && <span style={{ fontWeight: 400, color: 'var(--text-dim)' }}> · per line</span>}
+                </span>
+                <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexShrink: 0 }}>
+                    <PipelineSend dataToSend={value} label="Send" />
+                    <CopyButton text={value} iconOnly label={`Copy ${label}`} />
+                </div>
+            </div>
+            <div
+                className="mono"
+                style={{ marginTop: 4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: '0.92rem', color: value ? 'var(--text-main)' : 'var(--text-dim)', maxHeight: '9.5em', overflowY: 'auto' }}
+            >
+                {shown || '—'}
+            </div>
+            {value.length > PREVIEW_LIMIT && (
+                <div className="field-hint">Showing the first {PREVIEW_LIMIT.toLocaleString()} characters; Copy and Send use all of it.</div>
+            )}
+        </li>
+    )
+}
 
 export default function CaseConverter() {
-    useDocumentTitle('Case Converter')
-    const [input, setInput] = useState('Type or paste your text here to convert it...')
-
-    const copyToClipboard = async (text) => {
-        try {
-            await navigator.clipboard.writeText(text)
-        } catch (err) {
-            console.error('Failed to copy', err)
-        }
-    }
-
-    // --- Conversion Logic ---
-    const getWords = (str) => {
-        if (!str) return []
-        // Split by spaces, underscores, hyphens, or camelCase boundaries
-        return str
-            .replace(/([a-z])([A-Z])/g, '$1 $2') // Split camelCase
-            .replace(/[_-]+/g, ' ') // Replace separators with spaces
-            .split(/\s+/) // Split by whitespace
-            .filter(w => w.length > 0)
-    }
-
-    const converters = {
-        lowercase: (str) => str.toLowerCase(),
-        uppercase: (str) => str.toUpperCase(),
-        camelCase: (str) => {
-            return getWords(str)
-                .map((w, i) => i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                .join('')
-        },
-        pascalCase: (str) => {
-            return getWords(str)
-                .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                .join('')
-        },
-        snakeCase: (str) => {
-            return getWords(str).map(w => w.toLowerCase()).join('_')
-        },
-        kebabCase: (str) => {
-            return getWords(str).map(w => w.toLowerCase()).join('-')
-        },
-        constantCase: (str) => {
-            return getWords(str).map(w => w.toUpperCase()).join('_')
-        },
-        pathCase: (str) => {
-            return getWords(str).map(w => w.toLowerCase()).join('/')
-        },
-        titleCase: (str) => {
-            return getWords(str)
-                .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                .join(' ')
-        },
-        sentenceCase: (str) => {
-            const lower = str.toLowerCase();
-            return lower.charAt(0).toUpperCase() + lower.slice(1);
-        },
-        alternatingCase: (str) => {
-            return str.split('').map((c, i) => i % 2 === 0 ? c.toLowerCase() : c.toUpperCase()).join('')
-        },
-        inverseCase: (str) => {
-            return str.split('').map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join('')
-        }
-    }
-
-    const cases = [
-        { id: 'lowercase', label: 'lowercase' },
-        { id: 'uppercase', label: 'UPPERCASE' },
-        { id: 'camelCase', label: 'camelCase' },
-        { id: 'pascalCase', label: 'PascalCase' },
-        { id: 'snakeCase', label: 'snake_case' },
-        { id: 'constantCase', label: 'CONSTANT_CASE' },
-        { id: 'kebabCase', label: 'kebab-case' },
-        { id: 'pathCase', label: 'path/case' },
-        { id: 'titleCase', label: 'Title Case' },
-        { id: 'sentenceCase', label: 'Sentence case' },
-        { id: 'alternatingCase', label: 'aLtErNaTiNg cAsE' },
-        { id: 'inverseCase', label: 'iNVERSE cASE' },
-    ]
+    const [input, setInput] = useState('')
+    const source = useDebouncedValue(input, input.length > 50000 ? 250 : 0)
+    const results = useMemo(() => CASES.map(c => ({ ...c, value: source ? c.convert(source) : '' })), [source])
+    const multiline = /[\r\n]/.test(source.trim())
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
-                <h2 className="text-gradient">Case Converter</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Convert text between different naming conventions instantly.</p>
-            </div>
+        <div className="page page-wide">
+            <ToolHeader />
 
-            <div className="split-pane">
-                {/* Input Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--text-dim)' }}>Input</span>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <PipelineRead onRead={setInput} />
-                            <button
-                                onClick={() => setInput('')}
-                                title="Clear input"
-                                style={{ color: 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}
-                            >
-                                <Eraser size={16} />
-                            </button>
-                        </div>
-                    </div>
-                    <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        className="glass-panel"
-                        placeholder="Type something..."
-                        style={{
-                            flex: 1,
-                            minHeight: '300px',
-                            padding: 'var(--space-md)',
-                            border: '1px solid var(--border)',
-                            background: 'rgba(0,0,0,0.2)',
-                            fontFamily: 'var(--font-mono)',
-                            resize: 'none',
-                            fontSize: '1rem'
-                        }}
-                    />
-                </div>
+            <div className="split-pane" style={{ alignItems: 'start' }}>
+                <section className="card">
+                    <Field
+                        label="Text"
+                        hint="Identifier styles (camelCase, snake_case…) convert each line separately and drop punctuation."
+                        labelAction={
+                            <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <PipelineRead onRead={setInput} />
+                                {!input && (
+                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInput(EXAMPLE)}>
+                                        <Wand2 size={14} aria-hidden="true" /> Example
+                                    </button>
+                                )}
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInput('')} disabled={!input}>
+                                    <Trash2 size={14} aria-hidden="true" /> Clear
+                                </button>
+                            </div>
+                        }
+                    >
+                        <textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Type or paste text, e.g. getHTTPResponseCode or user first name"
+                            spellCheck={false}
+                            style={{ minHeight: 260 }}
+                        />
+                    </Field>
+                </section>
 
-                {/* Results Column - Scrollable List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', minHeight: 0 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text-dim)' }}>Live Conversions</div>
-
-                    <div style={{
-                        flex: 1,
-                        overflowY: 'auto',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 'var(--space-sm)',
-                        paddingRight: '4px'
-                    }}>
-                        {cases.map(type => {
-                            const result = converters[type.id](input)
-                            return (
-                                <div
-                                    key={type.id}
-                                    className="glass-panel"
-                                    style={{
-                                        padding: '12px var(--space-md)',
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--bg-secondary)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 'var(--space-md)',
-                                        transition: 'border-color 0.2s'
-                                    }}
-                                >
-                                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: 'var(--text-muted)',
-                                            marginBottom: 4,
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.05em'
-                                        }}>
-                                            {type.label}
-                                        </div>
-                                        <div style={{
-                                            fontFamily: 'var(--font-mono)',
-                                            color: 'var(--text-main)',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            fontSize: '0.95rem'
-                                        }}>
-                                            {result || <span style={{ opacity: 0.3 }}>...</span>}
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                        <PipelineSend dataToSend={result} style={{ padding: '4px', border: 'none' }} />
-                                        <button
-                                            onClick={() => copyToClipboard(result)}
-                                            style={{
-                                                padding: '8px',
-                                                borderRadius: 'var(--radius-sm)',
-                                                color: 'var(--text-dim)',
-                                                cursor: 'pointer',
-                                                border: '1px solid transparent',
-                                                background: 'transparent'
-                                            }}
-                                            title="Copy"
-                                            onMouseEnter={e => {
-                                                e.currentTarget.style.color = 'var(--primary)'
-                                                e.currentTarget.style.background = 'rgba(var(--primary-rgb), 0.1)'
-                                            }}
-                                            onMouseLeave={e => {
-                                                e.currentTarget.style.color = 'var(--text-dim)'
-                                                e.currentTarget.style.background = 'transparent'
-                                            }}
-                                        >
-                                            <Copy size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
+                <section className="card" aria-label="Conversions">
+                    <ul style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', margin: 0, padding: 0 }}>
+                        {results.map(r => (
+                            <ResultRow key={r.id} label={r.label} value={r.value} perLine={r.identifier && multiline} />
+                        ))}
+                    </ul>
+                </section>
             </div>
         </div>
     )

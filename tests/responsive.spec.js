@@ -12,11 +12,8 @@ test.describe('Responsive Layout', () => {
         // Wait for animation
         await page.waitForTimeout(500);
 
-        // Take screenshot for debugging
-        await page.screenshot({ path: 'test-results/mobile-sidebar-open.png' });
-
         // Sidebar should now be visible/on-screen
-        const closeBtn = page.locator('button[aria-label="Close sidebar"]');
+        const closeBtn = page.locator('button[aria-label="Close menu"]');
         await expect(closeBtn).toBeVisible();
 
         // Click close
@@ -48,10 +45,7 @@ test.describe('Responsive Layout', () => {
 
         // Check if .split-pane is stacking (1 column)
         const splitPane = page.locator('.split-pane');
-        await expect(splitPane).toHaveCSS('grid-template-columns', '343px'); // width - padding ~ 343px. Or check generic "1fr" behavior?
-
-        // Actually grid-template-columns might return the computed pixel value.
-        // Let's check bounding box of children. They should be stacked vertically.
+        // The two panels must be stacked vertically (one column)
         const inputPanel = splitPane.locator('> div').first();
         const outputPanel = splitPane.locator('> div').last();
 

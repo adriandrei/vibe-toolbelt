@@ -1,204 +1,177 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import * as diff from 'diff'
-import { Lock, FileDiff, LayoutPanelLeft, AlignJustify, Copy, Check } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useId, useState } from 'react'
+import { AlignJustify, ArrowLeftRight, Download, Columns2, Trash2 } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import Field from '../components/ui/Field'
+import CopyButton from '../components/ui/CopyButton'
+import EmptyState from '../components/ui/EmptyState'
+import SegmentedControl from '../components/ui/SegmentedControl'
 import { DiffViewer } from '../components/DiffViewer'
+import { PipelineRead } from '../components/PipelineFeature'
 import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
+import { createDiffPatch, useLineDiff } from '../hooks/useLineDiff'
+import { downloadText } from '../utils/download'
+import { getTool } from '../config/tools'
+
+const TOOL_NAME = getTool('/diff')?.title ?? 'Text Diff'
+const AI_PATCH_LIMIT = 6000
+
+const VIEWS = [
+    { value: 'unified', label: 'Unified', icon: AlignJustify },
+    { value: 'split', label: 'Side by side', icon: Columns2 },
+]
+
+function Option({ id, checked, onChange, children, hint }) {
+    return (
+        <label htmlFor={id} title={hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+            {children}
+        </label>
+    )
+}
 
 export default function Diff() {
-    useDocumentTitle('Secure Diff')
+    const id = useId()
     const [oldText, setOldText] = useState('')
     const [newText, setNewText] = useState('')
-    const [viewMode, setViewMode] = useState('unified') // 'unified' | 'split'
-    const [copied, setCopied] = useState(false)
+    const [viewMode, setViewMode] = useState('unified')
+    const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
+    const [stripTrailingCr, setStripTrailingCr] = useState(true)
+    const [ignoreNewlineAtEof, setIgnoreNewlineAtEof] = useState(true)
 
-    // Compute diffs logic moved to DiffViewer
-    // We still calculate lines for stats locally or we could move stats to DiffViewer later
-    const unifiedDiff = useMemo(() => {
-        if (!oldText && !newText) return []
-        return diff.diffLines(oldText, newText)
-    }, [oldText, newText])
+    const options = { ignoreWhitespace, stripTrailingCr, ignoreNewlineAtEof }
+    // One diff for the counts, the viewer and the AI context
+    const diff = useLineDiff(oldText, newText, options)
+    const hasInput = Boolean(oldText || newText)
+    const hasChanges = hasInput && !diff.timedOut && !diff.identical
 
-    // Stats
-    const stats = useMemo(() => {
-        let added = 0, removed = 0
-        unifiedDiff.forEach(part => {
-            if (part.added) added += part.value.split('\n').length - 1
-            if (part.removed) removed += part.value.split('\n').length - 1
-        })
-        return { added, removed }
-    }, [unifiedDiff])
+    const buildPatch = () => createDiffPatch(oldText, newText, options)
 
     useRegisterAIContext({
-        tool: 'Secure Text Diff',
-        getContext: () => ({ 
-            input: `Original:\n${oldText.slice(0, 500)}...\n\nNew:\n${newText.slice(0, 500)}...`, 
-            output: `Stats: ${stats.added} added, ${stats.removed} removed` 
-        }),
+        tool: TOOL_NAME,
+        getContext: () => {
+            if (!hasInput) return { input: 'Both texts are empty.', output: '' }
+            const summary = `Comparing an original text (${diff.stats.removed + diff.stats.unchanged} lines) with a changed text (${diff.stats.added + diff.stats.unchanged} lines).`
+            if (diff.timedOut) return { input: summary, output: 'The texts were too large to compare.' }
+            if (diff.identical) return { input: summary, output: 'No differences.' }
+            const patch = buildPatch()
+            return {
+                input: `${summary} ${diff.stats.added} lines added, ${diff.stats.removed} removed.`,
+                output: patch.length > AI_PATCH_LIMIT ? `${patch.slice(0, AI_PATCH_LIMIT)}\n… (patch truncated)` : patch,
+            }
+        },
         suggestedPrompts: [
             'Summarize the changes between these two versions',
             'Are there any breaking changes here?',
             'Check for potential bugs in the added code',
-            'Explain the impact of this diff on performance',
+            'Write a commit message for this diff',
         ],
-    }, [oldText, newText, stats])
+    })
 
-    const splitDiff = useMemo(() => {
-        if (!oldText && !newText) return { left: [], right: [] }
-
-        const changes = diff.diffLines(oldText, newText)
-        const left = []
-        const right = []
-
-        changes.forEach((part) => {
-            const lines = part.value.split('\n').filter((_, i, arr) => i < arr.length - 1 || part.value.slice(-1) !== '\n' || i === arr.length - 1)
-
-            if (part.added) {
-                // Added lines go to right side with placeholder on left
-                lines.forEach((line, i) => {
-                    if (line !== '' || i < lines.length - 1) {
-                        left.push({ type: 'placeholder', value: '' })
-                        right.push({ type: 'added', value: line })
-                    }
-                })
-            } else if (part.removed) {
-                // Removed lines go to left side with placeholder on right
-                lines.forEach((line, i) => {
-                    if (line !== '' || i < lines.length - 1) {
-                        left.push({ type: 'removed', value: line })
-                        right.push({ type: 'placeholder', value: '' })
-                    }
-                })
-            } else {
-                // Unchanged lines go to both sides
-                lines.forEach((line, i) => {
-                    if (line !== '' || i < lines.length - 1) {
-                        left.push({ type: 'unchanged', value: line })
-                        right.push({ type: 'unchanged', value: line })
-                    }
-                })
-            }
-        })
-
-        return { left, right }
-    }, [oldText, newText])
-
-    const handleCopyPatch = () => {
-        const patch = diff.createPatch('file', oldText, newText)
-        navigator.clipboard.writeText(patch)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+    const swap = () => {
+        setOldText(newText)
+        setNewText(oldText)
     }
 
+    const clearButton = (value, setter, label) => (
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setter('')} disabled={!value} aria-label={`Clear ${label}`}>
+            <Trash2 size={14} aria-hidden="true" /> Clear
+        </button>
+    )
+
     return (
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-                <h2 className="text-gradient" style={{ fontSize: '2rem', marginBottom: 'var(--space-xs)' }}>
-                    Secure Text Diff
-                </h2>
-                <div className="flex-center" style={{ gap: 'var(--space-sm)', color: 'var(--text-muted)' }}>
-                    <Lock size={16} color="#10b981" />
-                    <span style={{ fontSize: '0.9rem' }}>
-                        Comparison runs entirely in your browser. No data leaves this device.
-                    </span>
+        <div className="page page-wide">
+            <ToolHeader />
+
+            <section className="card card-compact" aria-label="Options" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-sm) var(--space-lg)' }}>
+                <SegmentedControl ariaLabel="View" options={VIEWS} value={viewMode} onChange={setViewMode} />
+                <div role="group" aria-label="Ignore" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs) var(--space-md)' }}>
+                    <Option id={`${id}-ws`} checked={ignoreWhitespace} onChange={setIgnoreWhitespace} hint="Treat lines that only differ in leading or trailing whitespace as equal">
+                        Ignore whitespace
+                    </Option>
+                    <Option id={`${id}-cr`} checked={stripTrailingCr} onChange={setStripTrailingCr} hint="Treat Windows (CRLF) and Unix (LF) line endings as equal">
+                        Ignore line endings
+                    </Option>
+                    <Option id={`${id}-eof`} checked={ignoreNewlineAtEof} onChange={setIgnoreNewlineAtEof} hint="Don't flag a missing line break at the very end">
+                        Ignore final newline
+                    </Option>
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--space-xs)', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={swap} disabled={!hasInput}>
+                        <ArrowLeftRight size={14} aria-hidden="true" /> Swap
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                            setOldText('')
+                            setNewText('')
+                        }}
+                        disabled={!hasInput}
+                    >
+                        <Trash2 size={14} aria-hidden="true" /> Clear both
+                    </button>
+                </div>
+            </section>
+
+            <div className="split-pane">
+                <div className="card card-compact">
+                    <Field
+                        label="Original"
+                        labelAction={<div style={{ display: 'flex', gap: 'var(--space-xs)' }}><PipelineRead onRead={setOldText} />{clearButton(oldText, setOldText, 'original')}</div>}
+                    >
+                        <textarea
+                            value={oldText}
+                            onChange={(e) => setOldText(e.target.value)}
+                            placeholder="Paste the original text or code…"
+                            spellCheck={false}
+                            wrap="off"
+                            style={{ minHeight: 220, fontSize: '0.85rem', tabSize: 4 }}
+                        />
+                    </Field>
+                </div>
+                <div className="card card-compact">
+                    <Field
+                        label="Changed"
+                        labelAction={<div style={{ display: 'flex', gap: 'var(--space-xs)' }}><PipelineRead onRead={setNewText} />{clearButton(newText, setNewText, 'changed text')}</div>}
+                    >
+                        <textarea
+                            value={newText}
+                            onChange={(e) => setNewText(e.target.value)}
+                            placeholder="Paste the changed version…"
+                            spellCheck={false}
+                            wrap="off"
+                            style={{ minHeight: 220, fontSize: '0.85rem', tabSize: 4 }}
+                        />
+                    </Field>
                 </div>
             </div>
 
-            {/* Controls */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)', display: 'flex', gap: 'var(--space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                    <button
-                        onClick={() => setViewMode('unified')}
-                        style={{
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            background: viewMode === 'unified' ? 'var(--primary)' : 'transparent',
-                            color: viewMode === 'unified' ? '#fff' : 'var(--text-muted)',
-                            border: '1px solid',
-                            borderColor: viewMode === 'unified' ? 'var(--primary)' : 'var(--border)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4
-                        }}
-                    >
-                        <AlignJustify size={14} /> Unified
-                    </button>
-                    <button
-                        onClick={() => setViewMode('split')}
-                        style={{
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            background: viewMode === 'split' ? 'var(--primary)' : 'transparent',
-                            color: viewMode === 'split' ? '#fff' : 'var(--text-muted)',
-                            border: '1px solid',
-                            borderColor: viewMode === 'split' ? 'var(--primary)' : 'var(--border)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4
-                        }}
-                    >
-                        <LayoutPanelLeft size={14} /> Side-by-Side
-                    </button>
-                </div>
-
-                <div style={{ flex: 1 }}></div>
-
-                {(oldText || newText) && (
+            <section className="card" aria-label="Result" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                {hasInput ? (
                     <>
-                        <div style={{ display: 'flex', gap: 'var(--space-md)', fontSize: '0.85rem' }}>
-                            <span style={{ color: '#10b981' }}>+{stats.added} added</span>
-                            <span style={{ color: '#ef4444' }}>-{stats.removed} removed</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }} aria-live="polite">
+                                <h2 className="section-title">Differences</h2>
+                                {hasChanges && (
+                                    <>
+                                        <span className="badge badge-success">+{diff.stats.added.toLocaleString()} added</span>
+                                        <span className="badge badge-danger">−{diff.stats.removed.toLocaleString()} removed</span>
+                                    </>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                                <button type="button" className="btn btn-ghost btn-sm" disabled={!hasChanges} onClick={() => downloadText(buildPatch(), 'changes.patch', 'text/x-diff;charset=utf-8')}>
+                                    <Download size={14} aria-hidden="true" /> Download .patch
+                                </button>
+                                <CopyButton text={buildPatch} label="Copy patch" variant="secondary" disabled={!hasChanges} />
+                            </div>
                         </div>
-                        <button
-                            onClick={handleCopyPatch}
-                            style={{
-                                padding: '8px 12px',
-                                borderRadius: 'var(--radius-sm)',
-                                background: 'transparent',
-                                color: copied ? '#10b981' : 'var(--text-muted)',
-                                border: '1px solid var(--border)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                fontSize: '0.85rem'
-                            }}
-                        >
-                            {copied ? <Check size={14} /> : <Copy size={14} />}
-                            {copied ? 'Copied!' : 'Copy Patch'}
-                        </button>
+                        <DiffViewer diff={diff} viewMode={viewMode} options={options} showHeader={false} title="Differences" />
                     </>
+                ) : (
+                    <EmptyState title="Nothing to compare yet">Paste two versions of a text above to see what changed, line by line.</EmptyState>
                 )}
-            </div>
-
-            {/* Input Areas */}
-            <div className="split-pane" style={{ marginBottom: 'var(--space-lg)' }}>
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>Original Text</label>
-                    <textarea
-                        value={oldText}
-                        onChange={(e) => setOldText(e.target.value)}
-                        placeholder="Paste original code/text..."
-                        style={{ minHeight: '200px', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', resize: 'vertical' }}
-                    />
-                </div>
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <label style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-muted)' }}>New Text</label>
-                    <textarea
-                        value={newText}
-                        onChange={(e) => setNewText(e.target.value)}
-                        placeholder="Paste new code/text..."
-                        style={{ minHeight: '200px', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', resize: 'vertical' }}
-                    />
-                </div>
-            </div>
-
-            {/* Diff Result */}
-            {(oldText || newText) && (
-                <DiffViewer oldText={oldText} newText={newText} viewMode={viewMode} />
-            )}
+            </section>
         </div>
     )
 }

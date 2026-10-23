@@ -1,89 +1,39 @@
 import { test, expect } from '@playwright/test';
+import { ALL_TOOLS } from '../src/config/tools.js';
+import { BRAND, pageTitle } from '../src/config/brand.js';
+import { routePaths } from './helpers.js';
 
-// All routes registered in App.jsx — every page must load without crashing
-const pages = [
-    // Core / Home
-    '/',
-    // Security & Crypto
-    '/base64',
-    '/jwt',
-    '/hash',
-    '/hmac',
-    '/rsa',
-    '/password',
-    '/aes',
-    '/bcrypt',
-    '/otp',
-    // Generators
-    '/username',
-    '/uuid',
-    '/faker',
-    '/lorem',
-    '/nanoid',
-    '/qrcode',
-    // Text & Code
-    '/diff',
-    '/formatters',
-    '/markdown',
-    '/regex',
-    '/case',
-    '/list',
-    '/text-stats',
-    '/snippets',
-    // Data & Conversion
-    '/converter',
-    '/csv',
-    '/number-base',
-    '/color',
-    '/hex',
-    '/html-entity',
-    '/urlencode',
-    // Web & Network
-    '/url',
-    '/ua',
-    '/curl',
-    '/meta',
-    '/unix',
-    '/cidr',
-    '/http-status',
-    '/inspect',
-    // Visual & CSS
-    '/css',
-    '/gradient',
-    '/triangle',
-    '/color-blindness',
-    '/box-shadow',
-    '/svg',
-    // Dev Tools
-    '/cron',
-    '/chmod',
-    '/keycode',
-    '/exif',
-    // Media
-    '/image',
-    '/image-base64',
-    '/favicon',
-    '/pdf',
-    '/recorder',
-    '/video',
-    // Web Tester
-    '/api',
-    // Legal/Info
-    '/privacy',
-    '/terms',
-];
-
-for (const path of pages) {
+// Every registered route must render its page (with an h1) without crashing
+// or logging page errors, and set its tab title.
+for (const path of routePaths()) {
     test(`Smoke: ${path}`, async ({ page }) => {
+        const errors = [];
+        page.on('pageerror', (e) => errors.push(e.message));
+
         await page.goto(path);
-
-        // Title must include the app name
-        await expect(page).toHaveTitle(/Private Toolkit/);
-
-        // Main content area must be present
         await expect(page.locator('main')).toBeVisible();
+        await expect(page.getByRole('complementary', { name: 'Tools' })).toBeVisible();
+        await expect(page.locator('main h1').first()).toBeVisible();
+        await expect(page.getByText('Something went wrong')).toHaveCount(0);
 
-        // Sidebar must be present
-        await expect(page.getByRole('complementary')).toBeVisible();
+        const tool = ALL_TOOLS.find((t) => t.path === path);
+        if (tool && path !== '/') {
+            await expect(page).toHaveTitle(pageTitle(tool.title));
+        } else {
+            await expect(page).toHaveTitle(new RegExp(BRAND.name));
+        }
+
+        expect(errors).toEqual([]);
     });
 }
+
+test('Unknown routes show the 404 page inside the app shell', async ({ page }) => {
+    await page.goto('/this-route-does-not-exist');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/not found/i);
+    await expect(page.getByRole('complementary', { name: 'Tools' })).toBeVisible();
+});
+
+test('/settings redirects to the settings page', async ({ page }) => {
+    await page.goto('/settings');
+    await expect(page).toHaveURL(/\/ai-settings$/);
+});

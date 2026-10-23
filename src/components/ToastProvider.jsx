@@ -1,77 +1,69 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
-import { Check, X, AlertTriangle, Info } from 'lucide-react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, Check, Info, X } from 'lucide-react'
 
 const ToastContext = createContext(null)
 
-const TOAST_ICONS = {
-    success: { icon: Check, color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' },
-    error: { icon: X, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)' },
-    warning: { icon: AlertTriangle, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)' },
-    info: { icon: Info, color: '#6366f1', bg: 'rgba(99, 102, 241, 0.12)' }
+const TOAST_TONES = {
+    success: { icon: Check, color: 'var(--success)', bg: 'var(--success-bg)', border: 'var(--success-border)' },
+    error: { icon: X, color: 'var(--danger)', bg: 'var(--danger-bg)', border: 'var(--danger-border)' },
+    warning: { icon: AlertTriangle, color: 'var(--warning)', bg: 'var(--warning-bg)', border: 'var(--warning-border)' },
+    info: { icon: Info, color: 'var(--info)', bg: 'var(--info-bg)', border: 'var(--info-border)' },
 }
 
-let _toastId = 0
+let toastId = 0
 
 function Toast({ toast, onDismiss }) {
-    const config = TOAST_ICONS[toast.type] || TOAST_ICONS.info
-    const Icon = config.icon
+    const tone = TOAST_TONES[toast.type] || TOAST_TONES.info
+    const Icon = tone.icon
 
     return (
         <div
-            role="alert"
+            role={toast.type === 'error' ? 'alert' : 'status'}
             style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
-                padding: '12px 16px',
-                background: 'var(--bg-panel)',
-                border: `1px solid ${config.color}33`,
-                borderLeft: `3px solid ${config.color}`,
+                padding: '10px 12px 10px 14px',
+                background: 'var(--bg-elevated)',
+                border: `1px solid ${tone.border}`,
+                borderLeft: `3px solid ${tone.color}`,
                 borderRadius: 'var(--radius-md)',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
-                backdropFilter: 'blur(12px)',
-                minWidth: '280px',
-                maxWidth: '420px',
-                animation: 'toastSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                pointerEvents: 'auto'
+                boxShadow: 'var(--shadow-md)',
+                width: 'min(420px, calc(100vw - 32px))',
+                animation: 'toastSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                pointerEvents: 'auto',
             }}
         >
             <div style={{
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 borderRadius: '50%',
-                background: config.bg,
+                background: tone.bg,
+                color: tone.color,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0
+                flexShrink: 0,
             }}>
-                <Icon size={16} color={config.color} />
+                <Icon size={16} aria-hidden="true" />
             </div>
-
-            <span style={{
-                flex: 1,
-                color: 'var(--text-main)',
-                fontSize: '0.9rem',
-                lineHeight: 1.4
-            }}>
+            <span style={{ flex: 1, color: 'var(--text-main)', fontSize: '0.9rem', lineHeight: 1.4, wordBreak: 'break-word' }}>
                 {toast.message}
             </span>
-
-            <button
-                onClick={() => onDismiss(toast.id)}
-                aria-label="Dismiss"
-                style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    cursor: 'pointer',
-                    padding: 4,
-                    display: 'flex',
-                    flexShrink: 0
-                }}
-            >
-                <X size={14} />
+            {toast.action && (
+                <button
+                    type="button"
+                    className="btn btn-sm btn-ghost"
+                    onClick={() => {
+                        toast.action.onClick()
+                        onDismiss(toast.id)
+                    }}
+                >
+                    {toast.action.label}
+                </button>
+            )}
+            <button type="button" className="icon-btn icon-btn-sm" onClick={() => onDismiss(toast.id)} aria-label="Dismiss notification">
+                <X size={14} aria-hidden="true" />
             </button>
         </div>
     )
@@ -79,62 +71,58 @@ function Toast({ toast, onDismiss }) {
 
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([])
-    const timersRef = useRef({})
+    const timers = useRef({})
+
+    useEffect(() => {
+        const pending = timers.current
+        return () => Object.values(pending).forEach(clearTimeout)
+    }, [])
 
     const dismiss = useCallback((id) => {
-        clearTimeout(timersRef.current[id])
-        delete timersRef.current[id]
+        clearTimeout(timers.current[id])
+        delete timers.current[id]
         setToasts(prev => prev.filter(t => t.id !== id))
     }, [])
 
-    const toast = useCallback((message, type = 'info', duration = 3500) => {
-        const id = ++_toastId
-        setToasts(prev => [...prev.slice(-4), { id, message, type }]) // Max 5 visible
-        timersRef.current[id] = setTimeout(() => dismiss(id), duration)
+    const toast = useCallback((message, type = 'info', duration = 3500, action) => {
+        const id = ++toastId
+        setToasts(prev => [...prev.slice(-3), { id, message, type, action }])
+        timers.current[id] = setTimeout(() => dismiss(id), action ? Math.max(duration, 6000) : duration)
         return id
     }, [dismiss])
 
-    const api = {
+    const api = useMemo(() => ({
         toast,
-        success: (msg, dur) => toast(msg, 'success', dur),
-        error: (msg, dur) => toast(msg, 'error', dur),
-        warning: (msg, dur) => toast(msg, 'warning', dur),
-        info: (msg, dur) => toast(msg, 'info', dur),
-    }
+        dismiss,
+        success: (msg, dur, action) => toast(msg, 'success', dur, action),
+        error: (msg, dur, action) => toast(msg, 'error', dur ?? 5000, action),
+        warning: (msg, dur, action) => toast(msg, 'warning', dur ?? 4500, action),
+        info: (msg, dur, action) => toast(msg, 'info', dur, action),
+    }), [toast, dismiss])
 
     return (
         <ToastContext.Provider value={api}>
             {children}
-
-            {/* Toast Container */}
             <div
                 aria-live="polite"
+                className="toast-region"
                 style={{
                     position: 'fixed',
-                    bottom: 'var(--space-lg)',
-                    right: 'var(--space-lg)',
+                    bottom: 16,
+                    right: 16,
                     zIndex: 9999,
                     display: 'flex',
                     flexDirection: 'column-reverse',
                     gap: 8,
-                    pointerEvents: 'none'
+                    pointerEvents: 'none',
                 }}
             >
-                {toasts.map(t => (
-                    <Toast key={t.id} toast={t} onDismiss={dismiss} />
-                ))}
+                {toasts.map(t => <Toast key={t.id} toast={t} onDismiss={dismiss} />)}
             </div>
-
             <style>{`
                 @keyframes toastSlideIn {
-                    from {
-                        opacity: 0;
-                        transform: translateX(40px) scale(0.95);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateX(0) scale(1);
-                    }
+                    from { opacity: 0; transform: translateX(24px) scale(0.97); }
+                    to { opacity: 1; transform: translateX(0) scale(1); }
                 }
             `}</style>
         </ToastContext.Provider>

@@ -30,12 +30,16 @@ test.describe('Web Tools', () => {
         const curlCommand = "curl -X POST https://api.example.com/items -H 'Content-Type: text/plain' -d 'simple_body'";
         await page.getByPlaceholder('curl -X POST').fill(curlCommand);
 
-        const outputArea = page.locator('textarea[readonly]');
-        const code = await outputArea.inputValue();
+        const output = page.locator('main pre').first();
+        await expect(output).toContainText('https://api.example.com/items');
+        const code = await output.innerText();
 
-        expect(code).toContain("fetch('https://api.example.com/items'");
-        expect(code).toContain("method: 'POST'");
-        expect(code).toContain("simple_body");
+        expect(code).toContain('fetch(');
+        expect(code).toMatch(/method: ['"]POST['"]/);
+        expect(code).toContain('simple_body');
+        expect(code).toContain('Content-Type');
+        // The generated snippet must be valid JavaScript
+        expect(() => new Function(`return async () => { ${code} }`)).not.toThrow();
     });
 
     test('Meta Tags Generator builds HTML', async ({ page }) => {

@@ -23,28 +23,25 @@ test.describe('Visual Tools', () => {
     test('SVG Compressor loads', async ({ page }) => {
         await page.goto('/svg');
         await expect(page.getByText('Input SVG')).toBeVisible();
-        // Basic interaction
-        await page.getByPlaceholder(/Paste your/).fill('<svg><rect /></svg>');
-        await page.getByRole('button', { name: 'Compress' }).click();
-        // Expect stats to appear
-        await expect(page.getByText(/Saved/)).toBeVisible();
+        // Optimizes live as you type
+        await page.getByPlaceholder(/Paste your/).fill('<svg xmlns="http://www.w3.org/2000/svg"><rect /></svg>');
+        await expect(page.getByLabel('Optimized')).not.toHaveValue('');
     });
 
     test('SVG Compressor reduces size', async ({ page }) => {
         await page.goto('/svg');
 
-        const verboseSVG = '<svg>\n  <rect width="100" height="100" />\n  <!-- comment -->\n</svg>';
+        const verboseSVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n  <rect\n    width="100"\n    height="100" />\n  <!-- comment -->\n</svg>';
         await page.getByPlaceholder(/Paste your/).fill(verboseSVG);
-        await page.getByRole('button', { name: 'Compress' }).click();
 
-        // Should show savings
-        await expect(page.getByText(/Saved/)).toBeVisible();
-
-        // Output should exist and be compressed
-        const output = await page.locator('textarea[readonly]').inputValue();
-        expect(output.length).toBeGreaterThan(0);
-        expect(output).not.toContain('comment'); // Comments removed
-        expect(output).not.toContain('\n  '); // Whitespace removed
+        const output = page.getByLabel('Optimized');
+        await expect(output).not.toHaveValue('');
+        const value = await output.inputValue();
+        expect(value.length).toBeLessThan(verboseSVG.length);
+        expect(value).not.toContain('comment');
+        expect(value).toContain('viewBox="0 0 100 100"');
+        // Still a valid SVG (attributes not glued together)
+        expect(value).toMatch(/<rect width="100" height="100"\s*\/>/);
     });
 
 });

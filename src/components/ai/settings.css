@@ -1,0 +1,248 @@
+/* Settings page (src/pages/AISettings.jsx) */
+
+.settings-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.settings-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.settings-card-header .section-title {
+    font-size: 1.1rem;
+}
+
+.settings-card-desc {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.settings-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm) var(--space-lg);
+}
+
+.settings-row-text {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.settings-row-text .field-hint {
+    margin-top: 2px;
+}
+
+.settings-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.settings-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.settings-block .field-hint,
+.settings-actions .field-hint {
+    margin-top: 0;
+}
+
+/* ---------- Appearance ---------- */
+.settings-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.settings-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.settings-hue {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: var(--space-xs);
+}
+
+/* Decorative hue scale under the slider */
+.settings-hue-scale {
+    height: 6px;
+    margin: 0 2px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(to right,
+        hsl(0 85% 58%), hsl(60 85% 50%), hsl(120 65% 45%), hsl(180 70% 45%),
+        hsl(240 80% 62%), hsl(300 75% 55%), hsl(359 85% 58%));
+}
+
+.settings-preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.settings-preview-box {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-panel);
+    color: var(--text-main);
+    font-size: 0.9rem;
+}
+
+.settings-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    font-weight: 600;
+}
+
+.settings-preview-accent {
+    color: var(--primary-text);
+    font-weight: 600;
+}
+
+.settings-preview-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+/* ---------- On-device AI ---------- */
+.settings-models {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.settings-models legend {
+    padding: 0;
+    margin-bottom: var(--space-sm);
+}
+
+.settings-model {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-subtle);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.settings-model.is-selected {
+    border-color: var(--primary-border);
+    background: var(--primary-glow);
+}
+
+.settings-model:focus-within {
+    border-color: var(--primary);
+}
+
+.settings-model-main {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-md) var(--space-sm);
+    cursor: pointer;
+}
+
+.settings-models:disabled .settings-model-main {
+    cursor: not-allowed;
+}
+
+.settings-model-main input[type="radio"] {
+    margin-top: 0.3rem;
+}
+
+.settings-model-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-model-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs) var(--space-sm);
+}
+
+.settings-model-name {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.settings-model-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.settings-model-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-md);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.settings-model-meta > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.settings-model-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: 0 var(--space-md) var(--space-md) calc(2 * var(--space-md) + 1rem);
+}
+
+.settings-load {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.settings-link {
+    color: var(--primary-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.settings-link svg {
+    vertical-align: -2px;
+    margin-left: 2px;
+}

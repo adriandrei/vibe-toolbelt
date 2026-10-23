@@ -37,7 +37,7 @@ test.describe('Text Tools', () => {
         await page.evaluate((val) => {
             window.monaco?.editor?.getModels()?.[0]?.setValue(val);
         }, uglyJson);
-        await page.getByRole('button', { name: 'Process' }).click();
+        await page.getByRole('button', { name: 'Format', exact: true }).click();
 
         const val = await page.evaluate(() => {
             return window.monaco?.editor?.getModels()?.[1]?.getValue();
@@ -64,14 +64,14 @@ test.describe('Text Tools', () => {
         await page.goto('/formatters');
 
         // Switch to SQL mode
-        await page.getByRole('button', { name: 'SQL' }).click();
+        await page.getByRole('button', { name: 'SQL', exact: true }).click();
 
         const messySQL = 'select * from users where id=1';
         await page.waitForSelector('.monaco-editor');
         await page.evaluate((val) => {
             window.monaco?.editor?.getModels()?.[0]?.setValue(val);
         }, messySQL);
-        await page.getByRole('button', { name: 'Process' }).click();
+        await page.getByRole('button', { name: 'Format', exact: true }).click();
 
         const formatted = await page.evaluate(() => {
             return window.monaco?.editor?.getModels()?.[1]?.getValue();
@@ -83,19 +83,20 @@ test.describe('Text Tools', () => {
     test('Formatters switches between modes', async ({ page }) => {
         await page.goto('/formatters');
 
-        // Start with JSON: JMESPath filter is visible, dialect select is not
+        const options = page.getByRole('region', { name: 'Formatting options' });
+        // JSON: JMESPath filter is visible, SQL dialect is not
         await expect(page.getByPlaceholder(/JMESPath Filter/i)).toBeVisible();
-        await expect(page.locator('select')).not.toBeVisible();
+        await expect(options.getByRole('option', { name: 'PostgreSQL' })).toHaveCount(0);
 
-        // Switch to SQL: JMESPath filter is not visible, dialect select is visible
-        await page.getByRole('button', { name: 'SQL' }).click();
+        // SQL: JMESPath filter is hidden, the dialect choice appears
+        await page.getByRole('button', { name: 'SQL', exact: true }).click();
         await expect(page.getByPlaceholder(/JMESPath Filter/i)).not.toBeVisible();
-        await expect(page.locator('select')).toBeVisible();
+        await expect(options.getByRole('option', { name: 'PostgreSQL' })).toHaveCount(1);
 
-        // Switch back to JSON: JMESPath filter is visible, dialect select is not
+        // Back to JSON
         await page.getByRole('button', { name: 'JSON', exact: true }).click();
         await expect(page.getByPlaceholder(/JMESPath Filter/i)).toBeVisible();
-        await expect(page.locator('select')).not.toBeVisible();
+        await expect(options.getByRole('option', { name: 'PostgreSQL' })).toHaveCount(0);
     });
 
     test('Markdown renders code blocks', async ({ page }) => {

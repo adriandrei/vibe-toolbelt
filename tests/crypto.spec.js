@@ -35,24 +35,17 @@ test.describe('JWT Decoder & Verifier', () => {
     test('Verifies valid HS256 signature correctly', async ({ page }) => {
         await page.getByPlaceholder('eyJh...').fill(validJwt);
 
-        // Fill the secret key
-        const secretInput = page.locator('textarea').nth(1); // verification textarea
-        await secretInput.fill('your-256-bit-secret');
-
-        await page.getByRole('button', { name: 'Verify' }).click();
-
-        await expect(page.getByText('Signature Valid!')).toBeVisible({ timeout: 8000 });
+        // Verification runs as soon as a secret is entered
+        await page.getByLabel('Secret', { exact: true }).fill('your-256-bit-secret');
+        await expect(page.getByText(/Signature valid/)).toBeVisible({ timeout: 8000 });
     });
 
     test('Rejects wrong secret as invalid', async ({ page }) => {
         await page.getByPlaceholder('eyJh...').fill(validJwt);
 
-        const secretInput = page.locator('textarea').nth(1);
-        await secretInput.fill('wrong-secret');
-
-        await page.getByRole('button', { name: 'Verify' }).click();
-
-        await expect(page.getByText('Invalid Signature')).toBeVisible({ timeout: 8000 });
+        await page.getByLabel('Secret', { exact: true }).fill('wrong-secret');
+        await expect(page.locator('main')).toContainText(/Invalid signature|does not match/i, { timeout: 8000 });
+        await expect(page.getByText(/Signature valid/)).toHaveCount(0);
     });
 
     test('Shows error for malformed token', async ({ page }) => {
@@ -66,72 +59,61 @@ test.describe('JWT Decoder & Verifier', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('AES Encryption', () => {
+    const encryptAction = (page) => page.locator('main').getByRole('button', { name: 'Encrypt', exact: true }).last();
+    const decryptAction = (page) => page.locator('main').getByRole('button', { name: 'Decrypt', exact: true }).last();
+    const ciphertextOut = (page) => page.locator('main').getByText(/^VlQB[A-Za-z0-9+/=]+$/);
+
     test.beforeEach(async ({ page }) => {
         await page.goto('/aes');
     });
 
-    test('Encrypts text and produces ciphertext', async ({ page }) => {
-        await page.getByPlaceholder('Enter a strong secret key...').fill('mysecretkey');
-        await page.getByPlaceholder(/Text to encrypt/).fill('Hello World');
-
-        // Wait for auto-process (debounced 300ms)
-        const output = page.locator('textarea[readonly]');
-        await expect(output).not.toBeEmpty({ timeout: 3000 });
-
-        const cipher = await output.inputValue();
-        // CryptoJS AES ciphertext starts with "U2FsdGVk" (OpenSSL prefix in base64)
-        expect(cipher).toMatch(/^U2FsdGVk/);
+    test('Encrypts text with AES-256-GCM by default', async ({ page }) => {
+        await page.getByLabel('Passphrase', { exact: true }).fill('mysecretkey');
+        await page.getByLabel('Plaintext', { exact: true }).fill('Hello World');
+        await encryptAction(page).click();
+        await expect(ciphertextOut(page)).toBeVisible({ timeout: 10000 });
     });
 
-    test('Decrypt mode produces original plaintext', async ({ page }) => {
-        // Known cipher: "Hello World" encrypted with key "mysecretkey"
-        // Generated with CryptoJS.AES.encrypt("Hello World", "mysecretkey").toString()
-        // This is a stable value for the same key+salt — we test decrypt round-trip via UI
+    test('Ciphertext decrypts back to the original text', async ({ page }) => {
         const plaintext = 'Hello Decrypt World';
-        const key = 'testpassphrase123';
+        await page.getByLabel('Passphrase', { exact: true }).fill('testpassphrase123');
+        await page.getByLabel('Plaintext', { exact: true }).fill(plaintext);
+        await encryptAction(page).click();
+        await expect(ciphertextOut(page)).toBeVisible({ timeout: 10000 });
 
-        // Step 1: Encrypt
-        await page.getByPlaceholder('Enter a strong secret key...').fill(key);
-        await page.getByPlaceholder(/Text to encrypt/).fill(plaintext);
-
-        const encryptOutput = page.locator('textarea[readonly]');
-        await expect(encryptOutput).not.toBeEmpty({ timeout: 3000 });
-        const ciphertext = await encryptOutput.inputValue();
-        expect(ciphertext.length).toBeGreaterThan(10);
-
-        // Step 2: Switch to Decrypt mode
-        await page.getByRole('button', { name: /Decrypt/i }).click();
-
-        // Step 3: Fill ciphertext and same key
-        await page.getByPlaceholder(/U2Fsd/).fill(ciphertext);
-        await page.getByPlaceholder('Enter a strong secret key...').fill(key);
-
-        // Step 4: Check decrypted output matches original
-        await expect(encryptOutput).toHaveValue(plaintext, { timeout: 3000 });
+        // Swap moves the ciphertext into the input and switches to decrypt
+        await page.getByRole('button', { name: 'Swap' }).click();
+        await decryptAction(page).click();
+        await expect(page.locator('main').getByText(plaintext, { exact: true })).toBeVisible({ timeout: 10000 });
     });
 
-    test('Shows error for wrong decryption key', async ({ page }) => {
-        // Switch to decrypt mode
-        await page.getByRole('button', { name: /Decrypt/i }).click();
+    test('A wrong passphrase is rejected, not decrypted to garbage', async ({ page }) => {
+        await page.getByLabel('Passphrase', { exact: true }).fill('right-passphrase');
+        await page.getByLabel('Plaintext', { exact: true }).fill('Top secret');
+        await encryptAction(page).click();
+        await expect(ciphertextOut(page)).toBeVisible({ timeout: 10000 });
 
-        await page.getByPlaceholder('Enter a strong secret key...').fill('wrongkey');
-        // Paste a real CryptoJS ciphertext that was made with a different key
-        await page.getByPlaceholder(/U2Fsd/).fill('U2FsdGVkX19abc123invalidciphertext');
+        await page.getByRole('button', { name: 'Swap' }).click();
+        await page.getByLabel('Passphrase', { exact: true }).fill('wrong-passphrase');
+        await decryptAction(page).click();
+        await expect(page.getByRole('alert').first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator('main').getByText('Top secret', { exact: true })).toHaveCount(0);
+    });
 
-        await expect(page.locator('body')).toContainText(/Decryption Failed|Invalid key/i, { timeout: 3000 });
+    test('Malformed ciphertext is explained before decrypting', async ({ page }) => {
+        await page.locator('main').getByRole('button', { name: 'Decrypt', exact: true }).first().click();
+        await page.getByLabel('Passphrase', { exact: true }).fill('any');
+        await page.getByLabel('Ciphertext', { exact: true }).fill('U2FsdGVkX19abc123invalidciphertext');
+        await expect(page.locator('main')).toContainText(/truncated|not valid|invalid/i);
+        await expect(decryptAction(page)).toBeDisabled();
     });
 
     test('Switches between Encrypt and Decrypt modes', async ({ page }) => {
-        // Default is Encrypt
-        await expect(page.getByPlaceholder(/Text to encrypt/)).toBeVisible();
-
-        // Switch to Decrypt
-        await page.getByRole('button', { name: /Decrypt/i }).click();
-        await expect(page.getByPlaceholder(/U2Fsd/)).toBeVisible();
-
-        // Switch back
-        await page.getByRole('button', { name: /Encrypt/i }).click();
-        await expect(page.getByPlaceholder(/Text to encrypt/)).toBeVisible();
+        await expect(page.getByLabel('Plaintext', { exact: true })).toBeVisible();
+        await page.locator('main').getByRole('button', { name: 'Decrypt', exact: true }).first().click();
+        await expect(page.getByLabel('Ciphertext', { exact: true })).toBeVisible();
+        await page.locator('main').getByRole('button', { name: 'Encrypt', exact: true }).first().click();
+        await expect(page.getByLabel('Plaintext', { exact: true })).toBeVisible();
     });
 });
 
@@ -176,7 +158,7 @@ test.describe('Bcrypt Hash Generator & Verifier', () => {
         await page.getByPlaceholder('$2a$10$...').fill(knownHash);
  
         // Wait for verify (debounced + async)
-        await expect(page.getByText('Match! Password is correct.')).toBeVisible({ timeout: 8000 });
+        await expect(page.getByText(/The password is correct for this hash/)).toBeVisible({ timeout: 8000 });
     });
  
     test('Verifies wrong password against hash — shows No match', async ({ page }) => {
@@ -185,7 +167,7 @@ test.describe('Bcrypt Hash Generator & Verifier', () => {
         await page.getByPlaceholder('Enter password...').fill('wrongpassword');
         await page.getByPlaceholder('$2a$10$...').fill(knownHash);
  
-        await expect(page.getByText('No match.')).toBeVisible({ timeout: 8000 });
+        await expect(page.getByText('No match', { exact: true })).toBeVisible({ timeout: 8000 });
     });
 });
 
@@ -197,20 +179,12 @@ test.describe('OTP / TOTP Generator', () => {
     });
 
     test('Generates a 6-digit TOTP token on load', async ({ page }) => {
-        // Token is rendered as text inside a sibling div to the "current token" label
-        // Both live inside a wrapper div — we target the big token div via its font-size style
-        const tokenDiv = page.locator('div[style*="3rem"]');
-
-        // Wait for the timer loop to fire (1s interval — should catch within 3s)
-        await expect(tokenDiv).toHaveText(/^\d{6}$/, { timeout: 5000 });
+        // The current code appears immediately (no 1 s delay)
+        await expect(page.getByRole('button', { name: /^Copy code \d{6}$/ })).toBeVisible({ timeout: 2000 });
     });
 
     test('Timer progress bar is visible', async ({ page }) => {
-        // The countdown is shown as a shrinking progress bar (no text countdown)
-        // Verify the token display area and the progress bar container both exist
-        await expect(page.locator('body')).toContainText('current token');
-        // Progress bar is a div inside its track — verify the track div exists
-        await expect(page.locator('div[style*="height: 6px"], div[style*="height:6px"]').first()).toBeVisible();
+        await expect(page.getByRole('progressbar').first()).toBeVisible();
     });
 
     test('Generates new secret when "New Secret" is clicked', async ({ page }) => {
@@ -240,9 +214,7 @@ test.describe('OTP / TOTP Generator', () => {
         // JBSWY3DPEHPK3PXP is the canonical test secret from RFC 6238
         await secretInput.fill('JBSWY3DPEHPK3PXP');
 
-        // Should produce a valid 6-digit token within 2 seconds
-        const tokenDisplay = page.locator('div[style*="3rem"]');
-        await expect(tokenDisplay).toHaveText(/^\d{6}$/, { timeout: 5000 });
+        await expect(page.getByRole('button', { name: /^Copy code \d{6}$/ })).toBeVisible({ timeout: 3000 });
     });
 });
 

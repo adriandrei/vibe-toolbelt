@@ -1,213 +1,227 @@
-import React, { useState, useMemo } from 'react'
-import { List, Copy, Check, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Filter, Hash } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useMemo, useState } from 'react'
+import { Check, Trash2 } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import Field from '../components/ui/Field'
+import CopyButton from '../components/ui/CopyButton'
+import SegmentedControl from '../components/ui/SegmentedControl'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { countCodePoints } from '../utils/textMetrics'
 
-export default function ListSorter() {
-    useDocumentTitle('List Sorter & Deduplicator')
-    const [input, setInput] = useState('')
-    const [copied, setCopied] = useState(false)
+const SORT_TYPES = [
+    { value: 'alpha', label: 'Text' },
+    { value: 'numeric', label: 'Number' },
+    { value: 'length', label: 'Length' },
+]
 
-    // Options
-    const [sortDir, setSortDir] = useState('asc') // asc | desc | none
-    const [dedupe, setDedupe] = useState(false)
-    const [trimLines, setTrimLines] = useState(true)
-    const [removeEmpty, setRemoveEmpty] = useState(true)
-    const [caseSensitive, setCaseSensitive] = useState(true)
-    const [sortType, setSortType] = useState('alpha') // alpha | numeric | length
+const DIRECTION_LABELS = {
+    alpha: { asc: 'A → Z', desc: 'Z → A' },
+    numeric: { asc: '0 → 9', desc: '9 → 0' },
+    length: { asc: 'Short → long', desc: 'Long → short' },
+}
 
-    const result = useMemo(() => {
-        let lines = input.split('\n')
+// First number in a line: "$1,299.99" -> 1299.99, "v3" -> 3, "item-5" -> 5,
+// "-4 °C" -> -4. Lines without a number sort last.
+const NUMBER_RE = /(?:(?<![\p{L}\p{N}.])[-+−])?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/u
 
-        if (trimLines) lines = lines.map(l => l.trim())
-        if (removeEmpty) lines = lines.filter(l => l.length > 0)
+function parseNumber(line) {
+    const match = line.match(NUMBER_RE)
+    if (!match) return NaN
+    return Number(match[0].replace(/,/g, '').replace('−', '-'))
+}
 
-        if (dedupe) {
-            if (caseSensitive) {
-                // Case Sensitive Dedupe: "Apple" != "apple"
-                lines = [...new Set(lines)]
-            } else {
-                // Ignore Case Dedupe: "Apple" == "apple" -> Keep first occurrence
-                const seen = new Set()
-                lines = lines.filter(l => {
-                    const key = l.toLowerCase()
-                    if (seen.has(key)) return false
-                    seen.add(key)
-                    return true
-                })
-            }
-        }
+function processList(text, { trim, removeEmpty, dedupe, ignoreCase, natural, sortType, sortDir }) {
+    const stats = { input: 0, blank: 0, duplicates: 0, noNumber: 0, result: 0 }
+    if (!text) return { lines: [], stats }
 
-        if (sortDir !== 'none') {
-            lines.sort((a, b) => {
-                let cmp
-                if (sortType === 'numeric') {
-                    cmp = (parseFloat(a) || 0) - (parseFloat(b) || 0)
-                } else if (sortType === 'length') {
-                    cmp = a.length - b.length
-                } else {
-                    // If Case Sensitive: Use localeCompare
-                    // If Ignore Case: Lowercase both then compare
-                    cmp = caseSensitive ? a.localeCompare(b) : a.toLowerCase().localeCompare(b.toLowerCase())
-                }
-                return sortDir === 'desc' ? -cmp : cmp
-            })
-        }
+    let lines = text.split(/\r\n|\r|\n/)
+    // A trailing line break doesn't start another item
+    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop()
+    stats.input = lines.length
 
-        return lines
-    }, [input, sortDir, dedupe, trimLines, removeEmpty, caseSensitive, sortType])
-
-    const stats = useMemo(() => {
-        const original = input.split('\n').filter(l => l.trim().length > 0)
-        return {
-            original: original.length,
-            result: result.length,
-            removed: original.length - result.length,
-            duplicates: original.length - new Set(original.map(l => caseSensitive ? l.trim() : l.trim().toLowerCase())).size
-        }
-    }, [input, result, caseSensitive])
-
-    const copy = () => {
-        navigator.clipboard.writeText(result.join('\n'))
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+    if (trim) lines = lines.map(l => l.trim())
+    if (removeEmpty) {
+        const before = lines.length
+        lines = lines.filter(l => l.trim() !== '')
+        stats.blank = before - lines.length
     }
 
-    const toggleStyle = (active) => ({
-        padding: '8px 14px',
-        borderRadius: 'var(--radius-sm)',
-        background: active ? 'var(--primary-glow)' : 'rgba(255,255,255,0.03)',
-        border: active ? '1px solid var(--primary)' : '1px solid var(--border)',
-        color: active ? 'var(--primary)' : 'var(--text-muted)',
-        cursor: 'pointer',
-        fontSize: '0.8rem',
-        fontWeight: 500,
-        transition: 'all 0.2s',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4
-    })
+    // Duplicates use the same comparison as dedupe, so the count always
+    // matches what "Remove duplicates" would remove
+    const keyOf = ignoreCase ? (l) => l.toLocaleLowerCase() : (l) => l
+    const seen = new Set()
+    const kept = []
+    for (const line of lines) {
+        const key = keyOf(line)
+        if (seen.has(key)) {
+            stats.duplicates++
+            if (!dedupe) kept.push(line)
+        } else {
+            seen.add(key)
+            kept.push(line)
+        }
+    }
+    lines = kept
+
+    if (sortDir !== 'none') {
+        const collator = new Intl.Collator(undefined, {
+            numeric: natural,
+            sensitivity: ignoreCase ? 'accent' : 'variant',
+            caseFirst: ignoreCase ? 'false' : 'upper',
+        })
+        const dir = sortDir === 'desc' ? -1 : 1
+        if (sortType === 'numeric') {
+            const decorated = lines.map(line => ({ line, n: parseNumber(line) }))
+            decorated.sort((a, b) => {
+                const aNaN = Number.isNaN(a.n)
+                const bNaN = Number.isNaN(b.n)
+                // Lines without a number always go last, in A → Z order
+                if (aNaN || bNaN) return aNaN && bNaN ? collator.compare(a.line, b.line) : aNaN ? 1 : -1
+                return (a.n - b.n) * dir || collator.compare(a.line, b.line) * dir
+            })
+            stats.noNumber = decorated.filter(d => Number.isNaN(d.n)).length
+            lines = decorated.map(d => d.line)
+        } else if (sortType === 'length') {
+            const decorated = lines.map(line => ({ line, len: countCodePoints(line) }))
+            decorated.sort((a, b) => (a.len - b.len) * dir || collator.compare(a.line, b.line))
+            lines = decorated.map(d => d.line)
+        } else {
+            lines = [...lines].sort((a, b) => collator.compare(a, b) * dir)
+        }
+    }
+
+    stats.result = lines.length
+    return { lines, stats }
+}
+
+function ToggleChip({ pressed, onChange, children, title }) {
+    return (
+        <button type="button" className={`chip ${pressed ? 'is-active' : ''}`} aria-pressed={pressed} onClick={() => onChange(!pressed)} title={title}>
+            {pressed && <Check size={12} aria-hidden="true" />}
+            {children}
+        </button>
+    )
+}
+
+function Stat({ label, value, tone }) {
+    return (
+        <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{label}</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: tone ? `var(--${tone})` : 'var(--text-main)' }}>{value.toLocaleString()}</div>
+        </div>
+    )
+}
+
+export default function ListSorter() {
+    const [input, setInput] = useState('')
+    const [sortType, setSortType] = useState('alpha')
+    const [sortDir, setSortDir] = useState('asc')
+    const [trim, setTrim] = useState(true)
+    const [removeEmpty, setRemoveEmpty] = useState(true)
+    const [dedupe, setDedupe] = useState(false)
+    const [ignoreCase, setIgnoreCase] = useState(false)
+    const [natural, setNatural] = useState(true)
+
+    const source = useDebouncedValue(input, input.length > 200000 ? 250 : 0)
+    const { lines, stats } = useMemo(
+        () => processList(source, { trim, removeEmpty, dedupe, ignoreCase, natural, sortType, sortDir }),
+        [source, trim, removeEmpty, dedupe, ignoreCase, natural, sortType, sortDir]
+    )
+    const output = useMemo(() => lines.join('\n'), [lines])
+
+    const labels = DIRECTION_LABELS[sortType]
+    const directions = [
+        { value: 'asc', label: labels.asc },
+        { value: 'desc', label: labels.desc },
+        { value: 'none', label: 'Original order' },
+    ]
 
     return (
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-                <h2 className="text-gradient" style={{ fontSize: '2rem' }}>List Sorter & Deduplicator</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: 'var(--space-sm)' }}>
-                    Sort, deduplicate, and clean up text lines
-                </p>
+        <div className="page page-wide">
+            <ToolHeader />
+
+            <section className="card" aria-label="Options" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+                    <div style={{ minWidth: 0 }}>
+                        <span className="field-label" aria-hidden="true">Sort by</span>
+                        <SegmentedControl ariaLabel="Sort by" options={SORT_TYPES} value={sortType} onChange={setSortType} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                        <span className="field-label" aria-hidden="true">Order</span>
+                        <SegmentedControl ariaLabel="Order" options={directions} value={sortDir} onChange={setSortDir} />
+                    </div>
+                </div>
+                <div role="group" aria-label="Clean-up options" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
+                    <ToggleChip pressed={trim} onChange={setTrim} title="Remove spaces at the start and end of each line">Trim whitespace</ToggleChip>
+                    <ToggleChip pressed={removeEmpty} onChange={setRemoveEmpty} title="Drop lines that are empty or only whitespace">Remove blank lines</ToggleChip>
+                    <ToggleChip pressed={dedupe} onChange={setDedupe} title="Keep only the first of identical lines">Remove duplicates</ToggleChip>
+                    <ToggleChip pressed={ignoreCase} onChange={setIgnoreCase} title="Treat “Apple” and “apple” as the same when sorting and removing duplicates">Ignore case</ToggleChip>
+                    {sortType === 'alpha' && (
+                        <ToggleChip pressed={natural} onChange={setNatural} title="Compare numbers inside text by value: item2 before item10">Natural numbers</ToggleChip>
+                    )}
+                </div>
+                {sortType === 'numeric' && (
+                    <p className="field-hint" style={{ margin: 0 }}>
+                        Sorts by the first number in each line ($1,299.99 → 1299.99). Lines without a number go last.
+                    </p>
+                )}
+            </section>
+
+            <div className="split-pane">
+                <section className="card">
+                    <Field
+                        label="List"
+                        hint="One item per line."
+                        labelAction={
+                            <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <PipelineRead onRead={setInput} />
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInput('')} disabled={!input}>
+                                    <Trash2 size={14} aria-hidden="true" /> Clear
+                                </button>
+                            </div>
+                        }
+                    >
+                        <textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder={'banana\nApple\ncherry\napple\nitem10\nitem2'}
+                            spellCheck={false}
+                            style={{ minHeight: 340 }}
+                        />
+                    </Field>
+                </section>
+
+                <section className="card">
+                    <Field
+                        label="Result"
+                        hint={stats.result ? `${stats.result.toLocaleString()} ${stats.result === 1 ? 'line' : 'lines'}` : 'The sorted list appears here.'}
+                        labelAction={
+                            <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <PipelineSend dataToSend={output} />
+                                <CopyButton text={output} variant="secondary" />
+                            </div>
+                        }
+                    >
+                        <textarea
+                            readOnly
+                            value={output}
+                            spellCheck={false}
+                            style={{ minHeight: 340, background: 'var(--bg-inset)', color: 'var(--text-code)' }}
+                        />
+                    </Field>
+                </section>
             </div>
 
-            {/* Options Bar */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* Sort Direction */}
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <button onClick={() => setSortDir('asc')} style={toggleStyle(sortDir === 'asc')} title="Sort ascending">
-                            <ArrowUp size={12} /> A→Z
-                        </button>
-                        <button onClick={() => setSortDir('desc')} style={toggleStyle(sortDir === 'desc')} title="Sort descending">
-                            <ArrowDown size={12} /> Z→A
-                        </button>
-                        <button onClick={() => setSortDir('none')} style={toggleStyle(sortDir === 'none')} title="No sorting">
-                            Off
-                        </button>
-                    </div>
-
-                    <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
-
-                    {/* Sort Type */}
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <button onClick={() => setSortType('alpha')} style={toggleStyle(sortType === 'alpha')}>Abc</button>
-                        <button onClick={() => setSortType('numeric')} style={toggleStyle(sortType === 'numeric')}>123</button>
-                        <button onClick={() => setSortType('length')} style={toggleStyle(sortType === 'length')}>Len</button>
-                    </div>
-
-                    <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
-
-                    {/* Toggles */}
-                    <button onClick={() => setDedupe(!dedupe)} style={toggleStyle(dedupe)}>
-                        <Filter size={12} /> Dedupe
-                    </button>
-                    <button onClick={() => setTrimLines(!trimLines)} style={toggleStyle(trimLines)}>
-                        Trim
-                    </button>
-                    <button onClick={() => setRemoveEmpty(!removeEmpty)} style={toggleStyle(removeEmpty)}>
-                        Remove Empty
-                    </button>
-                    <button onClick={() => setCaseSensitive(!caseSensitive)} style={toggleStyle(!caseSensitive)}>
-                        Ignore Case
-                    </button>
-                </div>
-            </div>
-
-            {/* Side-by-side */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-                {/* Input */}
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-                        <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <List size={14} color="var(--primary)" /> Input
-                        </label>
-                        <button onClick={() => setInput('')} style={{ color: 'var(--text-dim)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Trash2 size={12} /> Clear
-                        </button>
-                    </div>
-                    <textarea
-                        value={input}
-                        onChange={e => setInput(e.target.value)}
-                        placeholder={"Paste your list here...\nOne item per line\napple\nbanana\napple\ncherry"}
-                        style={{ width: '100%', minHeight: '350px', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}
-                    />
-                </div>
-
-                {/* Output */}
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', position: 'relative' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-                        <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Result</label>
-                        {result.length > 0 && (
-                            <button onClick={copy} style={{
-                                padding: '4px 12px', borderRadius: 'var(--radius-sm)',
-                                background: copied ? 'var(--accent)' : 'var(--primary)', color: '#fff',
-                                display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 500
-                            }}>
-                                {copied ? <Check size={12} /> : <Copy size={12} />}
-                                {copied ? 'Copied!' : 'Copy'}
-                            </button>
-                        )}
-                    </div>
-                    <textarea
-                        readOnly
-                        value={result.join('\n')}
-                        style={{
-                            width: '100%', minHeight: '350px', resize: 'vertical',
-                            fontFamily: 'var(--font-mono)', fontSize: '0.9rem',
-                            background: 'rgba(0,0,0,0.15)', cursor: 'default'
-                        }}
-                    />
-                </div>
-            </div>
-
-            {/* Stats */}
-            {input && (
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
+            {stats.input > 0 && (
+                <section className="card card-compact" aria-label="Summary" aria-live="polite">
                     <div style={{ display: 'flex', gap: 'var(--space-lg)', flexWrap: 'wrap' }}>
-                        <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Input Lines</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)' }}>{stats.original}</div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Result Lines</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--primary)' }}>{stats.result}</div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Removed</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: stats.removed > 0 ? '#ef4444' : 'var(--text-main)' }}>{stats.removed}</div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Duplicates Found</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: stats.duplicates > 0 ? '#f59e0b' : 'var(--text-main)' }}>{stats.duplicates}</div>
-                        </div>
+                        <Stat label="Input lines" value={stats.input} />
+                        {removeEmpty && <Stat label="Blank removed" value={stats.blank} />}
+                        <Stat label={dedupe ? 'Duplicates removed' : 'Duplicates found'} value={stats.duplicates} tone={stats.duplicates ? 'warning' : null} />
+                        {sortType === 'numeric' && sortDir !== 'none' && <Stat label="Without a number" value={stats.noNumber} />}
+                        <Stat label="Result lines" value={stats.result} tone="primary-text" />
                     </div>
-                </div>
+                </section>
             )}
         </div>
     )

@@ -3,21 +3,40 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Private Toolkit - Privacy-First Developer Utilities</title>
+  <title>Vibe Toolbelt — Privacy-first developer tools</title>
   <meta name="description"
-    content="A privacy-focused collection of developer utilities. Fast, secure, and always at your fingertips." />
-  <meta name="theme-color" content="#0f172a" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-    rel="stylesheet" />
-  <link rel="manifest" href="/manifest.json" />
+    content="Developer utilities that run entirely in your browser: formatters, encoders, crypto, media and more. Your data stays on your device." />
+  <meta name="theme-color" content="#110f18" />
+  <!-- Static tags for link previews (scrapers don't run JavaScript) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Vibe Toolbelt" />
+  <meta property="og:title" content="Vibe Toolbelt — Privacy-first developer tools" />
+  <meta property="og:description" content="Developer utilities that run entirely in your browser: formatters, encoders, crypto, media and more." />
+  <meta name="twitter:card" content="summary" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <script>
+    // Apply the saved theme and accent before first paint (no flash of the wrong theme).
+    (function () {
+      var root = document.documentElement;
+      try {
+        var saved = localStorage.getItem('pt-theme');
+        var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        var theme = saved === 'light' || saved === 'dark' ? saved : (prefersLight ? 'light' : 'dark');
+        root.setAttribute('data-theme', theme);
+        var hue = parseInt(localStorage.getItem('pt-hue'), 10);
+        if (!isNaN(hue)) root.style.setProperty('--hue', String(((hue % 360) + 360) % 360));
+      } catch (e) {
+        root.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
 </head>
 
 <body>
+  <noscript>Vibe Toolbelt needs JavaScript: every tool runs locally in your browser.</noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

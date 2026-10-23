@@ -25,7 +25,7 @@ test.describe('Design Tools', () => {
         await expect(codeBlock).toContainText('linear-gradient(45deg, #6366f1, #a855f7)');
 
         // Change angle
-        await page.getByText('Angle').locator('..').locator('input').fill('90');
+        await page.getByLabel('Angle (°) value').fill('90');
         await expect(codeBlock).toContainText('linear-gradient(90deg');
     });
 
@@ -37,7 +37,7 @@ test.describe('Design Tools', () => {
         await expect(codeBlock).toContainText('0px 10px 15px -3px rgba(0, 0, 0, 0.1)');
 
         // Add Layer
-        await page.getByText('+ Add Layer').click();
+        await page.getByRole('button', { name: 'Add layer' }).click();
 
         // Should now have two layers (comma separated)
         const text = await codeBlock.textContent();

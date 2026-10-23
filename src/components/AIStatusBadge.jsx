@@ -1,130 +1,116 @@
-import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, Bot, Loader2, Sparkles } from 'lucide-react'
 import { useAI } from '../contexts/AIContext'
-import { Bot, Loader, AlertTriangle, Zap } from 'lucide-react'
+import { ProgressRing } from './ai/Progress'
+import { AI_PANEL_ID, SETTINGS_PATH } from './ai/constants'
 
+/**
+ * AI status in the app header. Compact (icon only) on narrow screens, with the
+ * full status in its accessible name.
+ *
+ * idle → starts loading · loading → shows the progress dialog · ready/thinking →
+ * toggles the assistant · error → shows what went wrong · unsupported → opens
+ * Settings, which explains why.
+ */
 export default function AIStatusBadge() {
-    const { aiStatus, loadProgress, webGPUSupported, setAiPanelOpen, aiPanelOpen, loadModel } = useAI()
-    const [tooltip, setTooltip] = useState(false)
+    const {
+        aiStatus, loadProgress, loadPhase, loadingModel, aiPanelOpen, toggleAIPanel, loadModel, showLoadDialog,
+        selectedModel, getModel, webGPUInfo,
+    } = useAI()
+    const navigate = useNavigate()
+    const model = getModel(selectedModel)
+    const modelName = model?.name ?? 'the AI model'
 
-    const getConfig = () => {
-        if (aiStatus === 'unsupported' || webGPUSupported === false) return {
-            icon: <AlertTriangle size={14} />,
-            label: 'AI Unavailable',
-            color: 'var(--text-dim)',
-            bg: 'rgba(255,255,255,0.05)',
-            border: 'var(--border)',
-            tip: 'WebGPU is required. Use Chrome 113+ or Edge 113+.',
-            clickable: false,
+    let cfg
+    switch (aiStatus) {
+        case 'checking':
+            cfg = {
+                className: '',
+                icon: <Loader2 size={12} className="spin" aria-hidden="true" />,
+                label: 'AI',
+                aria: 'Checking whether this browser can run the AI',
+                disabled: true,
+            }
+            break
+        case 'unsupported':
+            cfg = {
+                className: '',
+                icon: <AlertTriangle size={12} aria-hidden="true" />,
+                label: 'AI unavailable',
+                aria: 'AI unavailable: open Settings to see why',
+                title: webGPUInfo?.message || 'This browser cannot run the on-device AI',
+                onClick: () => navigate(SETTINGS_PATH),
+            }
+            break
+        case 'loading': {
+            const starting = !loadPhase || loadPhase === 'prepare'
+            const loadingName = getModel(loadingModel)?.name ?? modelName
+            cfg = {
+                className: 'badge-warning',
+                icon: starting ? <Loader2 size={12} className="spin" aria-hidden="true" /> : <ProgressRing value={loadProgress} size={13} />,
+                label: starting ? 'AI…' : `AI ${loadProgress}%`,
+                aria: starting ? `AI…: starting to load ${loadingName}, show progress` : `AI ${loadProgress}%: loading ${loadingName}, show progress`,
+                onClick: showLoadDialog,
+            }
+            break
         }
-        if (aiStatus === 'loading') return {
-            icon: <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />,
-            label: `${loadProgress}%`,
-            color: 'hsl(38,95%,65%)',
-            bg: 'rgba(234,179,8,0.1)',
-            border: 'rgba(234,179,8,0.3)',
-            tip: 'Downloading AI model…',
-            clickable: false,
-        }
-        if (aiStatus === 'thinking') return {
-            icon: <Zap size={14} style={{ animation: 'pulse 0.8s ease-in-out infinite' }} />,
-            label: 'Thinking…',
-            color: 'var(--primary)',
-            bg: 'var(--primary-glow)',
-            border: 'var(--primary)',
-            tip: 'AI is generating a response',
-            clickable: true,
-        }
-        if (aiStatus === 'ready') return {
-            icon: <Bot size={14} />,
-            label: 'AI Ready',
-            color: 'hsl(142,70%,55%)',
-            bg: 'rgba(34,197,94,0.1)',
-            border: 'rgba(34,197,94,0.3)',
-            tip: 'Click to open AI assistant',
-            clickable: true,
-        }
-        // idle
-        return {
-            icon: <Bot size={14} />,
-            label: 'AI',
-            color: 'var(--text-muted)',
-            bg: 'rgba(255,255,255,0.05)',
-            border: 'var(--border)',
-            tip: 'Click to load AI assistant',
-            clickable: webGPUSupported !== false,
-        }
+        case 'error':
+            cfg = {
+                className: 'badge-danger',
+                icon: <AlertTriangle size={12} aria-hidden="true" />,
+                label: 'AI error',
+                aria: `AI error: ${modelName} failed to load, show details`,
+                onClick: showLoadDialog,
+            }
+            break
+        case 'thinking':
+            cfg = {
+                className: 'badge-primary',
+                icon: <Sparkles size={12} aria-hidden="true" style={{ animation: 'pulse 1s ease-in-out infinite' }} />,
+                label: 'Thinking…',
+                aria: `Thinking…: ${aiPanelOpen ? 'close' : 'open'} the AI assistant`,
+                onClick: toggleAIPanel,
+                expanded: aiPanelOpen,
+            }
+            break
+        case 'ready':
+            cfg = {
+                className: aiPanelOpen ? 'badge-primary' : 'badge-success',
+                icon: <Bot size={12} aria-hidden="true" />,
+                label: 'AI ready',
+                aria: `AI ready: ${aiPanelOpen ? 'close' : 'open'} the AI assistant`,
+                onClick: toggleAIPanel,
+                expanded: aiPanelOpen,
+            }
+            break
+        default:
+            cfg = {
+                className: '',
+                icon: <Sparkles size={12} aria-hidden="true" />,
+                label: 'Load AI',
+                aria: `Load AI: start ${modelName} (${model?.size ?? ''} download on first use)`,
+                title: `Load ${modelName}. The first time, this downloads ${model?.size ?? 'about 1 GB'}; after that it loads from this device.`,
+                onClick: () => loadModel(),
+            }
+            break
     }
 
-    const cfg = getConfig()
-
-    const handleClick = () => {
-        if (!cfg.clickable) return
-        if (aiStatus === 'idle') {
-            loadModel()
-        } else if (aiStatus === 'ready' || aiStatus === 'thinking') {
-            setAiPanelOpen(!aiPanelOpen)
-        }
-    }
+    const isPanelToggle = cfg.expanded !== undefined
 
     return (
-        <div style={{ position: 'relative' }}>
-            <button
-                id="ai-status-badge"
-                onClick={handleClick}
-                onMouseEnter={() => setTooltip(true)}
-                onMouseLeave={() => setTooltip(false)}
-                title={cfg.tip}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '5px 10px',
-                    borderRadius: 100,
-                    background: aiPanelOpen ? 'var(--primary-glow)' : cfg.bg,
-                    border: `1px solid ${aiPanelOpen ? 'var(--primary)' : cfg.border}`,
-                    color: aiPanelOpen ? 'var(--primary)' : cfg.color,
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: cfg.clickable ? 'pointer' : 'default',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap',
-                }}
-            >
-                {cfg.icon}
-                <span>{cfg.label}</span>
-            </button>
-
-            {tooltip && (
-                <div style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 8px)',
-                    right: 0,
-                    background: 'var(--bg-panel)',
-                    backdropFilter: 'blur(12px)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '6px 10px',
-                    fontSize: '0.75rem',
-                    color: 'var(--text-muted)',
-                    whiteSpace: 'nowrap',
-                    zIndex: 1000,
-                    pointerEvents: 'none',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                }}>
-                    {cfg.tip}
-                </div>
-            )}
-
-            <style>{`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.4; }
-                }
-            `}</style>
-        </div>
+        <button
+            type="button"
+            className={`badge ${cfg.className}`}
+            onClick={cfg.onClick}
+            disabled={cfg.disabled}
+            aria-label={cfg.aria}
+            title={cfg.title ?? cfg.aria}
+            aria-expanded={isPanelToggle ? cfg.expanded : undefined}
+            aria-controls={isPanelToggle && cfg.expanded ? AI_PANEL_ID : undefined}
+            style={{ cursor: cfg.disabled ? 'default' : 'pointer', flexShrink: 0 }}
+        >
+            {cfg.icon}
+            <span className="hide-sm">{cfg.label}</span>
+        </button>
     )
 }

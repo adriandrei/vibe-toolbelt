@@ -1,30 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useLocalStorage } from './useLocalStorage'
 
+// Favourite tool paths, shared by every component that uses this hook.
 export function useFavorites() {
-    const [favorites, setFavorites] = useState(() => {
-        try {
-            const stored = localStorage.getItem('vibe-tools-favorites')
-            return stored ? JSON.parse(stored) : []
-        } catch (e) {
-            return []
-        }
-    })
+    const [favorites, setFavorites] = useLocalStorage('vibe-tools-favorites', [])
+    const list = useMemo(() => (Array.isArray(favorites) ? favorites : []), [favorites])
 
-    useEffect(() => {
-        localStorage.setItem('vibe-tools-favorites', JSON.stringify(favorites))
-    }, [favorites])
-
-    const toggleFavorite = (path) => {
+    const toggleFavorite = useCallback((path) => {
         setFavorites(prev => {
-            if (prev.includes(path)) {
-                return prev.filter(p => p !== path)
-            } else {
-                return [...prev, path]
-            }
+            const current = Array.isArray(prev) ? prev : []
+            return current.includes(path) ? current.filter(p => p !== path) : [...current, path]
         })
-    }
+    }, [setFavorites])
 
-    const isFavorite = (path) => favorites.includes(path)
+    const isFavorite = useCallback((path) => list.includes(path), [list])
 
-    return { favorites, toggleFavorite, isFavorite }
+    return { favorites: list, toggleFavorite, isFavorite }
 }
