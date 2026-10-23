@@ -1,211 +1,261 @@
-import React, { useState, useCallback } from 'react'
-import { Code, Copy, Check, ArrowDownUp, Trash2, BookOpen } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useId, useMemo, useRef, useState } from 'react'
+import { ArrowDownUp, BookOpen, ChevronDown, Trash2 } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import SegmentedControl from '../components/ui/SegmentedControl'
+import CopyButton from '../components/ui/CopyButton'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useSmartInput } from '../hooks/useSmartInput'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 
-const COMMON_ENTITIES = [
-    { char: '&', entity: '&amp;', name: 'Ampersand' },
-    { char: '<', entity: '&lt;', name: 'Less than' },
-    { char: '>', entity: '&gt;', name: 'Greater than' },
-    { char: '"', entity: '&quot;', name: 'Double quote' },
-    { char: "'", entity: '&#39;', name: 'Single quote' },
-    { char: ' ', entity: '&nbsp;', name: 'Non-breaking space' },
-    { char: '©', entity: '&copy;', name: 'Copyright' },
-    { char: '®', entity: '&reg;', name: 'Registered' },
-    { char: '™', entity: '&trade;', name: 'Trademark' },
-    { char: '€', entity: '&euro;', name: 'Euro' },
-    { char: '£', entity: '&pound;', name: 'Pound' },
-    { char: '¥', entity: '&yen;', name: 'Yen' },
-    { char: '…', entity: '&hellip;', name: 'Ellipsis' },
-    { char: '—', entity: '&mdash;', name: 'Em dash' },
-    { char: '–', entity: '&ndash;', name: 'En dash' },
-    { char: '←', entity: '&larr;', name: 'Left arrow' },
-    { char: '→', entity: '&rarr;', name: 'Right arrow' },
-    { char: '↑', entity: '&uarr;', name: 'Up arrow' },
-    { char: '↓', entity: '&darr;', name: 'Down arrow' },
-    { char: '♥', entity: '&hearts;', name: 'Heart' },
-    { char: '★', entity: '&#9733;', name: 'Star' },
-    { char: '✓', entity: '&#10003;', name: 'Check mark' },
-    { char: '✗', entity: '&#10007;', name: 'Cross mark' },
-    { char: '°', entity: '&deg;', name: 'Degree' },
-    { char: '±', entity: '&plusmn;', name: 'Plus-minus' },
-]
+// HTML 4 named entities (all valid in HTML5), plus a few common HTML5 ones.
+// &lang;/&rang; are left out: HTML5 maps them to different characters.
+const LATIN1 = 'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'
+const GREEK_UPPER = 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda Mu Nu Xi Omicron Pi Rho - Sigma Tau Upsilon Phi Chi Psi Omega'
+const GREEK_LOWER = 'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigmaf sigma tau upsilon phi chi psi omega'
+const OTHERS = 'quot:34 amp:38 lt:60 gt:62 OElig:338 oelig:339 Scaron:352 scaron:353 Yuml:376 fnof:402 circ:710 tilde:732 thetasym:977 upsih:978 piv:982 ensp:8194 emsp:8195 thinsp:8201 zwnj:8204 zwj:8205 lrm:8206 rlm:8207 ndash:8211 mdash:8212 lsquo:8216 rsquo:8217 sbquo:8218 ldquo:8220 rdquo:8221 bdquo:8222 dagger:8224 Dagger:8225 bull:8226 hellip:8230 permil:8240 prime:8242 Prime:8243 lsaquo:8249 rsaquo:8250 oline:8254 frasl:8260 euro:8364 image:8465 weierp:8472 real:8476 trade:8482 alefsym:8501 larr:8592 uarr:8593 rarr:8594 darr:8595 harr:8596 crarr:8629 lArr:8656 uArr:8657 rArr:8658 dArr:8659 hArr:8660 forall:8704 part:8706 exist:8707 empty:8709 nabla:8711 isin:8712 notin:8713 ni:8715 prod:8719 sum:8721 minus:8722 lowast:8727 radic:8730 prop:8733 infin:8734 ang:8736 and:8743 or:8744 cap:8745 cup:8746 int:8747 there4:8756 sim:8764 cong:8773 asymp:8776 ne:8800 equiv:8801 le:8804 ge:8805 sub:8834 sup:8835 nsub:8836 sube:8838 supe:8839 oplus:8853 otimes:8855 perp:8869 sdot:8901 lceil:8968 rceil:8969 lfloor:8970 rfloor:8971 loz:9674 spades:9824 clubs:9827 hearts:9829 diams:9830 starf:9733 star:9734 check:10003 cross:10007'
 
-function htmlEncode(str) {
-    const el = document.createElement('textarea')
-    el.textContent = str
-    // Convert to named/numeric entities
-    return str.replace(/[\u00A0-\u9999<>&"']/g, c => `&#${c.charCodeAt(0)};`)
+const NAMED = new Map()
+LATIN1.split(' ').forEach((name, i) => NAMED.set(160 + i, name))
+GREEK_UPPER.split(' ').forEach((name, i) => name !== '-' && NAMED.set(913 + i, name))
+GREEK_LOWER.split(' ').forEach((name, i) => NAMED.set(945 + i, name))
+OTHERS.split(' ').forEach((pair) => {
+    const [name, cp] = pair.split(':')
+    NAMED.set(Number(cp), name)
+})
+
+const SPECIALS = { 38: '&amp;', 60: '&lt;', 62: '&gt;', 34: '&quot;', 39: '&#39;' }
+
+/**
+ * scope: 'special' escapes only & < > " ', 'all' also every non-ASCII and
+ * control character (by code point, so emoji become one entity).
+ */
+function htmlEncode(text, { scope, named, numeric }) {
+    let out = ''
+    for (const ch of text) {
+        const cp = ch.codePointAt(0)
+        if (SPECIALS[cp]) {
+            out += SPECIALS[cp]
+            continue
+        }
+        const control = cp < 32 && cp !== 9 && cp !== 10 && cp !== 13
+        if (scope === 'all' && (cp > 126 || control)) {
+            const name = named ? NAMED.get(cp) : null
+            out += name ? `&${name};` : numeric === 'hex' ? `&#x${cp.toString(16).toUpperCase()};` : `&#${cp};`
+        } else {
+            out += ch
+        }
+    }
+    return out
 }
 
-function htmlDecode(str) {
+// A detached <textarea> decodes every HTML5 entity without running any markup
+function htmlDecode(text) {
     const el = document.createElement('textarea')
-    el.innerHTML = str
+    el.innerHTML = text
     return el.value
 }
 
+const REFERENCE = [
+    { char: '&', name: 'Ampersand' },
+    { char: '<', name: 'Less than' },
+    { char: '>', name: 'Greater than' },
+    { char: '"', name: 'Double quote' },
+    { char: "'", name: 'Apostrophe' },
+    { char: '\u00A0', name: 'Non-breaking space', show: '␣' },
+    { char: '©', name: 'Copyright' },
+    { char: '®', name: 'Registered' },
+    { char: '™', name: 'Trademark' },
+    { char: '€', name: 'Euro' },
+    { char: '£', name: 'Pound' },
+    { char: '¥', name: 'Yen' },
+    { char: '…', name: 'Ellipsis' },
+    { char: '—', name: 'Em dash' },
+    { char: '–', name: 'En dash' },
+    { char: '←', name: 'Left arrow' },
+    { char: '→', name: 'Right arrow' },
+    { char: '↑', name: 'Up arrow' },
+    { char: '↓', name: 'Down arrow' },
+    { char: '♥', name: 'Heart' },
+    { char: '★', name: 'Star' },
+    { char: '✓', name: 'Check mark' },
+    { char: '✗', name: 'Cross mark' },
+    { char: '°', name: 'Degree' },
+    { char: '±', name: 'Plus-minus' },
+].map((e) => {
+    const cp = e.char.codePointAt(0)
+    return { ...e, entity: SPECIALS[cp] ?? (NAMED.has(cp) ? `&${NAMED.get(cp)};` : `&#${cp};`), numeric: `&#${cp};` }
+})
+
+const MODES = [
+    { value: 'encode', label: 'Encode' },
+    { value: 'decode', label: 'Decode' },
+]
+
+const SCOPES = [
+    { value: 'special', label: 'HTML characters only', title: 'Escape & < > " \' and leave everything else as is' },
+    { value: 'all', label: 'Also non-ASCII', title: 'Also turn accented letters, symbols and emoji into entities' },
+]
+
 export default function HtmlEntity() {
-    useDocumentTitle('HTML Entity Encoder')
+    const inputId = useId()
+    const outputId = useId()
+    const refId = useId()
+    const inputRef = useRef(null)
     const [input, setInput] = useState('')
-    const [output, setOutput] = useState('')
     const [mode, setMode] = useState('encode')
-    const [copied, setCopied] = useState(false)
+    const [scope, setScope] = useState('all')
+    const [named, setNamed] = useState(true)
+    const [numeric, setNumeric] = useState('dec')
     const [showRef, setShowRef] = useState(false)
-    const [error, setError] = useState(null)
 
-    const process = useCallback((text, m) => {
-        if (!text) { setOutput(''); setError(null); return }
-        try {
-            setOutput(m === 'encode' ? htmlEncode(text) : htmlDecode(text))
-            setError(null)
-        } catch (e) {
-            setOutput('')
-            setError(e.message)
-        }
-    }, [])
+    const output = useMemo(() => {
+        if (!input) return ''
+        return mode === 'encode' ? htmlEncode(input, { scope, named, numeric }) : htmlDecode(input)
+    }, [input, mode, scope, named, numeric])
 
-    const handleInput = (text) => { setInput(text); process(text, mode) }
-    const handleMode = (m) => { setMode(m); process(input, m) }
+    useSmartInput({ input: (value) => typeof value === 'string' && setInput(value) })
+
+    useRegisterAIContext({
+        tool: 'HTML Entity Encoder',
+        getContext: () => ({ input, output }),
+        suggestedPrompts: ['Is this safe to put inside an HTML attribute?', 'Which characters here must be escaped?', 'Explain these entities'],
+    })
 
     const swap = () => {
+        if (!output) return
         setInput(output)
-        const newMode = mode === 'encode' ? 'decode' : 'encode'
-        setMode(newMode)
-        process(output, newMode)
+        setMode(mode === 'encode' ? 'decode' : 'encode')
     }
 
-    const copy = () => {
-        navigator.clipboard.writeText(output)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+    // Inserts at the caret: the character when encoding, the entity when decoding
+    const insert = (entry) => {
+        const text = mode === 'decode' ? entry.entity : entry.char
+        const el = inputRef.current
+        const start = el?.selectionStart ?? input.length
+        const end = el?.selectionEnd ?? input.length
+        const next = input.slice(0, start) + text + input.slice(end)
+        setInput(next)
+        requestAnimationFrame(() => {
+            if (!el) return
+            el.focus()
+            el.setSelectionRange(start + text.length, start + text.length)
+        })
     }
 
-    const insertEntity = (char) => {
-        const newInput = input + char
-        setInput(newInput)
-        process(newInput, mode)
-    }
+    const optionLabel = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: 'var(--text-muted)' }
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-                <h2 className="text-gradient" style={{ fontSize: '2rem' }}>HTML Entity Encoder</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: 'var(--space-sm)' }}>
-                    Encode special characters to HTML entities and decode them back
-                </p>
-            </div>
+        <div className="page page-medium page-html-entity">
+            <ToolHeader />
 
-            {/* Mode Toggle */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-                    {['encode', 'decode'].map(m => (
-                        <button key={m} onClick={() => handleMode(m)} style={{
-                            flex: 1, minWidth: 140, padding: '12px 16px', borderRadius: 'var(--radius-md)',
-                            background: mode === m ? 'var(--primary-glow)' : 'rgba(255,255,255,0.03)',
-                            border: mode === m ? '1px solid var(--primary)' : '1px solid var(--border)',
-                            color: mode === m ? 'var(--primary)' : 'var(--text-muted)',
-                            fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', textTransform: 'capitalize'
-                        }}>
-                            {m === 'encode' ? '→ Encode to Entities' : '← Decode from Entities'}
-                        </button>
-                    ))}
-                    <button onClick={() => setShowRef(!showRef)} style={{
-                        padding: '12px 16px', borderRadius: 'var(--radius-md)',
-                        background: showRef ? 'var(--primary-glow)' : 'rgba(255,255,255,0.03)',
-                        border: showRef ? '1px solid var(--primary)' : '1px solid var(--border)',
-                        color: showRef ? 'var(--primary)' : 'var(--text-muted)',
-                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem'
-                    }}>
-                        <BookOpen size={14} /> Reference
-                    </button>
+            <section className="card card-compact" aria-label="Options" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-sm) var(--space-lg)' }}>
+                <SegmentedControl ariaLabel="Mode" options={MODES} value={mode} onChange={setMode} />
+                {mode === 'encode' && (
+                    <>
+                        <SegmentedControl ariaLabel="Characters to encode" size="sm" options={SCOPES} value={scope} onChange={setScope} />
+                        {scope === 'all' && (
+                            <>
+                                <label style={optionLabel}>
+                                    <input type="checkbox" checked={named} onChange={e => setNamed(e.target.checked)} />
+                                    Named entities (&amp;copy;)
+                                </label>
+                                <label style={optionLabel}>
+                                    Numbers
+                                    <select value={numeric} onChange={e => setNumeric(e.target.value)} style={{ width: 'auto', padding: '0.35rem 0.55rem', fontSize: '0.85rem' }}>
+                                        <option value="dec">Decimal (&amp;#169;)</option>
+                                        <option value="hex">Hex (&amp;#xA9;)</option>
+                                    </select>
+                                </label>
+                            </>
+                        )}
+                    </>
+                )}
+            </section>
+
+            <div className="split-pane">
+                <div className="card card-compact" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', minHeight: 34 }}>
+                        <label htmlFor={inputId} className="section-title">{mode === 'encode' ? 'Text' : 'HTML with entities'}</label>
+                        <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                            <PipelineRead onRead={setInput} />
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInput('')} disabled={!input}>
+                                <Trash2 size={14} aria-hidden="true" /> Clear
+                            </button>
+                        </div>
+                    </div>
+                    <textarea
+                        ref={inputRef}
+                        id={inputId}
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        placeholder={mode === 'encode' ? 'Text with special characters, e.g. café <b>€100</b> 😀' : 'Entities to decode, e.g. &lt;p&gt; &copy; &#128512;'}
+                        spellCheck={false}
+                        style={{ minHeight: 180, fontSize: '0.9rem', lineHeight: 1.5, padding: '0.75rem' }}
+                    />
+                </div>
+
+                <div className="card card-compact" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', minHeight: 34 }}>
+                        <label htmlFor={outputId} className="section-title">{mode === 'encode' ? 'Encoded HTML' : 'Decoded text'}</label>
+                        <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={swap} disabled={!output} title="Use the result as the new input and switch mode">
+                                <ArrowDownUp size={14} aria-hidden="true" /> Swap
+                            </button>
+                            <CopyButton text={output} />
+                        </div>
+                    </div>
+                    <textarea
+                        id={outputId}
+                        readOnly
+                        value={output}
+                        placeholder="The result appears here"
+                        spellCheck={false}
+                        style={{ minHeight: 180, fontSize: '0.9rem', lineHeight: 1.5, padding: '0.75rem', background: 'var(--bg-inset)', wordBreak: 'break-all' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <PipelineSend dataToSend={output} />
+                    </div>
                 </div>
             </div>
 
-            {/* Input */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-sm)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-                    <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Code size={14} color="var(--primary)" /> Input
-                    </label>
-                    <button onClick={() => { setInput(''); setOutput(''); setError(null) }} style={{ color: 'var(--text-dim)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Trash2 size={12} /> Clear
-                    </button>
-                </div>
-                <textarea
-                    value={input}
-                    onChange={e => handleInput(e.target.value)}
-                    placeholder={mode === 'encode' ? 'Enter text with special characters...' : 'Enter HTML entities like &amp; &lt; &#169;...'}
-                    style={{ width: '100%', minHeight: '120px', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}
-                />
-            </div>
-
-            {/* Swap */}
-            <div style={{ textAlign: 'center', margin: 'var(--space-sm) 0' }}>
-                <button onClick={swap} style={{
-                    padding: '8px 20px', borderRadius: 'var(--radius-md)', background: 'var(--primary-glow)',
-                    color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 6,
-                    fontSize: '0.85rem', fontWeight: 500, transition: 'all 0.2s'
-                }}>
-                    <ArrowDownUp size={14} /> Swap
+            <section className="card card-compact">
+                <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    aria-expanded={showRef}
+                    aria-controls={refId}
+                    onClick={() => setShowRef(v => !v)}
+                    style={{ paddingLeft: 4 }}
+                >
+                    <BookOpen size={14} aria-hidden="true" /> Common entities
+                    <ChevronDown size={14} aria-hidden="true" style={{ transform: showRef ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
                 </button>
-            </div>
-
-            {/* Output */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-                    <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Output</label>
-                    {output && (
-                        <button onClick={copy} style={{
-                            padding: '4px 12px', borderRadius: 'var(--radius-sm)',
-                            background: copied ? 'var(--accent)' : 'var(--primary)', color: '#fff',
-                            display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 500
-                        }}>
-                            {copied ? <Check size={12} /> : <Copy size={12} />}
-                            {copied ? 'Copied!' : 'Copy'}
-                        </button>
-                    )}
-                </div>
-                {error ? (
-                    <div style={{ color: '#ef4444', fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>{error}</div>
-                ) : (
-                    <div style={{
-                        fontFamily: 'var(--font-mono)', fontSize: '0.9rem', wordBreak: 'break-all',
-                        color: output ? 'var(--text-main)' : 'var(--text-dim)',
-                        minHeight: '80px', background: 'rgba(0,0,0,0.15)', padding: 'var(--space-md)',
-                        borderRadius: 'var(--radius-sm)', whiteSpace: 'pre-wrap'
-                    }}>
-                        {output || 'Result will appear here...'}
+                {showRef && (
+                    <div id={refId} style={{ marginTop: 'var(--space-sm)' }}>
+                        <p className="field-hint" style={{ marginTop: 0, marginBottom: 'var(--space-sm)' }}>
+                            Click to insert at the cursor: the character when encoding, the entity when decoding.
+                        </p>
+                        <div className="auto-grid" style={{ '--auto-grid-min': '150px', gap: 'var(--space-xs)' }}>
+                            {REFERENCE.map(ent => (
+                                <button
+                                    key={ent.entity}
+                                    type="button"
+                                    className="chip"
+                                    onClick={() => insert(ent)}
+                                    title={`Insert ${mode === 'decode' ? ent.entity : ent.name}`}
+                                    style={{ borderRadius: 'var(--radius-sm)', justifyContent: 'flex-start', padding: '0.4rem 0.6rem', gap: 10 }}
+                                >
+                                    <span aria-hidden="true" style={{ fontSize: '1.2rem', width: 24, textAlign: 'center', color: 'var(--text-main)' }}>{ent.show ?? ent.char}</span>
+                                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                                        <span className="mono" style={{ fontSize: '0.8rem', color: 'var(--primary-text)' }}>{ent.entity}</span>
+                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{ent.name} · {ent.numeric}</span>
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
-            </div>
-
-            {/* Reference Panel */}
-            {showRef && (
-                <div className="glass-panel" style={{ padding: 'var(--space-md)' }}>
-                    <h3 style={{ fontSize: '1rem', color: 'var(--primary)', marginBottom: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <BookOpen size={16} /> Common HTML Entities
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-sm)' }}>
-                        {COMMON_ENTITIES.map(ent => (
-                            <button
-                                key={ent.entity}
-                                onClick={() => insertEntity(ent.char)}
-                                style={{
-                                    padding: '8px 12px', borderRadius: 'var(--radius-sm)',
-                                    background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
-                                    color: 'var(--text-main)', cursor: 'pointer', textAlign: 'left',
-                                    display: 'flex', alignItems: 'center', gap: 10, transition: 'all 0.2s'
-                                }}
-                            >
-                                <span style={{ fontSize: '1.3rem', width: 28, textAlign: 'center' }}>{ent.char}</span>
-                                <div>
-                                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--primary)' }}>{ent.entity}</div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{ent.name}</div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
+            </section>
         </div>
     )
 }

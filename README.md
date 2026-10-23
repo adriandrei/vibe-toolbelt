@@ -1,91 +1,69 @@
 # Vibe Toolbelt
 
-A powerful, privacy-first developer toolkit designed for speed, security, and aesthetics. All processing happens locally in your browser—no data is sent to external servers.
+Privacy-first developer tools that run entirely in your browser: formatters, encoders, crypto, network helpers, media and design tools. Your data is processed on your device; nothing you type or drop into a tool is uploaded.
 
-![Vibe Toolbelt](https://img.shields.io/badge/Privacy-First-10b981?style=flat-square)
-![Local Processing](https://img.shields.io/badge/Processing-Client--Side-3b82f6?style=flat-square)
+![Privacy first](https://img.shields.io/badge/Privacy-First-10b981?style=flat-square)
+![Runs locally](https://img.shields.io/badge/Processing-In%20your%20browser-3b82f6?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-gray?style=flat-square)
 
-## 🌟 Key Features
+## Highlights
 
--   **100% Client-Side**: Your data never leaves your machine. Perfect for handling sensitive keys, tokens, and proprietary code.
--   **Local AI Assistant**: Integrated WebLLM engine for privacy-preserving, on-device AI assistance.
--   **Inter-Tool Pipeline**: Seamlessly send data between tools (e.g., export a screen recording directly to the Video Studio, or parse a JWT and send its payload to the JSON Formatter).
--   **Command Palette**: Quick navigation and execution via `Ctrl+K` / `Cmd+K`.
--   **Smart Paste**: Automatically detects clipboard content and routes it to the correct tool (e.g., pasting a JWT opens the JWT tool).
--   **Dark & Light Modes**: Beautiful, glassmorphism-inspired UI tailored for modern workflows.
+- **Runs locally.** Every tool works in the browser. The app is a PWA: tools you've opened keep working offline. Fonts and the code editor are bundled; nothing loads from third-party CDNs.
+- **Command palette** (`⌘K` / `Ctrl K`). Ranked search across every tool. Paste a JWT, JSON, a timestamp, a cURL command, a colour, an IP… and it offers to open the right tool with it.
+- **Smart Paste.** Paste recognisable content anywhere outside a text field to jump straight to the matching tool, already decoded or formatted.
+- **Pipeline.** Send a tool's output to another tool without touching the clipboard (e.g. a JWT payload to the JSON formatter). The header shows what's waiting in the pipeline.
+- **Split view.** Pin any tool beside the current one on desktop.
+- **On-device AI assistant (optional).** A WebLLM model (Phi-3.5 Mini or Qwen 2.5 1.5B) runs on your GPU via WebGPU and can explain the data in the current tool. Model files download once from Hugging Face when you choose to load one; prompts never leave your device.
+- **Light, dark or system theme, plus accent colours.** Every page is readable in both themes and works on phones.
 
----
+## Tools
 
-## 🛠️ Tools Available
+| Area | Tools |
+|---|---|
+| **Core** | Universal Inspector (detect and decode anything), API Tester (requests, auth, environments, history, cURL import/export), Screen Recorder, Video Studio (trim, crop, speed, fades, MP4/WebM/GIF/MP3 via ffmpeg.wasm), Image Converter (PNG/JPEG/WebP/AVIF/ICO/PDF, HEIC input, crop, resize, batch ZIP) |
+| **Data & formats** | Code Formatters (JSON with JMESPath, SQL dialects, XML), Data Converter (JSON / YAML / TOML / XML), CSV ↔ JSON, JSON to Types (TypeScript, Go, JSON Schema), Markdown editor (GitHub-flavored), Hex Viewer |
+| **Encoders** | Base64 (text and URL-safe), Image to Base64, URL encode/decode, HTML entities, Number base (arbitrary size) |
+| **Security** | JWT decoder & verifier, Hash generator, HMAC, Bcrypt, AES (AES-256-GCM with PBKDF2, plus an OpenSSL-compatible legacy mode), RSA key generator, TOTP, Password strength audit |
+| **Generators** | UUID, Nano ID & ULID, Username, Fake data (JSON/CSV/SQL), Lorem ipsum, QR codes |
+| **Text** | Text statistics, Case converter, List sorter & deduplicator, Regex tester, Text diff |
+| **Web** | URL parser, User agent parser, cURL converter, IP / CIDR calculator, Meta tag generator, HTTP status codes |
+| **Dev utilities** | Unix timestamp converter, Cron expression parser (with upcoming runs), Chmod calculator, Keycode viewer |
+| **Images & files** | PDF tools (merge, rotate, extract pages), SVG optimizer, Favicon generator, EXIF viewer, Privacy scanner (PII in text, hidden metadata in files) |
+| **Design** | Glassmorphism, Gradient, CSS triangle, Box shadow, Color converter, Color blindness simulator, Code screenshot |
 
-### Cryptography & Security
-- **JWT Decoder**: Decode and inspect JSON Web Tokens safely.
-- **Generators**: Hash (MD5, SHA-1, SHA-256, etc.), HMAC, RSA Keys, Passwords, UUIDs (v1, v4), NanoIDs.
-- **Encryption/Decryption**: AES encryption and Bcrypt hashing.
-- **OTP Generator**: Generate one-time passwords for 2FA.
+## What leaves your device
 
-### Text & Data
-- **Inspector**: Analyze strings, detect formats (JWT, UUID, Hex, Base64), and calculate entropy.
-- **Formatters & Converters**: JSON, SQL, XML formatting, and CSV ↔ JSON conversion.
-- **Regex Tester**: Write and test regular expressions with real-time highlighting.
-- **Diff Checker**: Compare text or code side-by-side.
-- **Transformers**: Case Converter, Markdown Editor, List Sorter, Text Stats.
+- **Nothing you put into a tool**, with these exceptions that you start yourself:
+  - the API Tester sends requests to the URLs you enter;
+  - the Markdown preview loads images referenced in your document;
+  - loading the AI model downloads model files from huggingface.co and raw.githubusercontent.com (once; they're cached).
+- The site itself is static files served by the host (Azure Static Web Apps), which keeps standard access logs.
+- Local storage holds your preferences, favourites, pinned tool and API Tester history/collections/environments. See the in-app Privacy page for every key and how to clear it.
 
-### Encoders & Decoders
-- **Base64**: Text and Image Base64 encoding/decoding.
-- **URL & HTML**: URL Encode/Decode, HTML Entity encoder.
-- **Number Base**: Convert between Binary, Octal, Decimal, and Hex.
-
-### Web & Networking
-- **API Tester**: Full-featured REST client with collections, history, environments, and cURL import/export.
-- **Network Utils**: CIDR Calculator, User-Agent Parser, URL Parser, HTTP Status code reference.
-- **System**: Unix Timestamp converter, Linux Chmod calculator.
-
-### Generators & Mock Data
-- **Faker**: Generate complex, nested JSON/CSV/SQL schemas with realistic mock data.
-- **Generators**: QR Code generator, Lorem Ipsum generator, Random Username generator.
-- **Meta Tags**: SEO and social media meta tag builder.
-
-### CSS & Design
-- **CSS Generators**: Glassmorphism, Gradients, CSS Triangles, Box Shadows.
-- **Color Tools**: Color Converter (HEX/RGB/HSL), Color Blindness simulator.
-
-### Media & Files
-- **Video & Audio**: Screen Recorder (with PiP, System Audio, GIF export) and Video Studio (Crop, Trim, Downscale).
-- **Images**: Image Converter, SVG Compressor, Favicon Generator, EXIF Metadata Viewer.
-- **Files**: PDF Tools (Merge/Split), Hex Viewer for binary files.
-
-### Utilities
-- **Keycode Viewer**: Inspect JavaScript keycodes.
-- **Cron Parser**: Translate cron expressions into human-readable text.
-- **Snippets**: Local code snippet manager.
-- **Privacy Scanner**: Scan text for PII and sensitive data.
-
----
-
-## 🚀 Running Locally
+## Development
 
 ```bash
-git clone https://github.com/adriandrei/vibe-toolbelt.git
-cd vibe-toolbelt
 npm install
-npm run dev
+npm run dev        # http://localhost:5173
+npm run lint
+npm run build
+npm test           # Playwright: smoke, contrast, layout and feature tests
 ```
 
-The application will be available at `http://localhost:5173`.
+- **Stack:** React 18, Vite 7, React Router 7, vite-plugin-pwa.
+- **Tool registry:** `src/config/tools.js` is the single list behind the sidebar, palette, Home and page headers. Add a tool there and in `src/routes.js`.
+- **UI kit:** shared tokens, CSS classes, components and hooks are documented in [`docs/ui-kit.md`](docs/ui-kit.md). Use them rather than hardcoding colours or re-implementing copy buttons, drop zones or toggles.
+- **Brand:** the app name lives in `src/config/brand.js`.
+- **Audit:** [`docs/audit/`](docs/audit/README.md) has the October 2026 audit that drove the current design system and fixes.
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions! Please follow these steps:
-1.  Fork the repository.
-2.  Create a feature branch (`git checkout -b feature/amazing-tool`).
-3.  Commit your changes (`git commit -m 'Add amazing tool'`).
-4.  Push to the branch (`git push origin feature/amazing-tool`).
-5.  Submit a Pull Request.
+1. Fork the repository and create a feature branch.
+2. Follow [`docs/ui-kit.md`](docs/ui-kit.md); every page must work in light and dark mode, at phone width and in the split view.
+3. Run `npm run lint` and `npm test` before opening a pull request.
 
-**Important Note:** Ensure all new features, tools, and libraries work **100% offline** and client-side. No server-side processing is permitted to maintain the privacy-first guarantee.
+New tools and libraries must work fully client-side and offline. Anything that sends data off the device needs to be explicit, user-initiated and documented on the Privacy page.
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License.
+MIT

@@ -1,78 +1,67 @@
 import { test, expect } from '@playwright/test';
+import { SAMPLE_JWT } from './helpers.js';
 
-// Note: These tests are marked as skip because they require proper browser focus
-// and keyboard event handling which can be flaky in CI environments.
-// The Command Palette functionality works correctly in manual testing.
+const palette = (page) => page.getByRole('dialog', { name: 'Search tools' });
+const paletteInput = (page) => palette(page).getByRole('combobox');
 
-test.describe('Smart Input Feature', () => {
+test.describe('Command palette', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
+        await expect(page.locator('main h1').first()).toBeVisible();
     });
 
-    test('Command Palette opens with Ctrl+K', async ({ page }) => {
-        // Dispatch keydown manually to ensure window listener catches it
-        await page.evaluate(() => {
-            window.dispatchEvent(new KeyboardEvent('keydown', {
-                key: 'k',
-                code: 'KeyK',
-                ctrlKey: true,
-                bubbles: true,
-                cancelable: true
-            }));
-        });
-        // Use filter to find the specific overlay that contains the input, ensuring uniqueness
-        const overlay = page.locator('div[style*="position: fixed"]').filter({ has: page.getByRole('textbox') });
-        await expect(overlay).toBeVisible({ timeout: 5000 });
+    test('Ctrl+K opens it with the input focused, so typing right away works', async ({ page }) => {
+        await page.keyboard.press('Control+k');
+        await page.keyboard.type('base');
+        await expect(paletteInput(page)).toHaveValue('base');
     });
 
-    // Skipped: Depends on Command Palette opening reliably
-    test('Smart detection for JWT', async ({ page }) => {
-        const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+    test('The header search button opens it', async ({ page }) => {
+        await page.getByRole('button', { name: 'Search tools' }).click();
+        await expect(palette(page)).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(palette(page)).toHaveCount(0);
+    });
 
-        await page.evaluate(() => {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', ctrlKey: true, bubbles: true }));
-        });
-
-        // Wait for animation
-        await page.waitForTimeout(500);
-
-        // Type slowly to ensure React state updates
-        await page.keyboard.type(jwt, { delay: 10 });
-
-        await expect(page.getByText('Detected JWT Decoder')).toBeVisible();
+    test('Picking a tool by name does not paste the search text into it', async ({ page }) => {
+        await page.keyboard.press('Control+k');
+        await page.keyboard.type('jwt');
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL('/jwt');
+        const field = page.locator('main textarea').first();
+        await expect(field).toHaveValue('');
     });
 
-    // Skipped: Depends on Command Palette opening reliably
-    test('Smart detection for Base64', async ({ page }) => {
-        const base64 = 'SGVsbG8gV29ybGQ=';
-
-        await page.evaluate(() => {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', ctrlKey: true, bubbles: true }));
-        });
-
-        await page.waitForTimeout(500);
-        await page.keyboard.type(base64, { delay: 10 });
-
-        await expect(page.getByText('Detected Base64 Decoder')).toBeVisible();
+    test('Results are ranked: "hash" opens Hash Generator first', async ({ page }) => {
+        await page.keyboard.press('Control+k');
+        await page.keyboard.type('hash');
+        await expect(palette(page).getByRole('option').first()).toContainText('Hash Generator');
         await page.keyboard.press('Enter');
-        await expect(page).toHaveURL('/base64');
+        await expect(page).toHaveURL('/hash');
     });
 
-    // Skipped: Depends on Command Palette opening reliably
-    test('Smart detection for JSON', async ({ page }) => {
-        const json = '{"foo":"bar"}';
-
-        await page.evaluate(() => {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', ctrlKey: true, bubbles: true }));
-        });
-
-        await page.waitForTimeout(500);
-        await page.keyboard.type(json, { delay: 10 });
-
-        await expect(page.getByText('Detected JSON Formatter')).toBeVisible();
+    test('A pasted JWT offers to open it in the JWT decoder', async ({ page }) => {
+        await page.keyboard.press('Control+k');
+        await paletteInput(page).fill(SAMPLE_JWT);
+        await expect(palette(page).getByRole('option').first()).toContainText('Open as JSON Web Token');
         await page.keyboard.press('Enter');
-        await expect(page).toHaveURL('/formatters');
+        await expect(page).toHaveURL('/jwt');
+        await expect(page.locator('main')).toContainText('John Doe');
+    });
+
+    test('Arrow keys keep the highlighted option in view', async ({ page }) => {
+        await page.keyboard.press('Control+k');
+        for (let i = 0; i < 25; i++) await page.keyboard.press('ArrowDown');
+        const selected = palette(page).locator('[role="option"][aria-selected="true"]');
+        await expect(selected).toBeInViewport();
+    });
+
+    test('No results shows a message instead of breaking navigation', async ({ page }) => {
+        await page.keyboard.press('Control+k');
+        await page.keyboard.type('zzzzzz');
+        await expect(palette(page)).toContainText('No tools match');
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL('/');
     });
 });

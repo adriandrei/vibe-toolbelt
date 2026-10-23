@@ -8,13 +8,12 @@ test.describe('Functional Tests', () => {
         // Input value
         await page.getByPlaceholder('e.g. 10.0.0.0/16').fill('10.0.0.0/16');
 
-        // Wait for results
-        await expect(page.getByText('Valid Block')).toBeVisible();
-
-        // Verify Calculations
-        // Note: Depends on how your result row is structured. Searching by text is resilient.
-        await expect(page.getByText('Start IP').locator('..')).toHaveText(/10\.0\.0\.0/);
-        await expect(page.getByText('Total Hosts').locator('..')).toHaveText(/65,536/);
+        const main = page.locator('main');
+        await expect(main).toContainText('Network address');
+        await expect(main).toContainText('10.0.0.0');
+        await expect(main).toContainText('255.255.0.0');
+        await expect(main).toContainText('65,536');
+        await expect(main).toContainText('65,534');
     });
 
     test('Unix Timestamp shows current time and accepts input', async ({ page }) => {

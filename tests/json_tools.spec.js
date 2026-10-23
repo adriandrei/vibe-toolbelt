@@ -17,13 +17,10 @@ test.describe('JSON Power Tools', () => {
             window.monaco?.editor?.getModels()?.[0]?.setValue(val);
         }, input);
 
-        await page.getByRole('button', { name: 'Process' }).click();
+        await page.getByRole('button', { name: 'Format', exact: true }).click();
 
         // Expect indented output (default 2 spaces)
-        const outputVal = await page.evaluate(() => {
-            return window.monaco?.editor?.getModels()?.[1]?.getValue();
-        });
-        expect(outputVal).toBe(`{\n  "foo": "bar"\n}`);
+        await expect.poll(() => page.evaluate(() => window.monaco?.editor?.getModels()?.[1]?.getValue())).toBe(`{\n  "foo": "bar"\n}`);
     });
 
     test('JMESPath Querying works', async ({ page }) => {
@@ -37,13 +34,9 @@ test.describe('JSON Power Tools', () => {
         const jqInput = page.getByPlaceholder('JMESPath Filter');
         await jqInput.fill('[].id');
 
-        await page.getByRole('button', { name: 'Process' }).click();
+        await page.getByRole('button', { name: 'Format', exact: true }).click();
 
-        const outputVal = await page.evaluate(() => {
-            return window.monaco?.editor?.getModels()?.[1]?.getValue();
-        });
-        // Expect [1, 2]
-        expect(outputVal).toBe(`[\n  1,\n  2\n]`);
+        await expect.poll(() => page.evaluate(() => window.monaco?.editor?.getModels()?.[1]?.getValue())).toBe(`[\n  1,\n  2\n]`);
     });
 
     test('Minify Toggle works', async ({ page }) => {
@@ -56,12 +49,9 @@ test.describe('JSON Power Tools', () => {
         // Click Minify button (AlignJustify icon)
         await page.getByTitle('Minify (0 spaces)').click();
 
-        await page.getByRole('button', { name: 'Process' }).click();
+        await page.getByRole('button', { name: 'Format', exact: true }).click();
 
-        const outputVal = await page.evaluate(() => {
-            return window.monaco?.editor?.getModels()?.[1]?.getValue();
-        });
-        expect(outputVal).toBe(`{"foo":"bar"}`);
+        await expect.poll(() => page.evaluate(() => window.monaco?.editor?.getModels()?.[1]?.getValue())).toBe(`{"foo":"bar"}`);
     });
 
     test('Reports Syntax Error', async ({ page }) => {
@@ -70,9 +60,11 @@ test.describe('JSON Power Tools', () => {
         await page.evaluate((val) => {
             window.monaco?.editor?.getModels()?.[0]?.setValue(val);
         }, input);
-        await page.getByRole('button', { name: 'Process' }).click();
+        await page.getByRole('button', { name: 'Format', exact: true }).click();
 
-        await expect(page.getByText('Error:')).toBeVisible();
-        await expect(page.getByText(/JSON Syntax Error/)).toBeVisible();
+        await expect(page.getByRole('alert').filter({ hasText: 'Invalid JSON' })).toBeVisible();
+        // A failed run clears the previous output
+        const outputVal = await page.evaluate(() => window.monaco?.editor?.getModels()?.[1]?.getValue());
+        expect(outputVal || '').toBe('');
     });
 });

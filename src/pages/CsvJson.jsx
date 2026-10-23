@@ -1,229 +1,352 @@
-import React, { useState } from 'react'
-import { FileJson, FileSpreadsheet, ArrowRight, ArrowLeft, Copy, Check, Trash2, Table } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useId, useState } from 'react'
+import Papa from 'papaparse'
+import { ArrowDown, ArrowRight, Braces, Download, FileSpreadsheet, FileUp, Trash2 } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import CopyButton from '../components/ui/CopyButton'
+import StatusBanner from '../components/ui/StatusBanner'
+import FileDropZone from '../components/ui/FileDropZone'
+import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useSmartInput } from '../hooks/useSmartInput'
+import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
+import { useToast } from '../components/ToastProvider'
+import { usePane } from '../contexts/pane'
+import { downloadText, splitFilename } from '../utils/download'
 
-// Simple CSV Parser
-function parseCSV(text, delimiter = ',') {
-    const rows = []
-    let currentRow = []
-    let currentVal = ''
-    let insideQuote = false
+const DELIMITERS = [
+    { value: 'auto', label: 'Auto-detect' },
+    { value: ',', label: 'Comma (,)' },
+    { value: ';', label: 'Semicolon (;)' },
+    { value: '\t', label: 'Tab' },
+    { value: '|', label: 'Pipe (|)' },
+]
+const delimiterName = (d) => DELIMITERS.find(x => x.value === d)?.label.replace(/ \(.\)$/, '').toLowerCase() ?? JSON.stringify(d)
 
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i]
-        const next = text[i + 1]
+const SAMPLE_CSV = 'id,name,role,active,joined\n1,Alice,Admin,true,2023-04-01\n2,"Bob, Jr.",User,false,2024-01-15\n3,"Carol ""CJ"" Jones",User,true,\n'
 
-        if (char === '"') {
-            if (insideQuote && next === '"') {
-                currentVal += '"'
-                i++
-            } else {
-                insideQuote = !insideQuote
+const NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/
+// Only canonical values are converted, so "007", "1.50" and long IDs stay text
+function inferValue(text) {
+    if (text === 'true') return true
+    if (text === 'false') return false
+    if (text === 'null') return null
+    if (NUMBER.test(text)) {
+        const n = Number(text)
+        if (Number.isFinite(n) && String(n) === text) return n
+    }
+    return text
+}
+
+const isRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+
+function describe(v) {
+    if (v === null) return 'null'
+    if (Array.isArray(v)) return 'an array'
+    return typeof v === 'object' ? 'an object' : `a ${typeof v}`
+}
+
+function csvToJson(text, { delimiter, header, infer, trim }) {
+    const parsed = Papa.parse(text.replace(/^\uFEFF/, ''), {
+        delimiter: delimiter === 'auto' ? '' : delimiter,
+        skipEmptyLines: 'greedy',
+    })
+    const quoteError = parsed.errors.find(e => e.type === 'Quotes')
+    if (quoteError) {
+        throw new Error(`${quoteError.message} (row ${quoteError.row + 1}). A field that starts with " must end with " — double any quotes inside it ("").`)
+    }
+    const clean = (s) => (trim ? s.trim() : s)
+    const cell = (s) => (infer ? inferValue(clean(s)) : clean(s))
+    const rows = parsed.data
+    const notices = []
+    if (delimiter === 'auto' && rows.length && rows[0].length > 1) notices.push({ warn: false, text: `Detected delimiter: ${delimiterName(parsed.meta.delimiter)}.` })
+
+    if (!header) {
+        return { json: rows.map(r => r.map(cell)), rows: rows.length, columns: Math.max(0, ...rows.map(r => r.length)), notices }
+    }
+    if (!rows.length) return { json: [], rows: 0, columns: 0, notices }
+
+    // Unique, non-empty keys
+    const seen = new Map()
+    const renamed = []
+    const headers = rows[0].map((raw, i) => {
+        let name = raw.trim() || `column_${i + 1}`
+        if (seen.has(name)) {
+            const n = seen.get(name) + 1
+            seen.set(name, n)
+            renamed.push(`${name} → ${name}_${n}`)
+            name = `${name}_${n}`
+        }
+        seen.set(name, seen.get(name) ?? 1)
+        return name
+    })
+    if (renamed.length) notices.push({ warn: true, text: `Duplicate column names were renamed: ${renamed.slice(0, 4).join(', ')}${renamed.length > 4 ? ', …' : ''}.` })
+
+    let extra = 0
+    let short = 0
+    const json = rows.slice(1).map((row) => {
+        const obj = Object.create(null)
+        headers.forEach((h, i) => {
+            obj[h] = cell(row[i] ?? '')
+        })
+        if (row.length < headers.length) short++
+        for (let i = headers.length; i < row.length; i++) {
+            obj[`column_${i + 1}`] = cell(row[i])
+            extra++
+        }
+        return obj
+    })
+    if (short) notices.push({ warn: true, text: `${short} row${short > 1 ? 's have' : ' has'} fewer fields than the header; missing values are empty.` })
+    if (extra) notices.push({ warn: true, text: 'Some rows have more fields than the header; the extras are named column_N.' })
+    return { json, rows: json.length, columns: headers.length, notices }
+}
+
+function cellText(v) {
+    if (v === null || v === undefined) return ''
+    if (typeof v === 'object') return JSON.stringify(v)
+    return String(v)
+}
+
+function jsonToCsv(text, { delimiter }) {
+    let data
+    try {
+        data = JSON.parse(text.replace(/^\uFEFF/, ''))
+    } catch (e) {
+        throw new Error(`Invalid JSON: ${e.message}`)
+    }
+    const notices = []
+    if (isRecord(data)) {
+        data = [data]
+        notices.push({ warn: false, text: 'A single object was converted as one row.' })
+    }
+    if (!Array.isArray(data)) throw new Error(`Expected an array of objects, but the JSON is ${describe(data)}.`)
+    const sep = delimiter === 'auto' ? ',' : delimiter
+    if (!data.length) return { csv: '', rows: 0, columns: 0, notices: [{ warn: false, text: 'The array is empty.' }] }
+
+    const allObjects = data.every(isRecord)
+    const allArrays = data.every(Array.isArray)
+    if (!allObjects && !allArrays) {
+        const first = data.findIndex(d => (isRecord(data[0]) ? !isRecord(d) : !Array.isArray(d)))
+        const i = first >= 0 ? first : 0
+        throw new Error(`Every item must be an object (or every item an array), but item ${i} is ${describe(data[i])}.`)
+    }
+    if (allArrays) {
+        const rows = data.map(r => r.map(cellText))
+        return { csv: Papa.unparse(rows, { delimiter: sep, newline: '\n' }), rows: rows.length, columns: Math.max(0, ...rows.map(r => r.length)), notices }
+    }
+    // Columns: every key of every object, in order of first appearance
+    const fields = []
+    const known = new Set()
+    for (const obj of data) {
+        for (const key of Object.keys(obj)) {
+            if (!known.has(key)) {
+                known.add(key)
+                fields.push(key)
             }
-        } else if (char === delimiter && !insideQuote) {
-            currentRow.push(currentVal)
-            currentVal = ''
-        } else if (char === '\n' && !insideQuote) { // Handle \r?
-            currentRow.push(currentVal)
-            rows.push(currentRow)
-            currentRow = []
-            currentVal = ''
-        } else if (char === '\r' && !insideQuote) {
-            // ignore
-        } else {
-            currentVal += char
         }
     }
-    if (currentVal || currentRow.length) {
-        currentRow.push(currentVal)
-        rows.push(currentRow)
-    }
-
-    return rows.filter(r => r.length > 0 && (r.length > 1 || r[0] !== ''))
+    const nested = data.some(obj => Object.values(obj).some(v => v !== null && typeof v === 'object'))
+    if (nested) notices.push({ warn: false, text: 'Nested objects and arrays were written as JSON text.' })
+    const rows = data.map(obj => fields.map(f => cellText(obj[f])))
+    return { csv: Papa.unparse({ fields, data: rows }, { delimiter: sep, newline: '\n' }), rows: rows.length, columns: fields.length, notices }
 }
 
-// Simple JSON to CSV
-function toCSV(data, delimiter = ',') {
-    if (!Array.isArray(data)) throw new Error('JSON must be an array of objects')
-    if (data.length === 0) return ''
-
-    const headers = Object.keys(data[0])
-    const rows = [headers]
-
-    data.forEach(obj => {
-        const row = headers.map(h => {
-            let val = obj[h] === null || obj[h] === undefined ? '' : String(obj[h])
-            if (val.includes(delimiter) || val.includes('"') || val.includes('\n')) {
-                val = `"${val.replace(/"/g, '""')}"`
-            }
-            return val
-        })
-        rows.push(row)
-    })
-
-    return rows.map(r => r.join(delimiter)).join('\n')
-}
+const looksLikeJson = (text) => /^\s*[[{]/.test(text)
 
 export default function CsvJson() {
-    useDocumentTitle('CSV <-> JSON Converter')
+    const pane = usePane()
+    const toast = useToast()
+    const csvId = useId()
+    const jsonId = useId()
+    const delimiterId = useId()
     const [csv, setCsv] = useState('')
     const [json, setJson] = useState('')
-    const [error, setError] = useState(null)
-    const [copied, setCopied] = useState(null)
-    const [delimiter, setDelimiter] = useState(',')
+    const [delimiter, setDelimiter] = useState('auto')
+    const [header, setHeader] = useState(true)
+    const [infer, setInfer] = useState(true)
+    const [trim, setTrim] = useState(true)
+    const [fileBase, setFileBase] = useState('data')
+    // Result of the last conversion: { direction, error?, summary?, notices }
+    const [result, setResult] = useState(null)
 
-    const convertToJson = () => {
+    const toJson = (text = csv) => {
         try {
-            setError(null)
-            const rows = parseCSV(csv, delimiter)
-            if (rows.length < 2) throw new Error('CSV must have at least a header row and one data row')
-
-            const headers = rows[0]
-            const result = rows.slice(1).map(row => {
-                const obj = {}
-                headers.forEach((h, i) => {
-                    obj[h.trim()] = row[i] || '' // Handle missing cols
-                })
-                return obj
-            })
-
-            setJson(JSON.stringify(result, null, 2))
+            const r = csvToJson(text, { delimiter, header, infer, trim })
+            setJson(JSON.stringify(r.json, null, 2))
+            setResult({ direction: 'csv', summary: `Converted ${r.rows} row${r.rows === 1 ? '' : 's'} × ${r.columns} column${r.columns === 1 ? '' : 's'} to JSON.`, notices: r.notices })
         } catch (e) {
-            setError(e.message)
+            setJson('')
+            setResult({ direction: 'csv', error: e.message, notices: [] })
         }
     }
 
-    const convertToCsv = () => {
+    const toCsv = (text = json) => {
         try {
-            setError(null)
-            const data = JSON.parse(json)
-            const result = toCSV(data, delimiter)
-            setCsv(result)
+            const r = jsonToCsv(text, { delimiter })
+            setCsv(r.csv)
+            setResult({ direction: 'json', summary: `Converted ${r.rows} row${r.rows === 1 ? '' : 's'} × ${r.columns} column${r.columns === 1 ? '' : 's'} to CSV.`, notices: r.notices })
         } catch (e) {
-            setError('Invalid JSON: ' + e.message)
+            setCsv('')
+            setResult({ direction: 'json', error: e.message, notices: [] })
         }
     }
 
-    const copy = (text, key) => {
-        navigator.clipboard.writeText(text)
-        setCopied(key)
-        setTimeout(() => setCopied(null), 2000)
+    const loadText = (text) => {
+        if (looksLikeJson(text)) {
+            setJson(text)
+            toCsv(text)
+        } else {
+            setCsv(text)
+            toJson(text)
+        }
     }
+
+    const openFile = async ([file]) => {
+        if (!file) return
+        try {
+            const text = await file.text()
+            setFileBase(splitFilename(file.name).base || 'data')
+            if (/\.json$/i.test(file.name) || (!/\.(csv|tsv|txt)$/i.test(file.name) && looksLikeJson(text))) {
+                setJson(text)
+                toCsv(text)
+            } else {
+                if (/\.tsv$/i.test(file.name)) setDelimiter('\t')
+                setCsv(text)
+                toJson(text)
+            }
+        } catch {
+            toast.error(`Couldn’t read ${file.name}`)
+        }
+    }
+
+    useSmartInput({ input: () => {} }, { onInject: (values) => typeof values.input === 'string' && loadText(values.input) })
+
+    useRegisterAIContext({
+        tool: 'CSV ↔ JSON',
+        getContext: () => ({ input: csv, output: json }),
+        suggestedPrompts: ['Summarize this data', 'Which columns look like IDs or dates?', 'Spot rows with suspicious values'],
+    })
+
+    const optionLabel = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: 'var(--text-muted)' }
+    const stacked = pane.size === 'sm'
+    const csvError = result?.direction === 'csv' && result.error
+    const jsonError = result?.direction === 'json' && result.error
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
-                <h2 className="text-gradient" style={{ fontSize: '2rem' }}>CSV ↔ JSON Converter</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: 'var(--space-sm)' }}>
-                    Convert between CSV (Comma Separated Values) and JSON array
-                </p>
-            </div>
+        <div className="page page-wide page-csv-json">
+            <ToolHeader />
 
-            {/* Controls */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)', display: 'flex', justifyContent: 'center', gap: 'var(--space-lg)', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                    <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Delimiter:</label>
-                    <select
-                        value={delimiter}
-                        onChange={e => setDelimiter(e.target.value)}
-                        style={{
-                            padding: '8px', borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)',
-                            color: 'var(--text-main)'
-                        }}
-                    >
-                        <option value=",">Comma (,)</option>
-                        <option value=";">Semicolon (;)</option>
-                        <option value="|">Pipe (|)</option>
-                        <option value="	">Tab (\t)</option>
+            <section className="card card-compact" aria-label="Options" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-sm) var(--space-lg)' }}>
+                <label htmlFor={delimiterId} style={optionLabel}>
+                    Delimiter
+                    <select id={delimiterId} value={delimiter} onChange={e => setDelimiter(e.target.value)} style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}>
+                        {DELIMITERS.map(d => <option key={d.label} value={d.value}>{d.label}</option>)}
                     </select>
-                </div>
-            </div>
+                </label>
+                <label style={optionLabel}>
+                    <input type="checkbox" checked={header} onChange={e => setHeader(e.target.checked)} />
+                    First row is a header
+                </label>
+                <label style={optionLabel} title="Turn 42, 3.5, true, false and null into JSON values (values like 007 stay text)">
+                    <input type="checkbox" checked={infer} onChange={e => setInfer(e.target.checked)} />
+                    Detect numbers and booleans
+                </label>
+                <label style={optionLabel}>
+                    <input type="checkbox" checked={trim} onChange={e => setTrim(e.target.checked)} />
+                    Trim spaces
+                </label>
+                <FileDropZone
+                    compact
+                    accept=".csv,.tsv,.txt,.json,text/csv,text/plain,application/json"
+                    onFiles={openFile}
+                    icon={FileUp}
+                    label="Open a CSV or JSON file"
+                    ariaLabel="Open a CSV or JSON file"
+                    maxSizeMB={50}
+                    style={{ padding: '0.5rem 0.9rem', marginLeft: stacked ? 0 : 'auto', fontSize: '0.85rem' }}
+                />
+            </section>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 'var(--space-md)', alignItems: 'center' }}>
+            {result && (result.error ? (
+                <StatusBanner tone="danger" title={result.direction === 'csv' ? 'Couldn’t convert the CSV' : 'Couldn’t convert the JSON'}>
+                    {result.error}
+                </StatusBanner>
+            ) : (
+                <StatusBanner tone={result.notices.some(n => n.warn) ? 'warning' : 'success'} title={result.summary}>
+                    {result.notices.length ? result.notices.map(n => n.text).join(' ') : null}
+                </StatusBanner>
+            ))}
 
-                {/* CSV Input */}
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-                        <label style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <FileSpreadsheet size={16} color="#22c55e" /> CSV
-                        </label>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => setCsv('')} style={{ color: 'var(--text-dim)', padding: 4 }}><Trash2 size={14} /></button>
-                            <button onClick={() => copy(csv, 'csv')} style={{ color: copied === 'csv' ? 'var(--accent)' : 'var(--text-dim)', padding: 4 }}>
-                                {copied === 'csv' ? <Check size={14} /> : <Copy size={14} />}
+            <div className="split-pane">
+                <div className="card card-compact" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', minHeight: 34 }}>
+                        <label htmlFor={csvId} className="section-title"><FileSpreadsheet size={16} aria-hidden="true" /> CSV</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                            <PipelineRead onRead={(text) => { setCsv(text); toJson(text) }} />
+                            <button type="button" className="icon-btn" onClick={() => downloadText(csv, `${fileBase}.csv`, 'text/csv;charset=utf-8')} disabled={!csv} aria-label="Download CSV" title="Download CSV">
+                                <Download size={14} aria-hidden="true" />
+                            </button>
+                            <CopyButton text={csv} iconOnly size="md" label="Copy CSV" />
+                            <button type="button" className="icon-btn" onClick={() => { setCsv(''); setResult(null) }} disabled={!csv} aria-label="Clear CSV" title="Clear CSV">
+                                <Trash2 size={14} aria-hidden="true" />
                             </button>
                         </div>
                     </div>
                     <textarea
+                        id={csvId}
                         value={csv}
                         onChange={e => setCsv(e.target.value)}
-                        placeholder="id,name,role&#10;1,Alice,Admin&#10;2,Bob,User"
-                        style={{
-                            flex: 1, minHeight: '400px', resize: 'vertical',
-                            padding: '12px', borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)',
-                            color: 'var(--text-main)', fontFamily: 'var(--font-mono)', fontSize: '0.9rem', whiteSpace: 'pre'
-                        }}
+                        placeholder={'id,name,role\n1,Alice,Admin\n2,Bob,User'}
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoComplete="off"
+                        aria-invalid={csvError ? true : undefined}
+                        className={csvError ? 'field-invalid' : ''}
+                        style={{ minHeight: 'clamp(240px, 45vh, 560px)', fontSize: '0.85rem', lineHeight: 1.5, padding: '0.75rem', whiteSpace: 'pre', overflowWrap: 'normal', overflowX: 'auto' }}
                     />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-primary" onClick={() => toJson()} disabled={!csv.trim()}>
+                            CSV to JSON {stacked ? <ArrowDown size={16} aria-hidden="true" /> : <ArrowRight size={16} aria-hidden="true" />}
+                        </button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCsv(SAMPLE_CSV); toJson(SAMPLE_CSV) }}>
+                            Load sample
+                        </button>
+                        <PipelineSend dataToSend={csv} style={{ marginLeft: 'auto' }} />
+                    </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                    <button onClick={convertToJson} title="Convert CSV to JSON" style={{
-                        padding: '12px', borderRadius: '50%',
-                        background: 'var(--primary-glow)', border: '1px solid var(--primary)',
-                        color: 'var(--primary)', cursor: 'pointer', transition: 'all 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                        <ArrowRight size={24} />
-                    </button>
-                    <button onClick={convertToCsv} title="Convert JSON to CSV" style={{
-                        padding: '12px', borderRadius: '50%',
-                        background: 'var(--primary-glow)', border: '1px solid var(--primary)',
-                        color: 'var(--primary)', cursor: 'pointer', transition: 'all 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                        <ArrowLeft size={24} />
-                    </button>
-                </div>
-
-                {/* JSON Input */}
-                <div className="glass-panel" style={{ padding: 'var(--space-md)', height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-                        <label style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <FileJson size={16} color="#f59e0b" /> JSON
-                        </label>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => setJson('')} style={{ color: 'var(--text-dim)', padding: 4 }}><Trash2 size={14} /></button>
-                            <button onClick={() => copy(json, 'json')} style={{ color: copied === 'json' ? 'var(--accent)' : 'var(--text-dim)', padding: 4 }}>
-                                {copied === 'json' ? <Check size={14} /> : <Copy size={14} />}
+                <div className="card card-compact" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', minHeight: 34 }}>
+                        <label htmlFor={jsonId} className="section-title"><Braces size={16} aria-hidden="true" /> JSON</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                            <PipelineRead onRead={(text) => { setJson(text); toCsv(text) }} />
+                            <button type="button" className="icon-btn" onClick={() => downloadText(json, `${fileBase}.json`, 'application/json')} disabled={!json} aria-label="Download JSON" title="Download JSON">
+                                <Download size={14} aria-hidden="true" />
+                            </button>
+                            <CopyButton text={json} iconOnly size="md" label="Copy JSON" />
+                            <button type="button" className="icon-btn" onClick={() => { setJson(''); setResult(null) }} disabled={!json} aria-label="Clear JSON" title="Clear JSON">
+                                <Trash2 size={14} aria-hidden="true" />
                             </button>
                         </div>
                     </div>
                     <textarea
+                        id={jsonId}
                         value={json}
                         onChange={e => setJson(e.target.value)}
-                        placeholder={'[\n  {\n    "id": 1,\n    "name": "Alice"\n  }\n]'}
-                        style={{
-                            flex: 1, minHeight: '400px', resize: 'vertical',
-                            padding: '12px', borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)',
-                            color: 'var(--text-main)', fontFamily: 'var(--font-mono)', fontSize: '0.9rem'
-                        }}
+                        placeholder={'[\n  { "id": 1, "name": "Alice" }\n]'}
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoComplete="off"
+                        aria-invalid={jsonError ? true : undefined}
+                        className={jsonError ? 'field-invalid' : ''}
+                        style={{ minHeight: 'clamp(240px, 45vh, 560px)', fontSize: '0.85rem', lineHeight: 1.5, padding: '0.75rem' }}
                     />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-primary" onClick={() => toCsv()} disabled={!json.trim()}>
+                            {stacked ? <ArrowDown size={16} aria-hidden="true" style={{ transform: 'rotate(180deg)' }} /> : <ArrowRight size={16} aria-hidden="true" style={{ transform: 'rotate(180deg)' }} />} JSON to CSV
+                        </button>
+                        <PipelineSend dataToSend={json} style={{ marginLeft: 'auto' }} />
+                    </div>
                 </div>
             </div>
-
-            {error && (
-                <div style={{
-                    marginTop: 'var(--space-md)', padding: 'var(--space-md)',
-                    borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.1)',
-                    border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', textAlign: 'center'
-                }}>
-                    {error}
-                </div>
-            )}
         </div>
     )
 }

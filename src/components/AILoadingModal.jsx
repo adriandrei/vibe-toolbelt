@@ -1,106 +1,160 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { CheckCircle2, HardDrive, ShieldCheck } from 'lucide-react'
 import { useAI } from '../contexts/AIContext'
+import Modal from './ui/Modal'
+import StatusBanner from './ui/StatusBanner'
+import { LoadProgress } from './ai/Progress'
+import './ai/ai.css'
 
+const READY_AUTO_CLOSE_MS = 2500
+
+/**
+ * Progress / result dialog for loading the AI model. It never traps the user:
+ * Escape, the overlay and "Continue in background" hide it while loading goes
+ * on (progress stays in the header badge), and "Cancel download" stops it.
+ * Failures show the error with Retry and Close.
+ */
 export default function AILoadingModal() {
-    const { aiStatus, loadProgress, loadText, selectedModel, models } = useAI()
-    const [visible, setVisible] = useState(false)
+    const {
+        aiStatus, loadDialogOpen, hideLoadDialog, dismissLoadError,
+        loadingModel, selectedModel, loadErrorModel, getModel, models,
+        loadProgress, loadPhase, loadFromCache, loadText,
+        loadError, loadErrorDetail, loadErrorCode,
+        loadModel, cancelLoad, openAIPanel,
+    } = useAI()
+    const primaryRef = useRef(null)
 
+    const view = aiStatus === 'loading' ? 'loading' : aiStatus === 'error' ? 'error' : aiStatus === 'ready' ? 'ready' : null
+    const open = loadDialogOpen && view !== null
+
+    // A finished load shows its result briefly, then gets out of the way
     useEffect(() => {
-        if (aiStatus === 'loading') setVisible(true)
-        else if (aiStatus === 'ready') {
-            // Short delay to show the "complete" state before hiding
-            const t = setTimeout(() => setVisible(false), 1200)
-            return () => clearTimeout(t)
-        }
-    }, [aiStatus])
+        if (!open || view !== 'ready') return undefined
+        const timer = setTimeout(hideLoadDialog, READY_AUTO_CLOSE_MS)
+        return () => clearTimeout(timer)
+    }, [open, view, hideLoadDialog])
 
-    if (!visible) return null
+    // Keep focus on the main action as the dialog moves between states
+    useEffect(() => {
+        if (open) primaryRef.current?.focus()
+    }, [open, view])
 
-    const model = models.find(m => m.id === selectedModel)
-    const isComplete = aiStatus === 'ready'
+    if (!open) return null
+
+    if (view === 'error') {
+        const model = getModel(loadErrorModel) || getModel(selectedModel)
+        const lighter = loadErrorCode === 'gpu-memory' ? models.find(m => m.id !== model?.id && m.tag === 'Lightweight') : null
+        return (
+            <Modal
+                open
+                onClose={dismissLoadError}
+                title="Couldn't load the AI model"
+                size="sm"
+                initialFocusRef={primaryRef}
+                footer={(
+                    <>
+                        <button type="button" className="btn btn-secondary" onClick={dismissLoadError}>Close</button>
+                        {lighter && (
+                            <button type="button" className="btn btn-secondary" onClick={() => loadModel(lighter.id)}>
+                                Use {lighter.name}
+                            </button>
+                        )}
+                        <button ref={primaryRef} type="button" className="btn btn-primary" onClick={() => loadModel(model?.id)}>
+                            Retry
+                        </button>
+                    </>
+                )}
+            >
+                <div className="ai-load-dialog">
+                    <StatusBanner tone="danger" title={model ? `${model.name} didn't load` : 'Loading failed'}>
+                        {loadError}
+                    </StatusBanner>
+                    {loadErrorDetail && loadErrorDetail !== loadError && (
+                        <details className="ai-details">
+                            <summary>Technical details</summary>
+                            <pre className="code-well">{loadErrorDetail}</pre>
+                        </details>
+                    )}
+                </div>
+            </Modal>
+        )
+    }
+
+    if (view === 'ready') {
+        const model = getModel(selectedModel)
+        return (
+            <Modal
+                open
+                onClose={hideLoadDialog}
+                title="AI ready"
+                size="sm"
+                initialFocusRef={primaryRef}
+                footer={(
+                    <>
+                        <button type="button" className="btn btn-secondary" onClick={hideLoadDialog}>Close</button>
+                        <button
+                            ref={primaryRef}
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => {
+                                hideLoadDialog()
+                                openAIPanel()
+                            }}
+                        >
+                            Open assistant
+                        </button>
+                    </>
+                )}
+            >
+                <StatusBanner tone="success" icon={CheckCircle2} title={`${model?.name ?? 'The model'} is loaded`}>
+                    It runs on your GPU. Your prompts and data stay on this device.
+                </StatusBanner>
+            </Modal>
+        )
+    }
+
+    const model = getModel(loadingModel)
+    const downloading = loadFromCache === false
+    const title = loadPhase === 'download' ? `Downloading ${model?.name ?? 'the AI model'}` : `Loading ${model?.name ?? 'the AI model'}`
 
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            background: 'rgba(0,0,0,0.75)',
-            backdropFilter: 'blur(12px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-        }}>
-            <div style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '40px 48px',
-                maxWidth: 480,
-                width: '90%',
-                textAlign: 'center',
-                boxShadow: '0 0 80px rgba(var(--primary-rgb), 0.15)',
-            }}>
-                {/* Icon */}
-                <div style={{
-                    fontSize: '3rem',
-                    marginBottom: 20,
-                    animation: isComplete ? 'none' : 'spin 3s linear infinite',
-                }}>
-                    {isComplete ? '✅' : '🤖'}
+        <Modal
+            open
+            onClose={hideLoadDialog}
+            title={title}
+            size="sm"
+            initialFocusRef={primaryRef}
+            footer={(
+                <>
+                    <button type="button" className="btn btn-secondary" onClick={cancelLoad}>
+                        {downloading ? 'Cancel download' : 'Cancel'}
+                    </button>
+                    <button ref={primaryRef} type="button" className="btn btn-primary" onClick={hideLoadDialog}>
+                        Continue in background
+                    </button>
+                </>
+            )}
+        >
+            <div className="ai-load-dialog">
+                <LoadProgress
+                    text={loadText}
+                    percent={loadProgress}
+                    phase={loadPhase}
+                    label={`Loading ${model?.name ?? 'the AI model'}`}
+                />
+                <div className="ai-load-note">
+                    <HardDrive size={16} aria-hidden="true" />
+                    <span>
+                        {loadFromCache
+                            ? 'Loading from this device. Nothing is downloaded.'
+                            : `First use downloads about ${model?.size ?? '1 GB'} from huggingface.co. It's saved in this browser, so next time it loads from your device.`}
+                    </span>
                 </div>
-
-                <h2 style={{
-                    fontSize: '1.4rem',
-                    fontWeight: 700,
-                    marginBottom: 8,
-                    background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                }}>
-                    {isComplete ? 'AI Ready!' : 'Loading AI Model'}
-                </h2>
-
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 24 }}>
-                    {isComplete
-                        ? `${model?.label} is loaded and ready to help.`
-                        : `Downloading ${model?.label} (${model?.size}) — cached after this.`
-                    }
-                </p>
-
-                {/* Progress Bar */}
-                <div style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    borderRadius: 100,
-                    height: 8,
-                    overflow: 'hidden',
-                    marginBottom: 12,
-                }}>
-                    <div style={{
-                        height: '100%',
-                        width: `${loadProgress}%`,
-                        background: isComplete
-                            ? 'var(--accent)'
-                            : 'linear-gradient(90deg, var(--primary), var(--accent))',
-                        borderRadius: 100,
-                        transition: 'width 0.4s ease',
-                    }} />
+                <div className="ai-load-note">
+                    <ShieldCheck size={16} aria-hidden="true" />
+                    <span>The model runs on your GPU. Your prompts and data never leave this device. You can keep working while it loads.</span>
                 </div>
-
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', minHeight: 20 }}>
-                    {isComplete ? 'Complete!' : (loadText || `${loadProgress}%`)}
-                </p>
-
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 20 }}>
-                    Model weights are cached in your browser — no future downloads needed.
-                </p>
             </div>
-
-            <style>{`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
-        </div>
+        </Modal>
     )
 }

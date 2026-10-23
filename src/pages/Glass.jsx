@@ -1,168 +1,164 @@
-import React, { useState } from 'react'
-import { Palette, Copy, Check } from 'lucide-react'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useState } from 'react'
+import ToolHeader from '../components/ui/ToolHeader'
+import SliderField from '../components/ui/SliderField'
+import ColorField from '../components/ui/ColorField'
+import CodeBlock from '../components/ui/CodeBlock'
+import SegmentedControl from '../components/ui/SegmentedControl'
+import { PipelineSend } from '../components/PipelineFeature'
+import { parseColor } from '../utils/color'
+
+// Preview backgrounds. Pure CSS (no images), so the page works offline and
+// nothing is fetched from third parties. Crisp shapes make the blur visible.
+// These colours are user-facing content, not UI chrome.
+const SCENES = {
+    aurora: {
+        label: 'Aurora',
+        background: 'linear-gradient(135deg, #0f172a 0%, #312e81 50%, #6d28d9 100%)',
+        text: '#ffffff',
+        shapes: [
+            { left: '4%', top: '8%', size: '42%', background: 'linear-gradient(160deg, #22d3ee, #3b82f6)' },
+            { left: '58%', top: '46%', size: '46%', background: 'linear-gradient(200deg, #f472b6, #e11d48)' },
+            { left: '66%', top: '2%', size: '18%', background: '#facc15' },
+            { left: '14%', top: '68%', size: '14%', background: '#34d399' },
+        ],
+    },
+    sunset: {
+        label: 'Sunset',
+        background: 'linear-gradient(160deg, #7c2d12 0%, #c2410c 45%, #fb923c 100%)',
+        text: '#ffffff',
+        shapes: [
+            { left: '52%', top: '6%', size: '40%', background: 'linear-gradient(180deg, #fde047, #f97316)' },
+            { left: '-6%', top: '52%', size: '48%', background: 'linear-gradient(90deg, #be123c, #9d174d)' },
+            { left: '30%', top: '76%', size: '16%', background: '#0ea5e9' },
+        ],
+    },
+    paper: {
+        label: 'Light',
+        background: 'linear-gradient(135deg, #f8fafc 0%, #e0e7ff 60%, #fae8ff 100%)',
+        text: '#1e1b4b',
+        shapes: [
+            { left: '6%', top: '10%', size: '36%', background: 'linear-gradient(160deg, #a5b4fc, #6366f1)' },
+            { left: '60%', top: '50%', size: '42%', background: 'linear-gradient(200deg, #f9a8d4, #ec4899)' },
+            { left: '70%', top: '6%', size: '16%', background: '#fbbf24' },
+        ],
+    },
+}
+
+const SCENE_OPTIONS = Object.entries(SCENES).map(([value, scene]) => ({ value, label: scene.label }))
+
+const BORDER = '1px solid rgba(255, 255, 255, 0.125)'
+const SHADOW = '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
 
 export default function Glass() {
-    useDocumentTitle('Glassmorphism Generator')
     const [blur, setBlur] = useState(12)
-    const [transparency, setTransparency] = useState(0.2)
-    const [saturation, setSaturation] = useState(1.0)
+    const [opacity, setOpacity] = useState(20) // % alpha of the base colour
+    const [saturation, setSaturation] = useState(100) // %
+    const [radius, setRadius] = useState(12)
     const [color, setColor] = useState('#ffffff')
-    const [copied, setCopied] = useState(false)
+    const [sceneKey, setSceneKey] = useState('aurora')
 
-    // Calculate distinct RGB
-    const hexToRgb = (hex) => {
-        const r = parseInt(hex.slice(1, 3), 16)
-        const g = parseInt(hex.slice(3, 5), 16)
-        const b = parseInt(hex.slice(5, 7), 16)
-        return `${r}, ${g}, ${b}`
-    }
+    const { r, g, b } = parseColor(color) ?? { r: 255, g: 255, b: 255 }
+    const background = `rgba(${r}, ${g}, ${b}, ${+(opacity / 100).toFixed(2)})`
+    const filter = `blur(${blur}px) saturate(${saturation}%)`
+    const css = [
+        `background: ${background};`,
+        `backdrop-filter: ${filter};`,
+        `-webkit-backdrop-filter: ${filter};`,
+        `border: ${BORDER};`,
+        `border-radius: ${radius}px;`,
+        `box-shadow: ${SHADOW};`,
+    ].join('\n')
 
-    const generatedCss = `
-background: rgba(${hexToRgb(color)}, ${transparency});
-backdrop-filter: blur(${blur}px) saturate(${saturation * 100}%);
--webkit-backdrop-filter: blur(${blur}px) saturate(${saturation * 100}%);
-border: 1px solid rgba(255, 255, 255, 0.125);
-border-radius: 12px;
-box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  `.trim()
-
-    const copyCss = () => {
-        navigator.clipboard.writeText(generatedCss)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-    }
+    const scene = SCENES[sceneKey]
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
-                <h2 className="text-gradient" style={{ fontSize: '2rem' }}>Glass Generator</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Design frosted glass effects for your next project</p>
-            </div>
+        <div className="page page-wide">
+            <ToolHeader />
 
             <div className="split-pane">
-
-                {/* Controls */}
-                <div className="glass-panel" style={{ padding: 'var(--space-lg)' }}>
-                    <h3 style={{ marginBottom: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Palette size={20} /> Settings
-                    </h3>
-
-                    <div style={{ marginBottom: 'var(--space-lg)' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
-                            Blur <span>{blur}px</span>
-                        </label>
-                        <input
-                            type="range" min="0" max="40" value={blur}
-                            onChange={(e) => setBlur(e.target.value)}
-                            style={{ width: '100%', accentColor: 'var(--primary)' }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: 'var(--space-lg)' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
-                            Transparency <span>{Math.round(transparency * 100)}%</span>
-                        </label>
-                        <input
-                            type="range" min="0" max="1" step="0.01" value={transparency}
-                            onChange={(e) => setTransparency(e.target.value)}
-                            style={{ width: '100%', accentColor: 'var(--primary)' }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: 'var(--space-lg)' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
-                            Saturation <span>{Math.round(saturation * 100)}%</span>
-                        </label>
-                        <input
-                            type="range" min="0" max="2" step="0.1" value={saturation}
-                            onChange={(e) => setSaturation(e.target.value)}
-                            style={{ width: '100%', accentColor: 'var(--primary)' }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: 'var(--space-lg)' }}>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-xs)' }}>Base Color</label>
-                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                            <input
-                                type="color"
-                                value={color}
-                                onChange={(e) => setColor(e.target.value)}
-                                style={{ width: '50px', padding: 0, height: '40px' }}
-                            />
-                            <input
-                                type="text" value={color} onChange={(e) => setColor(e.target.value)}
-                                style={{ textTransform: 'uppercase' }}
-                            />
-                        </div>
-                    </div>
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                    <SliderField label="Blur (px)" value={blur} onChange={setBlur} min={0} max={40} unit="px" showInput />
+                    <SliderField
+                        label="Opacity (%)"
+                        value={opacity}
+                        onChange={setOpacity}
+                        min={0}
+                        max={100}
+                        unit="%"
+                        showInput
+                        hint="How opaque the base colour is. Lower values let more of the background through."
+                    />
+                    <SliderField label="Saturation (%)" value={saturation} onChange={setSaturation} min={0} max={200} unit="%" showInput />
+                    <SliderField label="Corner radius (px)" value={radius} onChange={setRadius} min={0} max={48} unit="px" showInput />
+                    <ColorField label="Base colour" value={color} onChange={setColor} />
                 </div>
 
-                {/* Preview & Code */}
-                <div>
-                    {/* Visual Preview */}
-                    <div style={{
-                        backgroundImage: 'url("https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=600&q=80")',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '40px',
-                        marginBottom: 'var(--space-lg)',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-                    }}>
-                        <div style={{
-                            background: `rgba(${hexToRgb(color)}, ${transparency})`,
-                            backdropFilter: `blur(${blur}px) saturate(${saturation * 100}%)`,
-                            WebkitBackdropFilter: `blur(${blur}px) saturate(${saturation * 100}%)`,
-                            borderRadius: '12px',
-                            border: '1px solid rgba(255, 255, 255, 0.125)',
-                            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-                            padding: '24px',
-                            color: '#fff',
-                            minHeight: '200px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center'
-                        }}>
-                            <h4 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>Glassmorphism</h4>
-                            <p>Pure CSS effect</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', minWidth: 0 }}>
+                    <section className="card card-compact" aria-label="Preview" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                            <h2 className="section-title">Preview</h2>
+                            <SegmentedControl ariaLabel="Preview background" size="sm" value={sceneKey} onChange={setSceneKey} options={SCENE_OPTIONS} />
                         </div>
-                    </div>
-
-                    {/* CSS Code */}
-                    <div className="glass-panel" style={{ position: 'relative' }}>
-                        <pre style={{
-                            padding: 'var(--space-lg)',
-                            overflowX: 'auto',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.85rem'
-                        }}>
-                            {generatedCss}
-                        </pre>
-                        <button
-                            onClick={copyCss}
+                        <div
                             style={{
-                                position: 'absolute',
-                                top: 'var(--space-sm)',
-                                right: 'var(--space-sm)',
-                                padding: '6px 12px',
-                                borderRadius: 'var(--radius-sm)',
-                                background: copied ? 'var(--accent)' : 'var(--primary-glow)',
-                                color: copied ? '#fff' : 'var(--primary)',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                borderRadius: 'var(--radius-md)',
+                                minHeight: 300,
+                                padding: 'clamp(16px, 7%, 48px)',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 6,
-                                fontSize: '0.85rem',
-                                fontWeight: 500
+                                justifyContent: 'center',
+                                background: scene.background,
+                                isolation: 'isolate',
                             }}
                         >
-                            {copied ? <Check size={14} /> : <Copy size={14} />}
-                            {copied ? 'Copied!' : 'Copy CSS'}
-                        </button>
-                    </div>
-                </div>
+                            {scene.shapes.map((shape, i) => (
+                                <div
+                                    key={i}
+                                    aria-hidden="true"
+                                    style={{
+                                        position: 'absolute',
+                                        left: shape.left,
+                                        top: shape.top,
+                                        width: shape.size,
+                                        aspectRatio: '1',
+                                        borderRadius: '50%',
+                                        background: shape.background,
+                                        zIndex: -1,
+                                    }}
+                                />
+                            ))}
+                            <div
+                                style={{
+                                    width: 'min(100%, 340px)',
+                                    minHeight: 190,
+                                    padding: 24,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    textAlign: 'center',
+                                    gap: 6,
+                                    color: scene.text,
+                                    background,
+                                    backdropFilter: filter,
+                                    WebkitBackdropFilter: filter,
+                                    border: BORDER,
+                                    borderRadius: radius,
+                                    boxShadow: SHADOW,
+                                }}
+                            >
+                                <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>Glassmorphism</div>
+                                <div style={{ opacity: 0.85 }}>Pure CSS effect</div>
+                            </div>
+                        </div>
+                    </section>
 
+                    <section className="card card-compact" aria-label="Generated CSS">
+                        <CodeBlock code={css} language="css" title="CSS" copyLabel="Copy CSS" actions={<PipelineSend dataToSend={css} />} />
+                    </section>
+                </div>
             </div>
         </div>
     )

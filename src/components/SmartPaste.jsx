@@ -1,83 +1,97 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles, X, ArrowRight } from 'lucide-react';
-import { analyzeContent } from '../utils/analyzers';
-import './SmartPaste.css';
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, Sparkles, X } from 'lucide-react'
+import { analyzeContent } from '../utils/detect'
+import { openInTool } from '../utils/smartNav'
+import { getTool } from '../config/tools'
+import './SmartPaste.css'
 
+const AUTO_HIDE_MS = 10000
+
+function isEditable(el) {
+    if (!el || el === document.body) return false
+    const tag = el.tagName
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+}
+
+/**
+ * Pasting recognisable content outside a text field (a JWT, JSON, a URL,
+ * a timestamp…) offers to open it in the matching tool.
+ */
 export default function SmartPaste() {
-    const [suggestion, setSuggestion] = useState(null);
-    const navigate = useNavigate();
-    const location = useLocation();
-    const btnRef = useRef(null);
+    const [suggestion, setSuggestion] = useState(null)
+    const navigate = useNavigate()
+    const location = useLocation()
+    const btnRef = useRef(null)
+    const pathRef = useRef(location.pathname)
 
     useEffect(() => {
-        if (suggestion && btnRef.current) {
-            btnRef.current.focus();
+        pathRef.current = location.pathname
+    }, [location.pathname])
+
+    useEffect(() => {
+        const onPaste = (e) => {
+            if (isEditable(e.target) || isEditable(document.activeElement)) return
+            const text = e.clipboardData?.getData('text')?.trim()
+            if (!text) return
+            const result = analyzeContent(text)
+            if (!result || pathRef.current === result.tool) return
+            setSuggestion({ ...result, content: text, id: Date.now() })
         }
-    }, [suggestion]);
+        window.addEventListener('paste', onPaste)
+        return () => window.removeEventListener('paste', onPaste)
+    }, [])
 
+    // Auto-hide (restarts for every new suggestion)
     useEffect(() => {
-        const handlePaste = (e) => {
-            // Ignore if pasting into an input/textarea (user usually knows what they are doing)
-            // UNLESS it's the body or a non-input element
-            const targetTag = e.target.tagName.toLowerCase();
-            if (targetTag === 'input' || targetTag === 'textarea') {
-                return;
-            }
+        if (!suggestion) return undefined
+        btnRef.current?.focus()
+        const timer = setTimeout(() => setSuggestion(null), AUTO_HIDE_MS)
+        const onKey = (e) => {
+            if (e.key === 'Escape') setSuggestion(null)
+        }
+        window.addEventListener('keydown', onKey)
+        return () => {
+            clearTimeout(timer)
+            window.removeEventListener('keydown', onKey)
+        }
+    }, [suggestion])
 
-            const text = e.clipboardData.getData('text');
-            if (!text) return;
+    // Navigating elsewhere dismisses it
+    const [shownOnPath, setShownOnPath] = useState(location.pathname)
+    if (shownOnPath !== location.pathname) {
+        setShownOnPath(location.pathname)
+        if (suggestion) setSuggestion(null)
+    }
 
-            const result = analyzeContent(text);
-
-            // If matched tool is current page, ignore
-            if (result && location.pathname !== result.tool) {
-                // Attach the content we found so it can be passed via router state
-                result.content = text;
-                // Suggestion logic
-                setSuggestion(result);
-
-                // Auto-hide after 8 seconds
-                setTimeout(() => setSuggestion(null), 8000);
-            }
-        };
-
-        window.addEventListener('paste', handlePaste);
-        return () => window.removeEventListener('paste', handlePaste);
-    }, [location.pathname]);
-
-    if (!suggestion) return null;
+    if (!suggestion) return null
+    const tool = getTool(suggestion.tool)
 
     return (
-        <div className="smart-toast glass-panel">
-            <div className="icon-area">
-                <Sparkles size={32} color="var(--accent)" fill="var(--accent)" style={{ opacity: 0.8 }} />
+        <div className="smart-toast" role="dialog" aria-label="Smart paste suggestion" aria-live="polite">
+            <div className="smart-toast-icon">
+                <Sparkles size={20} aria-hidden="true" />
             </div>
-            <div className="content-area">
-                <div className="title">Smart Detect</div>
-                <div className="desc">
-                    Looks like <strong>{suggestion.label}</strong> content.
-                </div>
+            <div className="smart-toast-content">
+                <div className="smart-toast-title">Looks like {suggestion.label}</div>
+                <div className="smart-toast-desc">Open it in {tool?.title ?? suggestion.tool}?</div>
             </div>
-            <div className="actions">
+            <div className="smart-toast-actions">
                 <button
                     ref={btnRef}
-                    className="btn-go"
+                    type="button"
+                    className="btn btn-primary btn-sm"
                     onClick={() => {
-                        navigate(suggestion.tool, { state: { input: suggestion.content } });
-                        setSuggestion(null);
+                        openInTool(navigate, suggestion.tool, { input: suggestion.content, mode: suggestion.mode })
+                        setSuggestion(null)
                     }}
                 >
-                    Open Tool <ArrowRight size={14} />
+                    Open <ArrowRight size={14} aria-hidden="true" />
                 </button>
-                <button
-                    className="btn-close"
-                    onClick={() => setSuggestion(null)}
-                >
-                    <X size={16} />
+                <button type="button" className="icon-btn icon-btn-sm" onClick={() => setSuggestion(null)} aria-label="Dismiss suggestion">
+                    <X size={16} aria-hidden="true" />
                 </button>
             </div>
-
         </div>
-    );
+    )
 }

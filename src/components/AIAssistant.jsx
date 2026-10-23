@@ -1,376 +1,573 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { AlertTriangle, Download, Loader2, RotateCcw, Send, Settings, Sparkles, Square, Upload, X } from 'lucide-react'
 import { useAI } from '../contexts/AIContext'
 import { usePipeline } from '../contexts/PipelineContext'
-import { Bot, X, Send, Square, RotateCcw, ChevronDown, Upload } from 'lucide-react'
+import { useEscape } from '../hooks/useEscape'
+import { BRAND } from '../config/brand'
+import CopyButton from './ui/CopyButton'
+import StatusBanner from './ui/StatusBanner'
+import AssistantMarkdown from './ai/AssistantMarkdown'
+import { LoadProgress } from './ai/Progress'
+import { AI_PANEL_ID, SETTINGS_PATH } from './ai/constants'
+import './ai/ai.css'
 
-const SYSTEM_PROMPT = `You are an expert developer assistant embedded inside "Vibe Toolbelt" — a browser-based developer utility suite. 
-You help users understand, debug, and work with code, tokens, regex patterns, SQL queries, JSON data, and similar technical content.
-Be concise, precise, and practical. Use code blocks where appropriate. When showing examples, make them immediately usable.
-Never break character — you are always a coding assistant, not a general AI.`
+const SYSTEM_PROMPT = [
+    `You are the developer assistant built into ${BRAND.name}, a set of developer tools that run entirely in the user's browser.`,
+    'Help with code, data formats (JSON, YAML, XML, CSV), regular expressions, SQL, tokens, encodings and similar technical work.',
+    'Be concise and practical. Format answers in Markdown and put code in fenced code blocks with a language tag.',
+    "If the question can't be answered from the information given, say so instead of guessing.",
+].join(' ')
 
-export default function AIAssistant() {
-    const { aiStatus, aiPanelOpen, setAiPanelOpen, chat, abortChat, toolContext } = useAI()
-    const { setPipelineData } = usePipeline()
-    const [messages, setMessages] = useState([])
-    const [input, setInput] = useState('')
-    const [streamingText, setStreamingText] = useState('')
-    const [isStreaming, setIsStreaming] = useState(false)
-    const bottomRef = useRef(null)
-    const inputRef = useRef(null)
+const GENERAL_PROMPTS = [
+    'Write a regex that matches ISO 8601 dates',
+    'What is the difference between JSON and YAML?',
+    'Explain what HTTP status 422 means',
+]
 
-    const { tool = 'Tool', suggestedPrompts = [], getContext } = toolContext || {}
+// How much tool data and earlier conversation is sent along (the model's
+// context window is about 4,000 tokens).
+const CONTEXT_CHARS = 2000
+const HISTORY_CHARS = 6000
 
-    useEffect(() => {
-        if (aiPanelOpen && inputRef.current) {
-            setTimeout(() => inputRef.current?.focus(), 100)
+let messageSeq = 0
+const nextMessageId = () => `m${++messageSeq}`
+
+function fenced(text) {
+    const longest = Math.max(0, ...(text.match(/`+/g) || []).map(run => run.length))
+    const fence = '`'.repeat(Math.max(3, longest + 1))
+    return `${fence}\n${text}\n${fence}`
+}
+
+function clip(value) {
+    if (value === undefined || value === null) return null
+    const text = (typeof value === 'string' ? value : String(value)).trim()
+    if (!text) return null
+    return text.length > CONTEXT_CHARS ? { text: text.slice(0, CONTEXT_CHARS), clipped: true } : { text, clipped: false }
+}
+
+function buildMessages(toolContext, history, question) {
+    let system = SYSTEM_PROMPT
+    if (toolContext?.tool) {
+        let data = {}
+        try {
+            data = toolContext.getContext?.() || {}
+        } catch {
+            data = {}
         }
-    }, [aiPanelOpen])
-
-    useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages, streamingText])
-
-    // Reset conversation when switching tools
-    useEffect(() => {
-        setMessages([])
-        setStreamingText('')
-    }, [tool])
-
-    const buildMessages = useCallback((userMessage) => {
-        const contextData = getContext?.()
-        let systemContent = SYSTEM_PROMPT
-
-        if (contextData) {
-            systemContent += `\n\nCurrent tool: ${tool}`
-            if (contextData.input) {
-                systemContent += `\nCurrent input:\n\`\`\`\n${contextData.input.slice(0, 2000)}\n\`\`\``
-            }
-            if (contextData.output) {
-                systemContent += `\nCurrent output:\n\`\`\`\n${contextData.output.slice(0, 2000)}\n\`\`\``
-            }
-        }
-
-        const history = messages.map(m => ({ role: m.role, content: m.content }))
-        return [
-            { role: 'system', content: systemContent },
-            ...history,
-            { role: 'user', content: userMessage }
-        ]
-    }, [messages, tool, getContext])
-
-    const sendMessage = useCallback(async (text) => {
-        if (!text.trim() || isStreaming || aiStatus !== 'ready') return
-
-        const userMsg = { role: 'user', content: text, id: Date.now() }
-        setMessages(prev => [...prev, userMsg])
-        setInput('')
-        setStreamingText('')
-        setIsStreaming(true)
-
-        let accum = ''
-        await chat(buildMessages(text), {
-            onToken: (token) => {
-                accum += token
-                setStreamingText(accum)
-            },
-            onDone: () => {
-                setMessages(prev => [...prev, { role: 'assistant', content: accum, id: Date.now() }])
-                setStreamingText('')
-                setIsStreaming(false)
-            },
-            onAbort: () => {
-                if (accum) {
-                    setMessages(prev => [...prev, { role: 'assistant', content: accum + ' _(aborted)_', id: Date.now() }])
-                }
-                setStreamingText('')
-                setIsStreaming(false)
-            },
-        })
-    }, [input, isStreaming, aiStatus, chat, buildMessages])
-
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            sendMessage(input)
-        }
+        system += `\n\nThe user is working in the "${toolContext.tool}" tool.`
+        const input = clip(data.input)
+        const output = clip(data.output)
+        if (input) system += `\n\nCurrent input${input.clipped ? ` (first ${CONTEXT_CHARS} characters)` : ''}:\n${fenced(input.text)}`
+        if (output) system += `\n\nCurrent output${output.clipped ? ` (first ${CONTEXT_CHARS} characters)` : ''}:\n${fenced(output.text)}`
+        if (!input && !output) system += ' The tool has no input yet.'
     }
 
-    const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant')
-    const latestContent = streamingText || lastAssistantMessage?.content || ''
+    const earlier = []
+    let used = 0
+    for (let i = history.length - 1; i >= 0; i--) {
+        const message = history[i]
+        if ((message.role !== 'user' && message.role !== 'assistant') || !message.content) continue
+        used += message.content.length
+        if (used > HISTORY_CHARS) break
+        earlier.unshift({ role: message.role, content: message.content })
+    }
+    while (earlier.length && earlier[0].role !== 'user') earlier.shift()
+
+    return [{ role: 'system', content: system }, ...earlier, { role: 'user', content: question }]
+}
+
+/**
+ * Slide-in AI chat. Knows the current tool through useRegisterAIContext and
+ * keeps one conversation per tool: it starts over only when a different tool
+ * registers (not while navigating through pages without AI context).
+ */
+export default function AIAssistant() {
+    const ai = useAI()
+    const { chat, abortChat, toolContext, aiPanelOpen, closeAIPanel } = ai
+    const { sendText } = usePipeline()
+    const tool = toolContext?.tool ?? null
+
+    const [conversation, setConversation] = useState(() => ({ id: 1, tool, messages: [] }))
+    const [pending, setPending] = useState(null)
+    const [draft, setDraft] = useState('')
+    const [error, setError] = useState(null)
+    const pendingRef = useRef(null)
+
+    if (tool && tool !== conversation.tool) {
+        setConversation(prev => (prev.messages.length === 0 ? { ...prev, tool } : { id: prev.id + 1, tool, messages: [] }))
+        setError(null)
+        if (pending) setPending(null)
+    }
+
+    // An answer for a conversation that was replaced isn't needed any more
+    useEffect(() => {
+        const id = conversation.id
+        return () => {
+            if (pendingRef.current?.conversationId === id) {
+                pendingRef.current = null
+                abortChat()
+            }
+        }
+    }, [conversation.id, abortChat])
+
+    const send = useCallback(async (raw) => {
+        const question = raw.trim()
+        if (!question || pendingRef.current) return
+        const conversationId = conversation.id
+        const history = conversation.messages
+        const userMessage = { id: nextMessageId(), role: 'user', content: question }
+        const answerId = nextMessageId()
+        const update = (fn) => setConversation(prev => (prev.id === conversationId ? { ...prev, messages: fn(prev.messages) } : prev))
+
+        update(list => [...list, userMessage])
+        setDraft('')
+        setError(null)
+        setPending({ id: answerId, text: '' })
+        pendingRef.current = { conversationId }
+        try {
+            const result = await chat(buildMessages(toolContext, history, question), {
+                onToken: (_token, full) => setPending(prev => (prev?.id === answerId ? { ...prev, text: full } : prev)),
+            })
+            if (result.text.trim()) {
+                update(list => [...list, {
+                    id: answerId,
+                    role: 'assistant',
+                    content: result.text,
+                    aborted: result.aborted,
+                    truncated: result.finishReason === 'length',
+                }])
+            }
+        } catch (err) {
+            // Put the question back so nothing is lost, and say what went wrong
+            update(list => list.filter(m => m.id !== userMessage.id))
+            setDraft(current => current || question)
+            setError({ conversationId, message: err?.message || "The AI couldn't answer." })
+        } finally {
+            if (pendingRef.current?.conversationId === conversationId) pendingRef.current = null
+            setPending(prev => (prev?.id === answerId ? null : prev))
+        }
+    }, [conversation, chat, toolContext])
+
+    const stop = useCallback(() => {
+        if (pendingRef.current) abortChat()
+    }, [abortChat])
+
+    const newChat = useCallback(() => {
+        setConversation(prev => ({ id: prev.id + 1, tool: prev.tool, messages: [] }))
+        setPending(null)
+        setError(null)
+    }, [])
+
+    const sendToPipeline = useCallback((text) => {
+        sendText(text, { source: 'ai', label: 'AI assistant' })
+    }, [sendText])
 
     if (!aiPanelOpen) return null
 
     return (
-        <div style={{
-            position: 'fixed',
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: 380,
-            zIndex: 500,
-            display: 'flex',
-            flexDirection: 'column',
-            background: 'var(--bg-panel)',
-            backdropFilter: 'blur(20px)',
-            borderLeft: '1px solid var(--border)',
-            boxShadow: '-8px 0 40px rgba(0,0,0,0.4)',
-            animation: 'slideInRight 0.25s ease',
-        }}>
-            {/* Header */}
-            <div style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexShrink: 0,
-                background: 'rgba(var(--primary-rgb), 0.05)',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{
-                        width: 32, height: 32, borderRadius: '50%',
-                        background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                        <Bot size={16} color="#fff" />
-                    </div>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>AI Assistant</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tool}</div>
-                    </div>
+        <AssistantPanel
+            ai={ai}
+            tool={tool}
+            messages={conversation.messages}
+            pending={pending}
+            draft={draft}
+            setDraft={setDraft}
+            error={error && error.conversationId === conversation.id ? error.message : null}
+            onDismissError={() => setError(null)}
+            onSend={send}
+            onStop={stop}
+            onNewChat={newChat}
+            onClose={closeAIPanel}
+            onSendToPipeline={sendToPipeline}
+        />
+    )
+}
+
+function AssistantPanel({
+    ai, tool, messages, pending, draft, setDraft, error, onDismissError,
+    onSend, onStop, onNewChat, onClose, onSendToPipeline,
+}) {
+    const panelRef = useRef(null)
+    const bodyRef = useRef(null)
+    const inputRef = useRef(null)
+    const actionRef = useRef(null)
+    const stickToBottom = useRef(true)
+    const titleId = useId()
+    const loaded = ai.isLoaded
+    const model = ai.getModel(ai.selectedModel)
+    const hasConversation = messages.length > 0 || Boolean(pending)
+    const busyElsewhere = ai.aiStatus === 'thinking' && !pending
+
+    // Focus moves into the panel when it opens, and back where it was when it closes
+    useEffect(() => {
+        const previous = document.activeElement
+        const target = inputRef.current || actionRef.current || panelRef.current
+        target?.focus({ preventScroll: true })
+        return () => {
+            if (previous instanceof HTMLElement && previous !== document.body && previous.isConnected) {
+                previous.focus({ preventScroll: true })
+            }
+        }
+    }, [])
+
+    // When the model finishes loading while the panel is open, go to the message box
+    useEffect(() => {
+        if (!loaded) return
+        const active = document.activeElement
+        if (!active || active === document.body || active === panelRef.current) inputRef.current?.focus({ preventScroll: true })
+    }, [loaded])
+
+    // Escape closes the panel when focus is in it (or nowhere in particular)
+    useEscape((event) => {
+        if (event.defaultPrevented) return
+        const active = document.activeElement
+        if (active && active !== document.body && !panelRef.current?.contains(active)) return
+        event.preventDefault()
+        onClose()
+    })
+
+    // Follow the conversation unless the user has scrolled up to read
+    const streamingText = pending?.text
+    useLayoutEffect(() => {
+        const el = bodyRef.current
+        if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
+    }, [messages.length, streamingText, error])
+
+    const handleSend = (text) => {
+        stickToBottom.current = true
+        onSend(text)
+    }
+
+    const subtitle = [tool ?? 'No tool context', loaded ? model?.name : null].filter(Boolean).join(' · ')
+
+    return (
+        <section
+            id={AI_PANEL_ID}
+            ref={panelRef}
+            className="ai-panel"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby={titleId}
+            tabIndex={-1}
+        >
+            <div className="ai-panel-header">
+                <span className="ai-avatar" aria-hidden="true"><Sparkles size={16} /></span>
+                <div className="ai-panel-heading">
+                    <div id={titleId} className="ai-panel-title">AI assistant</div>
+                    <div className="ai-panel-subtitle" title={subtitle}>{subtitle}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                    {messages.length > 0 && (
-                        <button
-                            onClick={() => setMessages([])}
-                            title="Clear chat"
-                            style={{ color: 'var(--text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                        >
-                            <RotateCcw size={14} />
-                        </button>
-                    )}
+                <div className="ai-panel-actions">
                     <button
-                        onClick={() => setAiPanelOpen(false)}
-                        style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                        type="button"
+                        className="icon-btn"
+                        onClick={onNewChat}
+                        disabled={!hasConversation}
+                        aria-label="Start a new chat"
+                        title="New chat"
                     >
-                        <X size={16} />
+                        <RotateCcw size={16} aria-hidden="true" />
+                    </button>
+                    <Link to={SETTINGS_PATH} className="icon-btn" onClick={onClose} aria-label="AI settings" title="AI settings">
+                        <Settings size={16} aria-hidden="true" />
+                    </Link>
+                    <button type="button" className="icon-btn" onClick={onClose} aria-label="Close AI assistant" title="Close (Esc)">
+                        <X size={18} aria-hidden="true" />
                     </button>
                 </div>
             </div>
 
-            {/* Messages */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {messages.length === 0 && !streamingText && (
-                    <div style={{ textAlign: 'center', paddingTop: 20 }}>
-                        <div style={{ fontSize: '2rem', marginBottom: 12 }}>🤖</div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: 20 }}>
-                            I can see your current {tool} data. Ask me anything about it!
-                        </p>
-                        {suggestedPrompts.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginBottom: 4 }}>Suggested prompts:</div>
-                                {suggestedPrompts.map((prompt, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => sendMessage(prompt)}
-                                        disabled={aiStatus !== 'ready'}
-                                        style={{
-                                            padding: '8px 12px',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: 'rgba(255,255,255,0.04)',
-                                            border: '1px solid var(--border)',
-                                            color: 'var(--text-main)',
-                                            fontSize: '0.82rem',
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            transition: 'all 0.15s',
-                                        }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.borderColor = 'var(--primary)'
-                                            e.currentTarget.style.background = 'var(--primary-glow)'
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.borderColor = 'var(--border)'
-                                            e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                                        }}
-                                    >
-                                        {prompt}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+            <div
+                ref={bodyRef}
+                className="ai-panel-body"
+                onScroll={() => {
+                    const el = bodyRef.current
+                    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+                }}
+            >
+                {hasConversation ? (
+                    <div role="log" aria-label="Conversation" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                        {messages.map(message => (
+                            <MessageItem key={message.id} message={message} onSendToPipeline={onSendToPipeline} />
+                        ))}
+                        {pending && <PendingAnswer text={pending.text} />}
                     </div>
-                )}
-
-                {messages.map((msg) => (
-                    <MessageBubble key={msg.id} msg={msg} setPipelineData={setPipelineData} />
-                ))}
-
-                {streamingText && (
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                        <div style={{
-                            width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                            background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <Bot size={12} color="#fff" />
-                        </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '0 12px 12px 12px',
-                            padding: '10px 14px',
-                            flex: 1,
-                            fontSize: '0.875rem',
-                            lineHeight: 1.6,
-                            color: 'var(--text-main)',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                        }}>
-                            {streamingText}
-                            <span style={{ display: 'inline-block', width: 6, height: 14, background: 'var(--primary)', marginLeft: 2, animation: 'blink 0.8s ease infinite', verticalAlign: 'text-bottom', borderRadius: 1 }} />
-                        </div>
-                    </div>
-                )}
-
-                <div ref={bottomRef} />
-            </div>
-
-            {/* Pipeline send button for latest response */}
-            {latestContent && !isStreaming && (
-                <div style={{ padding: '0 20px 8px', flexShrink: 0 }}>
-                    <button
-                        onClick={() => setPipelineData(latestContent)}
-                        style={{
-                            width: '100%',
-                            padding: '6px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            background: 'transparent',
-                            border: '1px dashed var(--primary)',
-                            color: 'var(--primary)',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 6,
-                        }}
-                    >
-                        <Upload size={13} /> Send AI response to Pipeline
-                    </button>
-                </div>
-            )}
-
-            {/* Input */}
-            <div style={{ padding: '12px 20px 16px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <textarea
-                        ref={inputRef}
-                        value={input}
-                        onChange={e => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={aiStatus !== 'ready' ? 'AI is not ready yet…' : 'Ask anything about your data…'}
-                        disabled={aiStatus !== 'ready' && !isStreaming}
-                        rows={2}
-                        style={{
-                            flex: 1,
-                            resize: 'none',
-                            padding: '10px 14px',
-                            borderRadius: 'var(--radius-md)',
-                            background: 'rgba(0,0,0,0.2)',
-                            border: '1px solid var(--border)',
-                            color: 'var(--text-main)',
-                            fontSize: '0.875rem',
-                            lineHeight: 1.5,
-                            outline: 'none',
-                            fontFamily: 'inherit',
-                        }}
+                ) : loaded ? (
+                    <ReadyEmpty
+                        tool={tool}
+                        prompts={tool ? ai.toolContext?.suggestedPrompts || [] : GENERAL_PROMPTS}
+                        onSend={handleSend}
+                        disabled={busyElsewhere}
                     />
-                    <button
-                        onClick={isStreaming ? abortChat : () => sendMessage(input)}
-                        style={{
-                            padding: '0 14px',
-                            borderRadius: 'var(--radius-md)',
-                            background: isStreaming ? 'rgba(239,68,68,0.15)' : 'var(--primary)',
-                            border: isStreaming ? '1px solid rgba(239,68,68,0.4)' : 'none',
-                            color: isStreaming ? '#ef4444' : '#fff',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                        }}
-                        title={isStreaming ? 'Stop generation' : 'Send (Enter)'}
-                    >
-                        {isStreaming ? <Square size={16} /> : <Send size={16} />}
-                    </button>
-                </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: 6, textAlign: 'center' }}>
-                    Enter to send · Shift+Enter for newline · Running 100% in your browser
-                </div>
+                ) : (
+                    <NotReady ai={ai} actionRef={actionRef} onClose={onClose} />
+                )}
             </div>
 
-            <style>{`
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes blink {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0; }
-                }
-            `}</style>
+            {loaded ? (
+                <Composer
+                    inputRef={inputRef}
+                    draft={draft}
+                    setDraft={setDraft}
+                    tool={tool}
+                    streaming={Boolean(pending)}
+                    busyElsewhere={busyElsewhere}
+                    error={error}
+                    onDismissError={onDismissError}
+                    onSend={handleSend}
+                    onStop={onStop}
+                />
+            ) : hasConversation ? (
+                <div className="ai-footer-card">
+                    <NotReady ai={ai} actionRef={actionRef} onClose={onClose} compact />
+                </div>
+            ) : null}
+        </section>
+    )
+}
+
+const MessageItem = memo(function MessageItem({ message, onSendToPipeline }) {
+    if (message.role === 'user') {
+        return (
+            <div className="ai-msg ai-msg-user">
+                <div className="ai-bubble ai-bubble-user">
+                    <span className="sr-only">You: </span>
+                    {message.content}
+                </div>
+            </div>
+        )
+    }
+    return (
+        <div className="ai-msg">
+            <span className="ai-avatar ai-avatar-sm" aria-hidden="true"><Sparkles size={12} /></span>
+            <div className="ai-msg-main">
+                <div className="ai-bubble ai-bubble-assistant">
+                    <span className="sr-only">Assistant: </span>
+                    <AssistantMarkdown text={message.content} />
+                </div>
+                {message.aborted && <div className="ai-msg-note">Stopped before the end.</div>}
+                {message.truncated && <div className="ai-msg-note">The answer reached the length limit. Ask it to continue for the rest.</div>}
+                <div className="ai-msg-actions">
+                    <CopyButton text={message.content} iconOnly label="Copy answer" />
+                    <button
+                        type="button"
+                        className="icon-btn icon-btn-sm"
+                        onClick={() => onSendToPipeline(message.content)}
+                        aria-label="Send answer to the pipeline"
+                        title="Send to pipeline"
+                    >
+                        <Upload size={14} aria-hidden="true" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+})
+
+function PendingAnswer({ text }) {
+    return (
+        <div className="ai-msg">
+            <span className="ai-avatar ai-avatar-sm" aria-hidden="true"><Sparkles size={12} /></span>
+            <div className="ai-msg-main">
+                <span className="sr-only">The assistant is writing an answer…</span>
+                <div className="ai-bubble ai-bubble-assistant" aria-hidden="true">
+                    {text && <AssistantMarkdown text={text} />}
+                    <span className="ai-typing"><span /><span /><span /></span>
+                </div>
+            </div>
         </div>
     )
 }
 
-function MessageBubble({ msg, setPipelineData }) {
-    const isUser = msg.role === 'user'
+function ReadyEmpty({ tool, prompts, onSend, disabled }) {
     return (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isUser ? 'row-reverse' : 'row' }}>
-            {!isUser && (
-                <div style={{
-                    width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <Bot size={12} color="#fff" />
+        <div className="ai-empty">
+            <div className="ai-empty-icon"><Sparkles size={22} aria-hidden="true" /></div>
+            <div className="ai-empty-title">{tool ? `Ask about your ${tool} data` : 'Ask a developer question'}</div>
+            <p className="ai-empty-text">
+                {tool
+                    ? "The assistant sees this tool's current input and output. Everything stays on this device."
+                    : 'Open a tool to let the assistant see its input and output. Everything stays on this device.'}
+            </p>
+            {prompts.length > 0 && (
+                <div className="ai-suggestions">
+                    <div className="ai-suggestions-label">Try asking</div>
+                    {prompts.map(prompt => (
+                        <button key={prompt} type="button" className="ai-suggestion" onClick={() => onSend(prompt)} disabled={disabled}>
+                            {prompt}
+                        </button>
+                    ))}
                 </div>
             )}
-            <div style={{ maxWidth: '85%' }}>
-                <div style={{
-                    background: isUser ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
-                    border: isUser ? 'none' : '1px solid var(--border)',
-                    borderRadius: isUser ? '12px 12px 0 12px' : '0 12px 12px 12px',
-                    padding: '10px 14px',
-                    fontSize: '0.875rem',
-                    lineHeight: 1.6,
-                    color: isUser ? '#fff' : 'var(--text-main)',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                }}>
-                    {msg.content}
+        </div>
+    )
+}
+
+function EmptyMessage({ icon: Icon, muted = false, spin = false, title, text, compact, children }) {
+    if (compact) {
+        return (
+            <>
+                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{title}</div>
+                {text && <div>{text}</div>}
+                {children}
+            </>
+        )
+    }
+    return (
+        <div className="ai-empty">
+            <div className={`ai-empty-icon ${muted ? 'is-muted' : ''}`}>
+                <Icon size={22} aria-hidden="true" className={spin ? 'spin' : undefined} />
+            </div>
+            <div className="ai-empty-title">{title}</div>
+            {text && <p className="ai-empty-text">{text}</p>}
+            {children}
+        </div>
+    )
+}
+
+function NotReady({ ai, actionRef, onClose, compact = false }) {
+    const model = ai.getModel(ai.selectedModel)
+    const name = model?.name ?? 'the AI model'
+
+    if (ai.aiStatus === 'checking') {
+        return <EmptyMessage icon={Loader2} spin muted compact={compact} title="Checking for WebGPU…" text="The assistant runs on your GPU, which needs WebGPU." />
+    }
+
+    if (ai.aiStatus === 'unsupported') {
+        return (
+            <EmptyMessage icon={AlertTriangle} muted compact={compact} title="The assistant can't run in this browser" text={ai.webGPUInfo?.message}>
+                <div className="ai-empty-actions">
+                    <Link ref={actionRef} to={SETTINGS_PATH} className="btn btn-secondary btn-sm" onClick={onClose}>See requirements</Link>
                 </div>
-                {!isUser && (
-                    <button
-                        onClick={() => setPipelineData(msg.content)}
-                        style={{
-                            marginTop: 4,
-                            fontSize: '0.7rem',
-                            color: 'var(--text-dim)',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '2px 4px',
-                        }}
-                    >
-                        <Upload size={10} /> Send to Pipeline
+            </EmptyMessage>
+        )
+    }
+
+    if (ai.aiStatus === 'loading') {
+        const loading = ai.getModel(ai.loadingModel)
+        return (
+            <EmptyMessage icon={Sparkles} compact={compact} title={`Loading ${loading?.name ?? name}`}>
+                <LoadProgress
+                    className="ai-progress-block"
+                    text={ai.loadText}
+                    percent={ai.loadProgress}
+                    phase={ai.loadPhase}
+                    label={`Loading ${loading?.name ?? name}`}
+                />
+                <div className="ai-empty-actions">
+                    <button ref={actionRef} type="button" className="btn btn-secondary btn-sm" onClick={ai.cancelLoad}>
+                        {ai.loadFromCache === false ? 'Cancel download' : 'Cancel'}
+                    </button>
+                </div>
+            </EmptyMessage>
+        )
+    }
+
+    if (ai.aiStatus === 'error') {
+        return (
+            <EmptyMessage icon={AlertTriangle} muted compact={compact} title={`${name} didn't load`} text={ai.loadError}>
+                <div className="ai-empty-actions">
+                    <button ref={actionRef} type="button" className="btn btn-primary btn-sm" onClick={() => ai.loadModel(undefined, { background: true })}>
+                        Retry
+                    </button>
+                    <Link to={SETTINGS_PATH} className="btn btn-ghost btn-sm" onClick={onClose}>Settings</Link>
+                </div>
+            </EmptyMessage>
+        )
+    }
+
+    // idle: the selected model isn't in memory (another one may be)
+    const other = ai.loadedModel && ai.loadedModel !== ai.selectedModel ? ai.getModel(ai.loadedModel) : null
+    return (
+        <EmptyMessage
+            icon={Sparkles}
+            compact={compact}
+            title={`Load ${name} to chat`}
+            text={other
+                ? `${other.name} is loaded, but ${name} is selected.`
+                : `The assistant runs privately on your GPU. The first load downloads ${model?.size ?? 'about 1 GB'} from huggingface.co; after that it loads from this device.`}
+        >
+            <div className="ai-empty-actions">
+                <button ref={actionRef} type="button" className="btn btn-primary btn-sm" onClick={() => ai.loadModel(undefined, { background: true })}>
+                    <Download size={14} aria-hidden="true" /> Load {name}
+                </button>
+                {other ? (
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => ai.changeModel(other.id)}>
+                        Use {other.name}
+                    </button>
+                ) : (
+                    <Link to={SETTINGS_PATH} className="btn btn-ghost btn-sm" onClick={onClose}>Choose model</Link>
+                )}
+            </div>
+        </EmptyMessage>
+    )
+}
+
+function Composer({ inputRef, draft, setDraft, tool, streaming, busyElsewhere, error, onDismissError, onSend, onStop }) {
+    const id = useId()
+    const hintId = `${id}-hint`
+    const canSend = Boolean(draft.trim()) && !streaming && !busyElsewhere
+
+    // Grow with the text, up to the CSS max-height
+    useLayoutEffect(() => {
+        const el = inputRef.current
+        if (!el) return
+        el.style.height = 'auto'
+        el.style.height = `${Math.min(el.scrollHeight + 2, 160)}px`
+    }, [draft, inputRef])
+
+    return (
+        <form
+            className="ai-composer"
+            onSubmit={(event) => {
+                event.preventDefault()
+                if (canSend) onSend(draft)
+            }}
+        >
+            {error && (
+                <StatusBanner
+                    tone="danger"
+                    title="No answer"
+                    action={(
+                        <button type="button" className="icon-btn icon-btn-sm" onClick={onDismissError} aria-label="Dismiss error">
+                            <X size={14} aria-hidden="true" />
+                        </button>
+                    )}
+                >
+                    {error} Your question is back in the box below.
+                </StatusBanner>
+            )}
+            {busyElsewhere && (
+                <div className="field-hint" role="status" style={{ marginTop: 0 }}>The AI is finishing a task from a tool. You can send when it's done.</div>
+            )}
+            <div className="ai-composer-row">
+                <label htmlFor={id} className="sr-only">Message the AI assistant</label>
+                <textarea
+                    id={id}
+                    ref={inputRef}
+                    rows={1}
+                    value={draft}
+                    placeholder={tool ? 'Ask about this data…' : 'Ask a developer question…'}
+                    aria-describedby={hintId}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                            event.preventDefault()
+                            if (canSend) onSend(draft)
+                        }
+                    }}
+                />
+                {streaming ? (
+                    <button type="button" className="btn btn-danger ai-send" onClick={onStop} aria-label="Stop the answer" title="Stop">
+                        <Square size={16} aria-hidden="true" />
+                    </button>
+                ) : (
+                    <button type="submit" className="btn btn-primary ai-send" disabled={!canSend} aria-label="Send message" title="Send (Enter)">
+                        <Send size={16} aria-hidden="true" />
                     </button>
                 )}
             </div>
-        </div>
+            <div id={hintId} className="ai-composer-hint">Enter to send · Shift+Enter for a new line · Runs on this device</div>
+        </form>
     )
 }

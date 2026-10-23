@@ -1,798 +1,701 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Upload, Download, Image as ImageIcon, X, Archive, RefreshCw, FileText, Crop as CropIcon, Check, ZoomIn, RotateCw, FlipHorizontal, FlipVertical, Sliders, Type, ImagePlus } from 'lucide-react'
-import JSZip from 'jszip'
-import heic2any from 'heic2any'
-import { jsPDF } from 'jspdf'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
+import { Archive, Check, Crop as CropIcon, Download, FileText, FlipHorizontal, FlipVertical, ImagePlus, Images, Loader2, RefreshCw, RotateCw, Trash2, Undo2, X } from 'lucide-react'
+import ToolHeader from '../components/ui/ToolHeader'
+import FileDropZone from '../components/ui/FileDropZone'
+import Field from '../components/ui/Field'
+import SliderField from '../components/ui/SliderField'
+import ColorField from '../components/ui/ColorField'
+import SegmentedControl from '../components/ui/SegmentedControl'
+import StatusBanner from '../components/ui/StatusBanner'
+import Modal from '../components/ui/Modal'
+import EmptyState from '../components/ui/EmptyState'
+import { useToast } from '../components/ToastProvider'
+import { useObjectURL } from '../hooks/useObjectURL'
+import { useLeaveGuard } from '../hooks/useLeaveGuard'
+import { usePane } from '../contexts/pane'
+import { downloadBlob, formatBytes, splitFilename } from '../utils/download'
+import {
+    FORMATS, MAX_CANVAS_SIDE, buildPdf, canvasAsImage, canvasToPdfPage, createIco, encodeCanvas,
+    extensionForType, fitSize, getEncoderSupport, isHeicFile, loadImage, releaseCanvas, renderImage,
+} from '../utils/image'
 
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { useEscape } from '../hooks/useEscape'
+const ACCEPT = 'image/*,.heic,.heif,.avif,.ico,.svg,.tif,.tiff,.jxl'
 
-export default function ImageConverter() {
-    useDocumentTitle('Image Converter')
-    const [images, setImages] = useState([])
-    const [format, setFormat] = useState('image/png')
-    const [quality, setQuality] = useState(0.9)
-    const [isConverting, setIsConverting] = useState(false)
-    const [targetWidth, setTargetWidth] = useState('')
-    const [targetHeight, setTargetHeight] = useState('')
-    const [maintainAspect, setMaintainAspect] = useState(true)
-    const fileInputRef = useRef(null)
-    const watermarkInputRef = useRef(null)
+const FORMAT_OPTIONS = [
+    { value: 'image/png', label: 'PNG', hint: 'Lossless and keeps transparency.' },
+    { value: 'image/jpeg', label: 'JPEG', hint: 'Smallest for photos. Transparent areas are filled with the background colour.' },
+    { value: 'image/webp', label: 'WebP', hint: 'Smaller than JPEG and PNG, and keeps transparency.' },
+    { value: 'image/avif', label: 'AVIF', hint: 'Very small files, but slow to encode.' },
+    { value: 'image/bmp', label: 'BMP', hint: 'Uncompressed 24-bit bitmap. Transparent areas are filled.' },
+    { value: 'image/x-icon', label: 'ICO (icon)', hint: 'Several icon sizes in one .ico file. Non-square images are padded.' },
+    { value: 'application/pdf', label: 'PDF', hint: 'Each image becomes a page the size of the image.' },
+]
 
-    // Phase 2 Filters & Features
-    const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturation: 100, sepia: 0 })
-    const [watermarkText, setWatermarkText] = useState('')
-    const [watermarkImage, setWatermarkImage] = useState(null)
-    const [stripExif, setStripExif] = useState(true) // Default true, as canvas strips it automatically, but we surface it
+const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
 
+const CROP_ASPECTS = [
+    { value: 'free', label: 'Free' },
+    { value: '1', label: '1:1' },
+    { value: '1.3333', label: '4:3' },
+    { value: '1.5', label: '3:2' },
+    { value: '1.7778', label: '16:9' },
+]
 
-    // Crop State
-    const [cropImage, setCropImage] = useState(null)
-    const [crop, setCrop] = useState()
-    const [completedCrop, setCompletedCrop] = useState(null)
-    const [isCropping, setIsCropping] = useState(false)
-    const imgRef = useRef(null)
+let idCounter = 0
+const newId = () => `img-${++idCounter}`
 
-    useEscape(() => {
-        if (isCropping) closeCrop()
+function validateDimension(value) {
+    if (value === '') return null
+    const n = Number(value)
+    if (!Number.isInteger(n) || n < 1) return 'Whole pixels, at least 1'
+    if (n > MAX_CANVAS_SIDE) return `At most ${MAX_CANVAS_SIDE}`
+    return null
+}
+
+function outputName(name, type) {
+    const base = splitFilename(name || 'image').base || 'image'
+    return `${base}.${extensionForType(type)}`
+}
+
+function uniqueNames(names) {
+    const used = new Set()
+    return names.map((name) => {
+        const { base, ext } = splitFilename(name)
+        let candidate = name
+        for (let i = 2; used.has(candidate.toLowerCase()); i++) candidate = `${base} (${i})${ext ? `.${ext}` : ''}`
+        used.add(candidate.toLowerCase())
+        return candidate
     })
+}
 
-    const handleFiles = async (files) => {
-        const fileList = Array.from(files)
-        const processedImages = []
+function isFresh(img, key) {
+    return !!img.result && img.result.key === key && img.result.rev === img.rev
+}
 
-        for (const file of fileList) {
-            let processedFile = file
-            let preview = ''
-
-            try {
-                // Special handling for HEIC
-                if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
-                    const blob = await heic2any({
-                        blob: file,
-                        toType: 'image/jpeg',
-                        quality: 0.5 // Preview quality
-                    })
-                    const actualBlob = Array.isArray(blob) ? blob[0] : blob
-                    preview = URL.createObjectURL(actualBlob)
-                }
-                // SVG, GIF, BMP, WEBP, AVIF, PNG, JPG supported by browser
-                else if (file.type.startsWith('image/')) {
-                    preview = URL.createObjectURL(file)
-                } else {
-                    continue
-                }
-
-                processedImages.push({
-                    id: Math.random().toString(36).substr(2, 9),
-                    file, // Keep original file ref
-                    preview, // Use browser-compatible blob url for preview
-                    originalPreview: preview, // Keep original for revert/re-crop
-                    convertedUrl: null,
-                    status: 'pending',
-                    rotation: 0,
-                    flipH: false,
-                    flipV: false
-                })
-            } catch (e) {
-                console.error('File processing failed', e)
-                continue
+async function convertImage(img, settings) {
+    const loaded = await loadImage(img.source.blob, { name: img.name })
+    let canvas = null
+    try {
+        const transform = { rotation: img.rotation, flipH: img.flipH, flipV: img.flipV }
+        if (settings.format === 'image/x-icon') {
+            canvas = renderImage(loaded, transform)
+            const longest = Math.max(canvas.width, canvas.height)
+            let sizes = settings.icoSizes.filter(s => s <= Math.max(16, longest))
+            if (!sizes.length) sizes = [Math.min(...settings.icoSizes)]
+            const skipped = settings.icoSizes.filter(s => !sizes.includes(s))
+            const blob = await createIco(canvasAsImage(canvas), sizes, { fit: 'contain' })
+            const largest = Math.max(...sizes)
+            return {
+                blob, type: 'image/x-icon', width: largest, height: largest,
+                note: `Sizes ${sizes.join(', ')}${skipped.length ? ` (${skipped.join(', ')} skipped: larger than the image)` : ''}`,
             }
         }
-
-        setImages(prev => [...prev, ...processedImages])
-    }
-
-    const onDrop = (e) => {
-        e.preventDefault()
-        handleFiles(e.dataTransfer.files)
-    }
-
-    // Cleanup object URLs
-    useEffect(() => {
-        return () => {
-            images.forEach(img => {
-                URL.revokeObjectURL(img.preview)
-                if (img.convertedUrl) URL.revokeObjectURL(img.convertedUrl)
-            })
+        const turned = img.rotation === 90 || img.rotation === 270
+        const baseW = turned ? loaded.height : loaded.width
+        const baseH = turned ? loaded.width : loaded.height
+        const { width, height } = fitSize(baseW, baseH, { width: settings.width, height: settings.height, keepAspect: settings.keepAspect })
+        canvas = renderImage(loaded, { ...transform, width, height })
+        if (settings.format === 'application/pdf') {
+            const page = await canvasToPdfPage(canvas, { quality: settings.quality / 100, background: settings.background })
+            const blob = await buildPdf([page])
+            return { blob, type: 'application/pdf', width, height, page }
         }
-    }, [images])
-
-    const calculateDimensions = (originalWidth, originalHeight) => {
-        let w = originalWidth
-        let h = originalHeight
-
-        if (targetWidth && targetHeight) {
-            w = parseInt(targetWidth)
-            h = parseInt(targetHeight)
-        } else if (targetWidth) {
-            w = parseInt(targetWidth)
-            if (maintainAspect) h = Math.round(originalHeight * (w / originalWidth))
-        } else if (targetHeight) {
-            h = parseInt(targetHeight)
-            if (maintainAspect) w = Math.round(originalWidth * (h / originalHeight))
-        }
-
-        return { w, h }
+        const blob = await encodeCanvas(canvas, { type: settings.format, quality: (settings.quality ?? 92) / 100, background: settings.background ?? '#ffffff' })
+        return { blob, type: blob.type, width, height }
+    } finally {
+        loaded.close()
+        releaseCanvas(canvas)
     }
+}
 
-    const generateIco = async (canvas) => {
-        // Basic 256x256 PNG-encoded ICO
-        return new Promise((resolve) => {
-            const iconCanvas = document.createElement('canvas')
-            iconCanvas.width = 256
-            iconCanvas.height = 256
-            const ctx = iconCanvas.getContext('2d')
-
-            // Draw centered
-            const scale = Math.min(256 / canvas.width, 256 / canvas.height)
-            const w = canvas.width * scale
-            const h = canvas.height * scale
-            const x = (256 - w) / 2
-            const y = (256 - h) / 2
-            ctx.drawImage(canvas, x, y, w, h)
-
-            iconCanvas.toBlob(async (pngBlob) => {
-                const pngBuffer = await pngBlob.arrayBuffer()
-                const size = pngBuffer.byteLength
-                const offset = 22
-
-                const buffer = new ArrayBuffer(offset + size)
-                const view = new DataView(buffer)
-
-                // Header
-                view.setUint16(0, 0, true) // Reserved
-                view.setUint16(2, 1, true) // Type 1 (.ico)
-                view.setUint16(4, 1, true) // Count 1
-
-                // Directory Entry
-                view.setUint8(6, 0) // Width (0 = 256)
-                view.setUint8(7, 0) // Height (0 = 256)
-                view.setUint8(8, 0) // Colors
-                view.setUint8(9, 0) // Reserved
-                view.setUint16(10, 1, true) // Planes
-                view.setUint16(12, 32, true) // BPP
-                view.setUint32(14, size, true) // Size
-                view.setUint32(18, offset, true) // Offset
-
-                // Copy PNG data
-                const bytes = new Uint8Array(buffer)
-                bytes.set(new Uint8Array(pngBuffer), offset)
-
-                resolve(new Blob([buffer], { type: 'image/x-icon' }))
-            }, 'image/png')
-        })
+function StatusBadge({ img, fresh }) {
+    if (img.status === 'loading') {
+        return <span className="badge"><Loader2 size={12} className="spin" aria-hidden="true" /> {img.heic ? 'Decoding HEIC…' : 'Loading…'}</span>
     }
+    if (img.status === 'error') return <span className="badge badge-danger">Can’t open</span>
+    if (img.converting) return <span className="badge badge-primary"><Loader2 size={12} className="spin" aria-hidden="true" /> Converting…</span>
+    if (img.convertError) return <span className="badge badge-danger">Failed</span>
+    if (fresh) return <span className="badge badge-success"><Check size={12} aria-hidden="true" /> Done</span>
+    if (img.result) return <span className="badge badge-warning" title="Settings changed since this was converted">Out of date</span>
+    return <span className="badge">Ready</span>
+}
 
-    const generatePdf = async (canvas) => {
-        const doc = new jsPDF({
-            orientation: canvas.width > canvas.height ? 'l' : 'p',
-            unit: 'px',
-            format: [canvas.width, canvas.height]
-        })
-
-        const imgData = canvas.toDataURL('image/jpeg', quality)
-        doc.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height)
-        return doc.output('blob')
-    }
-
-    const convertImage = async (img) => {
-        return new Promise(async (resolve) => {
-            const canvas = document.createElement('canvas')
-            const ctx = canvas.getContext('2d')
-            const image = new Image()
-            image.src = img.preview
-
-            image.onload = async () => {
-                const isRotated = img.rotation === 90 || img.rotation === 270;
-                const baseW = isRotated ? image.height : image.width;
-                const baseH = isRotated ? image.width : image.height;
-
-                const { w, h } = calculateDimensions(baseW, baseH)
-                canvas.width = w
-                canvas.height = h
-
-                ctx.imageSmoothingEnabled = true
-                ctx.imageSmoothingQuality = 'high'
-
-                // Apply CSS-like Filters to Canvas
-                ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) sepia(${filters.sepia}%)`
-
-                ctx.save()
-                ctx.translate(w / 2, h / 2)
-                ctx.rotate(img.rotation * Math.PI / 180)
-                ctx.scale(img.flipH ? -1 : 1, img.flipV ? -1 : 1)
-
-                const drawW = isRotated ? h : w;
-                const drawH = isRotated ? w : h;
-                ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH)
-                ctx.restore()
-
-                ctx.filter = 'none' // reset filter for watermark
-
-                // Apply Watermark Image
-                if (watermarkImage) {
-                    const padding = 20
-                    // Default to bottom right
-                    const wmWidth = Math.min(w * 0.25, 300) // max 25% of image width
-                    const wmHeight = wmWidth * (watermarkImage.naturalHeight / watermarkImage.naturalWidth)
-                    ctx.drawImage(watermarkImage, w - wmWidth - padding, h - wmHeight - padding, wmWidth, wmHeight)
-                }
-
-                // Apply Watermark Text
-                if (watermarkText) {
-                    const fontSize = Math.max(16, Math.floor(h * 0.05)) // 5% of height
-                    ctx.font = `bold ${fontSize}px sans-serif`
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)'
-                    ctx.lineWidth = Math.max(2, fontSize * 0.1)
-                    ctx.textAlign = 'right'
-                    ctx.textBaseline = 'bottom'
-
-                    const padding = 20
-                    const textY = watermarkImage ? h - (w * 0.25 * (watermarkImage.naturalHeight / watermarkImage.naturalWidth)) - padding * 2 : h - padding
-
-                    ctx.strokeText(watermarkText, w - padding, textY)
-                    ctx.fillText(watermarkText, w - padding, textY)
-                }
-
-                let resultBlob = null
-
-                try {
-                    if (format === 'application/pdf') {
-                        resultBlob = await generatePdf(canvas)
-                    } else if (format === 'image/x-icon') {
-                        resultBlob = await generateIco(canvas)
-                    } else {
-                        // Standard image formats
-                        resultBlob = await new Promise(r => canvas.toBlob(r, format, quality))
-                    }
-
-                    if (!resultBlob) throw new Error('Blob creation failed')
-
-                    const url = URL.createObjectURL(resultBlob)
-                    resolve({
-                        ...img,
-                        convertedUrl: url,
-                        convertedBlob: resultBlob,
-                        status: 'done',
-                        finalSize: resultBlob.size
-                    })
-                } catch (e) {
-                    console.error('Conversion error', e)
-                    resolve({ ...img, status: 'error' })
-                }
-            }
-            image.onerror = () => resolve({ ...img, status: 'error' })
-        })
-    }
-
-    const handleConvertAll = async () => {
-        setIsConverting(true)
-        const results = [...images]
-        for (let i = 0; i < results.length; i++) {
-            if (results[i].status !== 'done') {
-                results[i] = await convertImage(results[i])
-                setImages([...results])
-            }
-        }
-        setImages(results)
-        setIsConverting(false)
-    }
-
-    const downloadZip = async () => {
-        const zip = new JSZip()
-
-        let ext = 'png'
-        if (format === 'image/jpeg') ext = 'jpeg'
-        if (format === 'image/webp') ext = 'webp'
-        if (format === 'image/avif') ext = 'avif'
-        if (format === 'image/bmp') ext = 'bmp'
-        if (format === 'image/x-icon') ext = 'ico'
-        if (format === 'application/pdf') ext = 'pdf'
-
-        images.forEach(img => {
-            if (img.convertedBlob) {
-                const nameBlob = img.file.name
-                const name = nameBlob.substring(0, nameBlob.lastIndexOf('.')) || nameBlob
-                zip.file(`${name}_converted.${ext}`, img.convertedBlob)
-            }
-        })
-
-        const content = await zip.generateAsync({ type: 'blob' })
-        const url = URL.createObjectURL(content)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `converted_images.zip`
-        a.click()
-        URL.revokeObjectURL(url)
-    }
-
-
-    const handleWatermarkUpload = (e) => {
-        const file = e.target.files[0]
-        if (file && file.type.startsWith('image/')) {
-            const img = new Image()
-            img.onload = () => setWatermarkImage(img)
-            img.src = URL.createObjectURL(file)
-        }
-    }
-
-
-    // Crop Logic
-    function onImageLoad(e) {
-        const { width, height } = e.currentTarget
-        // Default center crop
-        const aspect = 16 / 9
-        const crop = centerCrop(
-            makeAspectCrop(
-                {
-                    unit: '%',
-                    width: 90,
-                },
-                aspect,
-                width,
-                height
-            ),
-            width,
-            height
-        )
-        setCrop(crop)
-    }
-
-
-    const openCrop = (img) => {
-        setCropImage(img)
-        setCompletedCrop(null)
-        setCrop(undefined) // Reset to let auto-center logic work or start empty
-        setIsCropping(true)
-    }
-
-    const closeCrop = () => {
-        setIsCropping(false)
-        setCropImage(null)
-    }
-
-
-    const getCroppedImg = async (image, crop) => {
-        const canvas = document.createElement('canvas')
-        const scaleX = image.naturalWidth / image.width
-        const scaleY = image.naturalHeight / image.height
-        canvas.width = crop.width
-        canvas.height = crop.height
-        const ctx = canvas.getContext('2d')
-
-        const pixelRatio = window.devicePixelRatio
-        canvas.width = crop.width * pixelRatio
-        canvas.height = crop.height * pixelRatio
-        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
-        ctx.imageSmoothingQuality = 'high'
-
-        ctx.drawImage(
-            image,
-            crop.x * scaleX,
-            crop.y * scaleY,
-            crop.width * scaleX,
-            crop.height * scaleY,
-            0,
-            0,
-            crop.width,
-            crop.height,
-        )
-
-        // As Base64 string
-        return new Promise((resolve) => {
-            canvas.toBlob((file) => {
-                resolve({
-                    blob: file,
-                    url: URL.createObjectURL(file)
-                })
-            }, 'image/png')
-        })
-    }
-
-    const saveCrop = async () => {
-        if (!completedCrop || !imgRef.current) return
-
-        try {
-            const { blob, url } = await getCroppedImg(
-                imgRef.current,
-                completedCrop
-            )
-
-            setImages(prev => prev.map(img => {
-                if (img.id === cropImage.id) {
-                    return {
-                        ...img,
-                        preview: url, // Update preview to cropped version
-                        status: 'pending', // Reset status if it was done
-                        convertedUrl: null, // Reset converted output
-                        file: new File([blob], img.file.name, { type: 'image/png' }) // Replace file with cropped blob
-                    }
-                }
-                return img
-            }))
-            closeCrop()
-        } catch (e) {
-            console.error(e)
-        }
-    }
-
-    const formatSize = (bytes) => {
-        if (bytes === 0) return '0 B'
-        const k = 1024
-        const sizes = ['B', 'KB', 'MB']
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-    }
+function ImageCard({ img, fresh, busy, compact, onRotate, onFlip, onCrop, onRevert, onRemove, onDownload }) {
+    const sourceUrl = useObjectURL(img.source?.blob ?? null)
+    const showResult = fresh && img.result.type.startsWith('image/')
+    const resultUrl = useObjectURL(showResult ? img.result.blob : null)
+    const src = showResult ? resultUrl : sourceUrl
+    // Square previews on wide panes, shorter ones on phones. A quarter-turned
+    // preview is shrunk so it still fits a non-square box.
+    const boxRatio = compact ? 3 / 2 : 1
+    const turned = img.rotation === 90 || img.rotation === 270
+    const k = turned ? Math.min(boxRatio, 1 / boxRatio) : 1
+    const transform = showResult ? 'none' : `rotate(${img.rotation}deg) scale(${(img.flipH ? -1 : 1) * k}, ${(img.flipV ? -1 : 1) * k})`
+    const edited = img.rotation !== 0 || img.flipH || img.flipV || img.cropped
+    const canEdit = img.status === 'ready' && !img.converting && !busy
+    const result = img.result
+    const change = result ? Math.round((result.blob.size / img.size - 1) * 100) : 0
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
-                <h2 className="text-gradient">Image Converter</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Bulk convert, resize, and crop images.</p>
-            </div>
-
-            {/* Config & Controls */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-lg)', alignItems: 'center' }}>
-
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{ display: 'block', marginBottom: 'var(--space-xs)', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Output Format</label>
-                    <select
-                        value={format}
-                        onChange={e => setFormat(e.target.value)}
-                        style={{ width: '100%', padding: '10px' }}
-                    >
-                        <option value="image/png">PNG (Lossless)</option>
-                        <option value="image/jpeg">JPEG (Lossy)</option>
-                        <option value="image/webp">WEBP (Modern)</option>
-                        <option value="image/avif">AVIF (Next Gen)</option>
-                        <option value="image/bmp">BMP (Bitmap)</option>
-                        <option value="image/x-icon">ICO (Favicon)</option>
-                        <option value="application/pdf">PDF (Document)</option>
-                    </select>
-                </div>
-
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{ display: 'block', marginBottom: 'var(--space-xs)', fontSize: '0.9rem', color: 'var(--text-dim)' }}>
-                        Quality ({Math.round(quality * 100)}%)
-                    </label>
-                    <input
-                        type="range"
-                        min="0.1"
-                        max="1"
-                        step="0.05"
-                        value={quality}
-                        onChange={e => setQuality(Number(e.target.value))}
-                        disabled={['image/png', 'image/x-icon', 'image/bmp'].includes(format)}
-                        style={{ width: '100%' }}
+        <article className="card card-compact" aria-label={img.name} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', padding: 'var(--space-sm)' }}>
+            <div className="checkerboard" style={{ position: 'relative', aspectRatio: String(boxRatio), borderRadius: 'var(--radius-md)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {src ? (
+                    <img
+                        src={src}
+                        alt={showResult ? `Converted ${img.name}` : `Preview of ${img.name}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', transform, transition: 'transform 0.2s ease' }}
                     />
-                    {['image/png', 'image/x-icon', 'image/bmp'].includes(format) && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Quality ignored for {format.split('/')[1]}</div>}
+                ) : img.status === 'error' ? (
+                    <X size={32} aria-hidden="true" style={{ color: 'var(--danger)' }} />
+                ) : (
+                    <Loader2 size={24} className="spin" aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
+                )}
+                <div style={{ position: 'absolute', top: 8, left: 8 }}>
+                    <StatusBadge img={img} fresh={fresh} />
                 </div>
+            </div>
 
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{ display: 'block', marginBottom: 'var(--space-xs)', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Resize (px)</label>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input
-                            type="number"
-                            placeholder="W"
-                            value={targetWidth}
-                            onChange={e => setTargetWidth(e.target.value)}
-                            style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
-                        />
-                        <span style={{ color: 'var(--text-muted)' }}>x</span>
-                        <input
-                            type="number"
-                            placeholder="H"
-                            value={targetHeight}
-                            onChange={e => setTargetHeight(e.target.value)}
-                            style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-app)', color: 'var(--text-main)' }}
-                        />
-                    </div>
-                    <div style={{ marginTop: 4 }}>
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={maintainAspect}
-                                onChange={e => setMaintainAspect(e.target.checked)}
-                            /> Maintain Aspect Ratio
-                        </label>
-                    </div>
+            <div style={{ minWidth: 0 }}>
+                <div title={img.name} style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.name}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {formatBytes(img.size)}
+                    {img.source && ` · ${img.source.width}×${img.source.height}`}
+                    {img.cropped && ' · cropped'}
                 </div>
+                {result && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        → {FORMATS[result.type]?.label ?? result.type} · {formatBytes(result.blob.size)} · {result.width}×{result.height}{' '}
+                        <span style={{ color: change < 0 ? 'var(--success)' : 'var(--text-muted)', fontWeight: 600 }}>
+                            ({change > 0 ? '+' : ''}{change}%)
+                        </span>
+                    </div>
+                )}
+                {fresh && result.note && <div className="field-hint" style={{ marginTop: 2 }}>{result.note}</div>}
+                {img.status === 'error' && <div className="field-error" role="alert">{img.error}</div>}
+                {img.convertError && <div className="field-error" role="alert">{img.convertError}</div>}
+            </div>
 
-                <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'flex-end' }}>
-                    <button
-                        onClick={handleConvertAll}
-                        disabled={images.length === 0 || isConverting}
-                        style={{
-                            padding: '12px 24px',
-                            background: 'var(--primary)',
-                            color: '#fff',
-                            borderRadius: 'var(--radius-md)',
-                            fontWeight: 600,
-                            border: 'none',
-                            opacity: images.length === 0 || isConverting ? 0.5 : 1,
-                            cursor: images.length === 0 ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                        }}
-                    >
-                        {isConverting ? <RefreshCw className="spin" size={18} /> : <RefreshCw size={18} />}
-                        {isConverting ? 'Processing...' : 'Convert All'}
+            <div role="toolbar" aria-label={`Edit ${img.name}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, marginTop: 'auto' }}>
+                <button type="button" className="icon-btn" onClick={onRotate} disabled={!canEdit} aria-label="Rotate 90° clockwise" title="Rotate 90°"><RotateCw size={16} aria-hidden="true" /></button>
+                <button type="button" className="icon-btn" onClick={() => onFlip('h')} disabled={!canEdit} aria-label="Flip horizontally" aria-pressed={img.flipH} title="Flip horizontally"><FlipHorizontal size={16} aria-hidden="true" /></button>
+                <button type="button" className="icon-btn" onClick={() => onFlip('v')} disabled={!canEdit} aria-label="Flip vertically" aria-pressed={img.flipV} title="Flip vertically"><FlipVertical size={16} aria-hidden="true" /></button>
+                <button type="button" className="icon-btn" onClick={onCrop} disabled={!canEdit} aria-label="Crop" title="Crop"><CropIcon size={16} aria-hidden="true" /></button>
+                {edited && (
+                    <button type="button" className="icon-btn" onClick={onRevert} disabled={!canEdit} aria-label="Undo all edits" title="Undo all edits"><Undo2 size={16} aria-hidden="true" /></button>
+                )}
+                <button type="button" className="icon-btn" onClick={onRemove} disabled={img.converting} aria-label={`Remove ${img.name}`} title="Remove"><Trash2 size={16} aria-hidden="true" /></button>
+                {result && (
+                    <button type="button" className={`btn btn-sm ${fresh ? 'btn-secondary' : 'btn-ghost'}`} onClick={onDownload} style={{ marginLeft: 'auto' }} title={fresh ? undefined : 'Converted with earlier settings'}>
+                        <Download size={14} aria-hidden="true" /> {extensionForType(result.type).toUpperCase()}
                     </button>
+                )}
+            </div>
+        </article>
+    )
+}
 
-                    {images.some(i => i.status === 'done') && (
-                        <button
-                            onClick={downloadZip}
-                            style={{
-                                padding: '12px 24px',
-                                background: 'var(--bg-secondary)',
-                                color: 'var(--text-main)',
-                                borderRadius: 'var(--radius-md)',
-                                fontWeight: 600,
-                                border: '1px solid var(--border)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8
-                            }}
-                        >
-                            <Archive size={18} /> ZIP
-                        </button>
-                    )}
+function CropDialog({ target, onClose, onApply, applying }) {
+    const url = useObjectURL(target.blob ?? null)
+    const [aspect, setAspect] = useState('free')
+    const [crop, setCrop] = useState()
+    const imgRef = useRef(null)
+    const aspectValue = aspect === 'free' ? undefined : Number(aspect)
+
+    const initialCrop = (ratio) => {
+        const el = imgRef.current
+        if (!el) return undefined
+        const { width, height } = el
+        if (!ratio) return { unit: '%', x: 5, y: 5, width: 90, height: 90 }
+        return centerCrop(makeAspectCrop({ unit: '%', width: 90 }, ratio, width, height), width, height)
+    }
+
+    const px = crop && target.width ? {
+        w: Math.max(1, Math.round((crop.width / 100) * target.width)),
+        h: Math.max(1, Math.round((crop.height / 100) * target.height)),
+    } : null
+
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            title="Crop image"
+            size="xl"
+            footer={(
+                <>
+                    <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                    <button type="button" className="btn btn-primary" onClick={() => onApply(crop)} disabled={!crop || !crop.width || !crop.height || applying || !url}>
+                        {applying ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />} Apply crop
+                    </button>
+                </>
+            )}
+        >
+            {target.loading && (
+                <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)' }}>
+                    <Loader2 size={16} className="spin" aria-hidden="true" /> Preparing the full-resolution image…
                 </div>
-            </div>
-
-            {/* Drop Zone */}
-            <div
-                onDrop={onDrop}
-                onDragOver={e => e.preventDefault()}
-                onClick={() => fileInputRef.current.click()}
-                style={{
-                    border: '2px dashed var(--border)',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: 'var(--space-xl)',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: 'rgba(255,255,255,0.02)',
-                    marginBottom: 'var(--space-lg)',
-                    transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'rgba(var(--primary-rgb), 0.05)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
-            >
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    multiple
-                    accept="image/*,.heic,.ico"
-                    onChange={e => handleFiles(e.target.files)}
-                    style={{ display: 'none' }}
-                />
-                <Upload size={48} style={{ color: 'var(--text-dim)', marginBottom: 'var(--space-md)' }} />
-                <h3 style={{ marginBottom: 'var(--space-sm)' }}>Click or Drag Images Here</h3>
-                <p style={{ color: 'var(--text-muted)' }}>PNG, JPG, SVG, GIF, WEBP, AVIF, HEIC, BMP...</p>
-            </div>
-
-            {/* Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 'var(--space-md)' }}>
-                {images.map(img => (
-                    <div key={img.id} className="glass-panel" style={{ padding: 'var(--space-md)', position: 'relative' }}>
-                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', flexWrap: 'wrap', width: '60px', justifyContent: 'flex-end', gap: 4 }}>
-                            <button
-                                onClick={() => setImages(prev => prev.map(i => i.id === img.id ? { ...i, rotation: (i.rotation + 90) % 360, status: 'pending', convertedUrl: null } : i))}
-                                title="Rotate"
-                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
-                            >
-                                <RotateCw size={14} />
-                            </button>
-                            <button
-                                onClick={() => setImages(prev => prev.map(i => i.id === img.id ? { ...i, flipH: !i.flipH, status: 'pending', convertedUrl: null } : i))}
-                                title="Flip Horizontal"
-                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
-                            >
-                                <FlipHorizontal size={14} />
-                            </button>
-                            <button
-                                onClick={() => setImages(prev => prev.map(i => i.id === img.id ? { ...i, flipV: !i.flipV, status: 'pending', convertedUrl: null } : i))}
-                                title="Flip Vertical"
-                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
-                            >
-                                <FlipVertical size={14} />
-                            </button>
-                            <button
-                                onClick={() => openCrop(img)}
-                                title="Crop"
-                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
-                            >
-                                <CropIcon size={14} />
-                            </button>
-                            <button
-                                onClick={() => setImages(prev => prev.filter(i => i.id !== img.id))}
-                                title="Remove"
-                                style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: 6, color: '#fff', border: 'none', cursor: 'pointer' }}
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
-
-
-                        <div style={{
-                            height: '180px',
-                            background: '#000',
-                            borderRadius: 'var(--radius-sm)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginBottom: 'var(--space-sm)',
-                            overflow: 'hidden'
-                        }}>
-                            <img
-                                src={img.status === 'done' && !format.includes('pdf') ? img.convertedUrl : img.preview}
-                                alt="preview"
-                                style={{
-                                    maxHeight: '100%', maxWidth: '100%', objectFit: 'contain',
-                                    transform: img.status !== 'done' ? `rotate(${img.rotation || 0}deg) scaleX(${img.flipH ? -1 : 1}) scaleY(${img.flipV ? -1 : 1})` : 'none',
-                                    transition: 'transform 0.2s'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <div style={{
-                                fontWeight: 600,
-                                overflow: 'hidden',
-                                whiteSpace: 'nowrap',
-                                textOverflow: 'ellipsis',
-                                maxWidth: '180px',
-                                fontSize: '0.9rem'
-                            }}>
-                                {img.file.name}
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 'var(--space-md)' }}>
-                            <span>{formatSize(img.file.size)}</span>
-                            {img.status === 'done' && (
-                                <span style={{ color: '#10b981' }}>
-                                    → {formatSize(img.finalSize)}
-                                    ({Math.round((img.finalSize / img.file.size) * 100)}%)
-                                </span>
-                            )}
-                        </div>
-
-                        {img.status === 'done' ? (
-                            <a
-                                href={img.convertedUrl}
-                                download={`${img.file.name.split('.')[0]}_converted.${format === 'application/pdf' ? 'pdf' :
-                                    format === 'image/x-icon' ? 'ico' :
-                                        format.split('/')[1]
-                                    }`}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: 6,
-                                    width: '100%',
-                                    padding: '8px',
-                                    background: 'var(--bg-secondary)',
-                                    color: 'var(--text-main)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    textDecoration: 'none',
-                                    border: '1px solid var(--border)',
-                                    fontSize: '0.9rem'
-                                }}
-                            >
-                                <Download size={14} /> Download
-                            </a>
-                        ) : (
-                            <div style={{
-                                padding: '8px',
-                                textAlign: 'center',
-                                background: 'rgba(255,255,255,0.05)',
-                                borderRadius: 'var(--radius-sm)',
-                                color: 'var(--text-dim)',
-                                fontSize: '0.85rem'
-                            }}>
-                                Ready
-                            </div>
-                        )}
+            )}
+            {target.error && <StatusBanner tone="danger" title="Can’t crop this image">{target.error}</StatusBanner>}
+            {url && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <SegmentedControl
+                            ariaLabel="Aspect ratio"
+                            size="sm"
+                            options={CROP_ASPECTS}
+                            value={aspect}
+                            onChange={(next) => {
+                                setAspect(next)
+                                setCrop(initialCrop(next === 'free' ? undefined : Number(next)))
+                            }}
+                        />
+                        {px && <span className="mono" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{px.w} × {px.h} px</span>}
                     </div>
-                ))}
-            </div>
-
-            {/* Fullscreen Crop Modal */}
-            {isCropping && cropImage && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: 9999,
-                    background: '#000',
-                    display: 'flex',
-                    flexDirection: 'column'
-                }}>
-                    <div style={{
-                        padding: 'var(--space-md)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: 'rgba(0,0,0,0.8)',
-                        zIndex: 10
-                    }}>
-                        <h3 style={{ color: '#fff', margin: 0 }}>Crop Image</h3>
-                        <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
-                            <button
-                                onClick={closeCrop}
-                                style={{
-                                    background: 'transparent',
-                                    border: '1px solid #fff',
-                                    color: '#fff',
-                                    padding: '8px 16px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={saveCrop}
-                                style={{
-                                    background: 'var(--primary)',
-                                    border: 'none',
-                                    color: '#fff',
-                                    padding: '8px 16px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6
-                                }}
-                            >
-                                <Check size={16} /> Apply Crop
-                            </button>
-                        </div>
-                    </div>
-
-                    <div style={{
-                        flex: 1,
-                        background: '#111',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '20px',
-                        overflow: 'auto'
-                    }}>
-                        <ReactCrop
-                            crop={crop}
-                            onChange={(c) => setCrop(c)}
-                            onComplete={(c) => setCompletedCrop(c)}
-                        >
+                    <div className="stage" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 'var(--space-sm)' }}>
+                        <ReactCrop crop={crop} onChange={(_, percent) => setCrop(percent)} aspect={aspectValue} keepSelection ruleOfThirds minWidth={8} minHeight={8}>
                             <img
                                 ref={imgRef}
-                                src={cropImage.originalPreview || cropImage.preview}
-                                alt="Crop me"
-                                onLoad={onImageLoad}
-                                style={{ maxHeight: '80vh', maxWidth: '100%' }}
+                                src={url}
+                                alt="Image to crop"
+                                onLoad={() => setCrop(initialCrop(aspectValue))}
+                                style={{ display: 'block', maxWidth: '100%', maxHeight: '58vh' }}
                             />
                         </ReactCrop>
                     </div>
-
-                    <div style={{
-                        padding: 'var(--space-md)',
-                        background: 'rgba(0,0,0,0.9)',
-                        color: '#aaa',
-                        fontSize: '0.9rem',
-                        textAlign: 'center'
-                    }}>
-                        Drag handles to resize. Drag inside to move.
-                    </div>
+                    <p className="field-hint" style={{ marginTop: 0 }}>
+                        The crop is cut from the full-resolution image ({target.width} × {target.height} px). Drag the handles, or focus the selection and use the arrow keys.
+                    </p>
                 </div>
+            )}
+        </Modal>
+    )
+}
+
+export default function ImageConverter() {
+    const toast = useToast()
+    const { size } = usePane()
+    const icoLabelId = useId()
+    const [images, setImages] = useState([])
+    const [format, setFormat] = useState('image/png')
+    const [quality, setQuality] = useState(90)
+    const [width, setWidth] = useState('')
+    const [height, setHeight] = useState('')
+    const [keepAspect, setKeepAspect] = useState(true)
+    const [background, setBackground] = useState('#ffffff')
+    const [icoSizes, setIcoSizes] = useState([16, 32, 48, 256])
+    const [pdfMode, setPdfMode] = useState('separate')
+    const [support, setSupport] = useState(null)
+    const [progress, setProgress] = useState(null) // { done, total } while converting
+    const [cropTarget, setCropTarget] = useState(null)
+    const [applyingCrop, setApplyingCrop] = useState(false)
+    const [packing, setPacking] = useState(false)
+
+    const imagesRef = useRef(images)
+    const queueRef = useRef(Promise.resolve())
+    const cropTokenRef = useRef(0)
+    const aliveRef = useRef(true)
+
+    useEffect(() => {
+        imagesRef.current = images
+    })
+
+    useEffect(() => {
+        aliveRef.current = true
+        return () => {
+            aliveRef.current = false
+        }
+    }, [])
+
+    useEffect(() => {
+        let alive = true
+        getEncoderSupport().then((s) => {
+            if (alive) setSupport(s)
+        })
+        return () => {
+            alive = false
+        }
+    }, [])
+
+    const converting = progress !== null
+    useLeaveGuard(converting, 'Images are still being converted. Leave anyway?')
+
+    const info = FORMATS[format]
+    const isIco = format === 'image/x-icon'
+    const isPdf = format === 'application/pdf'
+    const unsupported = support ? !support[format] : false
+    const widthError = isIco ? null : validateDimension(width)
+    const heightError = isIco ? null : validateDimension(height)
+    const settingsInvalid = unsupported || !!widthError || !!heightError || (isIco && !icoSizes.length)
+
+    const settings = useMemo(() => ({
+        format,
+        quality: info.lossy ? quality : null,
+        width: isIco || width === '' ? null : Number(width),
+        height: isIco || height === '' ? null : Number(height),
+        keepAspect: isIco ? null : keepAspect,
+        background: info.alpha ? null : background,
+        icoSizes: isIco ? [...icoSizes].sort((a, b) => a - b) : null,
+    }), [format, info, quality, isIco, width, height, keepAspect, background, icoSizes])
+    const settingsKey = JSON.stringify(settings)
+
+    const updateImage = (id, change) => {
+        setImages(prev => prev.map(img => (img.id === id ? change(img) : img)))
+    }
+
+    // Rotations, flips, crops and reverts invalidate the previous result
+    const editImage = (id, change) => {
+        setImages(prev => prev.map(img => (img.id === id ? { ...img, ...change(img), rev: img.rev + 1, result: null, convertError: null } : img)))
+    }
+
+    const decodeItem = async (item) => {
+        if (!aliveRef.current || !imagesRef.current.some(i => i.id === item.id)) return
+        let loaded = null
+        try {
+            loaded = await loadImage(item.file, { name: item.name })
+            const source = { blob: loaded.source, width: loaded.width, height: loaded.height }
+            updateImage(item.id, img => ({ ...img, status: 'ready', original: source, source, file: null }))
+        } catch (err) {
+            updateImage(item.id, img => ({ ...img, status: 'error', error: err?.message || 'This file couldn’t be opened.', file: null }))
+            toast.error(`Couldn’t open ${item.name}: ${err?.message || 'unknown error'}`)
+        } finally {
+            loaded?.close()
+        }
+    }
+
+    const addFiles = (files) => {
+        const items = files.map(file => ({
+            id: newId(),
+            name: file.name || 'image.png',
+            size: file.size,
+            file,
+            heic: isHeicFile(file),
+            status: 'loading',
+            error: null,
+            original: null,
+            source: null,
+            rotation: 0,
+            flipH: false,
+            flipV: false,
+            cropped: false,
+            rev: 0,
+            converting: false,
+            convertError: null,
+            result: null,
+        }))
+        setImages(prev => [...prev, ...items])
+        imagesRef.current = [...imagesRef.current, ...items]
+        // Decode one at a time: HEIC decoding is heavy
+        for (const item of items) queueRef.current = queueRef.current.then(() => decodeItem(item))
+    }
+
+    const convertAll = async () => {
+        if (converting || settingsInvalid) return
+        const key = settingsKey
+        const snapshot = settings
+        const todo = imagesRef.current.filter(img => img.status === 'ready' && !isFresh(img, key)).map(img => img.id)
+        if (!todo.length) return
+        setProgress({ done: 0, total: todo.length })
+        let failed = 0
+        try {
+            for (let n = 0; n < todo.length; n++) {
+                if (!aliveRef.current) return
+                const img = imagesRef.current.find(i => i.id === todo[n])
+                if (img && img.status === 'ready') {
+                    updateImage(img.id, i => ({ ...i, converting: true, convertError: null }))
+                    try {
+                        const result = await convertImage(img, snapshot)
+                        // Keep the result only if the image wasn't edited meanwhile
+                        updateImage(img.id, i => (i.rev === img.rev ? { ...i, converting: false, result: { ...result, key, rev: img.rev } } : { ...i, converting: false }))
+                    } catch (err) {
+                        failed++
+                        updateImage(img.id, i => ({ ...i, converting: false, convertError: err?.message || 'Conversion failed.' }))
+                    }
+                }
+                setProgress({ done: n + 1, total: todo.length })
+            }
+        } finally {
+            if (aliveRef.current) setProgress(null)
+        }
+        if (failed) toast.error(`${failed} image${failed === 1 ? '' : 's'} couldn’t be converted. See the cards for details.`)
+    }
+
+    const freshImages = images.filter(img => isFresh(img, settingsKey))
+    const pendingCount = images.filter(img => img.status === 'ready' && !isFresh(img, settingsKey)).length
+    const staleCount = images.filter(img => img.result && !isFresh(img, settingsKey)).length
+    const loadingCount = images.filter(img => img.status === 'loading').length
+
+    const downloadZip = async () => {
+        if (!freshImages.length || packing) return
+        setPacking(true)
+        try {
+            const { default: JSZip } = await import('jszip')
+            const zip = new JSZip()
+            const names = uniqueNames(freshImages.map(img => outputName(img.name, img.result.type)))
+            freshImages.forEach((img, i) => zip.file(names[i], img.result.blob))
+            // Images are already compressed: storing them is much faster
+            const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' })
+            downloadBlob(blob, 'converted-images.zip')
+        } catch (err) {
+            toast.error(`Couldn’t create the ZIP: ${err?.message || 'unknown error'}`)
+        } finally {
+            setPacking(false)
+        }
+    }
+
+    const downloadCombinedPdf = async () => {
+        if (!freshImages.length || packing) return
+        setPacking(true)
+        try {
+            const blob = await buildPdf(freshImages.map(img => img.result.page))
+            downloadBlob(blob, 'images.pdf')
+        } catch (err) {
+            toast.error(`Couldn’t create the PDF: ${err?.message || 'unknown error'}`)
+        } finally {
+            setPacking(false)
+        }
+    }
+
+    const openCrop = async (img) => {
+        const token = ++cropTokenRef.current
+        const base = { id: img.id, rev: img.rev, name: img.name }
+        if (!img.rotation && !img.flipH && !img.flipV) {
+            setCropTarget({ ...base, blob: img.source.blob, width: img.source.width, height: img.source.height })
+            return
+        }
+        // Crop what the user sees: bake rotation and flips in first (losslessly)
+        setCropTarget({ ...base, loading: true })
+        let loaded = null
+        let canvas = null
+        try {
+            loaded = await loadImage(img.source.blob, { name: img.name })
+            canvas = renderImage(loaded, { rotation: img.rotation, flipH: img.flipH, flipV: img.flipV })
+            const blob = await encodeCanvas(canvas, { type: 'image/png' })
+            if (token === cropTokenRef.current) setCropTarget({ ...base, blob, width: canvas.width, height: canvas.height })
+        } catch (err) {
+            if (token === cropTokenRef.current) setCropTarget({ ...base, error: err?.message || 'The image couldn’t be prepared.' })
+        } finally {
+            loaded?.close()
+            releaseCanvas(canvas)
+        }
+    }
+
+    const closeCrop = () => {
+        cropTokenRef.current++
+        setCropTarget(null)
+    }
+
+    const applyCrop = async (percent) => {
+        const target = cropTarget
+        if (!target?.blob || !percent) return
+        const clampPx = (v, max) => Math.min(max, Math.max(0, v))
+        const x = clampPx(Math.round((percent.x / 100) * target.width), target.width - 1)
+        const y = clampPx(Math.round((percent.y / 100) * target.height), target.height - 1)
+        const rect = {
+            x,
+            y,
+            width: Math.max(1, Math.min(target.width - x, Math.round((percent.width / 100) * target.width))),
+            height: Math.max(1, Math.min(target.height - y, Math.round((percent.height / 100) * target.height))),
+        }
+        setApplyingCrop(true)
+        let loaded = null
+        let canvas = null
+        try {
+            loaded = await loadImage(target.blob, { name: target.name })
+            canvas = renderImage(loaded, { crop: rect })
+            const blob = await encodeCanvas(canvas, { type: 'image/png' })
+            const current = imagesRef.current.find(i => i.id === target.id)
+            if (!current || current.rev !== target.rev) {
+                toast.warning('The image changed while you were cropping, so the crop wasn’t applied.')
+            } else {
+                const source = { blob, width: canvas.width, height: canvas.height }
+                editImage(target.id, () => ({ source, rotation: 0, flipH: false, flipV: false, cropped: true }))
+            }
+            closeCrop()
+        } catch (err) {
+            toast.error(`Couldn’t crop: ${err?.message || 'unknown error'}`)
+        } finally {
+            loaded?.close()
+            releaseCanvas(canvas)
+            setApplyingCrop(false)
+        }
+    }
+
+    const toggleIcoSize = (size) => {
+        setIcoSizes(prev => (prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]))
+    }
+
+    const formatOption = FORMAT_OPTIONS.find(o => o.value === format)
+    const summary = [
+        `${images.length} image${images.length === 1 ? '' : 's'}`,
+        freshImages.length ? `${freshImages.length} converted` : null,
+        staleCount ? `${staleCount} out of date` : null,
+        loadingCount ? `${loadingCount} loading` : null,
+    ].filter(Boolean).join(' · ')
+
+    return (
+        <div className="page page-wide">
+            <ToolHeader />
+
+            <section className="card" aria-label="Output settings">
+                <fieldset disabled={converting} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+                    <legend className="sr-only">Output settings</legend>
+                    <div className="auto-grid" style={{ '--auto-grid-min': '220px', alignItems: 'start', gap: 'var(--space-lg)' }}>
+                        <Field label="Format" hint={unsupported ? undefined : formatOption?.hint} error={unsupported ? `This browser can’t encode ${info.label}. Choose another format.` : undefined}>
+                            <select value={format} onChange={(e) => setFormat(e.target.value)} style={{ padding: '0.6rem 0.75rem' }}>
+                                {FORMAT_OPTIONS.map(o => {
+                                    const off = support ? !support[o.value] : false
+                                    return <option key={o.value} value={o.value} disabled={off}>{o.label}{off ? ' (not supported by this browser)' : ''}</option>
+                                })}
+                            </select>
+                        </Field>
+
+                        {info.lossy ? (
+                            <SliderField label="Quality" value={quality} onChange={setQuality} min={10} max={100} unit="%" hint="Lower is smaller but blurrier." />
+                        ) : (
+                            <div>
+                                <span className="field-label">Quality</span>
+                                <p className="field-hint" style={{ marginTop: 0 }}>{info.label} is lossless, so there’s no quality setting.</p>
+                            </div>
+                        )}
+
+                        {isIco ? (
+                            <div role="group" aria-labelledby={icoLabelId}>
+                                <span id={icoLabelId} className="field-label">Icon sizes (px)</span>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {ICO_SIZES.map(s => (
+                                        <button key={s} type="button" className={`chip ${icoSizes.includes(s) ? 'is-active' : ''}`} aria-pressed={icoSizes.includes(s)} onClick={() => toggleIcoSize(s)}>
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                                {icoSizes.length ? (
+                                    <p className="field-hint">Sizes larger than the image are skipped. Resize doesn’t apply to icons.</p>
+                                ) : (
+                                    <p className="field-error">Choose at least one size.</p>
+                                )}
+                            </div>
+                        ) : (
+                            <div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', gap: 6, alignItems: 'start' }}>
+                                    <Field label="Width (px)" error={widthError}>
+                                        <input type="number" inputMode="numeric" min={1} max={MAX_CANVAS_SIDE} placeholder="Auto" value={width} onChange={(e) => setWidth(e.target.value)} style={{ padding: '0.6rem 0.75rem' }} />
+                                    </Field>
+                                    <span aria-hidden="true" style={{ paddingTop: '2.1rem', color: 'var(--text-dim)' }}>×</span>
+                                    <Field label="Height (px)" error={heightError}>
+                                        <input type="number" inputMode="numeric" min={1} max={MAX_CANVAS_SIDE} placeholder="Auto" value={height} onChange={(e) => setHeight(e.target.value)} style={{ padding: '0.6rem 0.75rem' }} />
+                                    </Field>
+                                </div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={keepAspect} onChange={(e) => setKeepAspect(e.target.checked)} />
+                                    Keep aspect ratio
+                                </label>
+                                <p className="field-hint">
+                                    {width && height && keepAspect ? 'Images are scaled to fit inside this box.' : 'Leave empty to keep the original size.'}
+                                </p>
+                            </div>
+                        )}
+
+                        {!info.alpha && (
+                            <ColorField label="Background" value={background} onChange={setBackground} hint={`${info.label} has no transparency, so transparent areas get this colour.`} />
+                        )}
+
+                        {isPdf && (
+                            <div>
+                                <span className="field-label">PDF files</span>
+                                <SegmentedControl
+                                    ariaLabel="PDF files"
+                                    size="sm"
+                                    value={pdfMode}
+                                    onChange={setPdfMode}
+                                    options={[{ value: 'separate', label: 'One per image' }, { value: 'combined', label: 'One combined PDF' }]}
+                                />
+                                <p className="field-hint">{pdfMode === 'combined' ? 'Pages follow the order of the images below.' : 'Each image is downloaded as its own PDF (or all of them in a ZIP).'}</p>
+                            </div>
+                        )}
+                    </div>
+                </fieldset>
+                <p className="field-hint" style={{ marginTop: 'var(--space-md)' }}>
+                    Everything happens in your browser. Converted images never keep EXIF or GPS metadata.
+                </p>
+            </section>
+
+            <FileDropZone
+                accept={ACCEPT}
+                multiple
+                allowPaste
+                maxSizeMB={200}
+                onFiles={addFiles}
+                compact={images.length > 0}
+                icon={ImagePlus}
+                label={images.length ? 'Add more images' : 'Drop images here, paste, or click to browse'}
+                hint={images.length ? (size === 'sm' ? undefined : 'or drop / paste them here') : 'PNG, JPEG, WebP, AVIF, GIF, SVG, BMP, ICO and HEIC/HEIF (iPhone photos).'}
+                style={images.length ? undefined : { minHeight: 200 }}
+            />
+
+            {images.length > 0 ? (
+                <>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', alignItems: 'center' }}>
+                        <button type="button" className="btn btn-primary" onClick={convertAll} disabled={converting || !pendingCount || settingsInvalid}>
+                            {converting ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}
+                            {converting
+                                ? `Converting ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
+                                : pendingCount ? `Convert ${pendingCount} image${pendingCount === 1 ? '' : 's'} to ${info.label}` : 'All converted'}
+                        </button>
+                        {isPdf && pdfMode === 'combined' ? (
+                            <button type="button" className="btn btn-secondary" onClick={downloadCombinedPdf} disabled={!freshImages.length || packing || converting}>
+                                {packing ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <FileText size={16} aria-hidden="true" />}
+                                Download PDF ({freshImages.length} page{freshImages.length === 1 ? '' : 's'})
+                            </button>
+                        ) : (
+                            <button type="button" className="btn btn-secondary" onClick={downloadZip} disabled={!freshImages.length || packing || converting}>
+                                {packing ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Archive size={16} aria-hidden="true" />}
+                                Download ZIP ({freshImages.length})
+                            </button>
+                        )}
+                        <button type="button" className="btn btn-ghost" onClick={() => setImages([])} disabled={converting}>
+                            <X size={16} aria-hidden="true" /> Clear all
+                        </button>
+                        <span role="status" style={{ marginLeft: 'auto', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{summary}</span>
+                    </div>
+                    {staleCount > 0 && !converting && (
+                        <StatusBanner tone="warning" title="Settings changed">
+                            {staleCount} result{staleCount === 1 ? ' was' : 's were'} made with different settings and {staleCount === 1 ? 'isn’t' : 'aren’t'} in the ZIP. Convert again to update {staleCount === 1 ? 'it' : 'them'}.
+                        </StatusBanner>
+                    )}
+
+                    <div className="auto-grid" style={{ '--auto-grid-min': '200px' }}>
+                        {images.map(img => (
+                            <ImageCard
+                                key={img.id}
+                                img={img}
+                                fresh={isFresh(img, settingsKey)}
+                                busy={converting}
+                                compact={size === 'sm'}
+                                onRotate={() => editImage(img.id, i => ({ rotation: (i.rotation + 90) % 360 }))}
+                                onFlip={(axis) => editImage(img.id, i => (axis === 'h' ? { flipH: !i.flipH } : { flipV: !i.flipV }))}
+                                onCrop={() => openCrop(img)}
+                                onRevert={() => editImage(img.id, i => ({ source: i.original, rotation: 0, flipH: false, flipV: false, cropped: false }))}
+                                onRemove={() => setImages(prev => prev.filter(i => i.id !== img.id))}
+                                onDownload={() => downloadBlob(img.result.blob, outputName(img.name, img.result.type))}
+                            />
+                        ))}
+                    </div>
+                </>
+            ) : (
+                <EmptyState icon={Images} title="No images yet">
+                    Add images to convert them between formats, resize, rotate, flip or crop them, all at once.
+                </EmptyState>
+            )}
+
+            {cropTarget && (
+                <CropDialog
+                    key={`${cropTarget.id}-${cropTarget.rev}`}
+                    target={cropTarget}
+                    onClose={closeCrop}
+                    onApply={applyCrop}
+                    applying={applyingCrop}
+                />
             )}
         </div>
     )

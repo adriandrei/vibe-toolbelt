@@ -1,58 +1,53 @@
-import React from 'react'
 import { Download, Upload } from 'lucide-react'
 import { usePipeline } from '../contexts/PipelineContext'
+import { usePane } from '../contexts/pane'
 
-export const PipelineRead = ({ onRead, style = {} }) => {
-    const { pipelineData } = usePipeline()
+/**
+ * "Use pipeline" button: loads the text currently in the pipeline into this
+ * tool. Hidden when the pipeline is empty or the data came from this tool.
+ *
+ *   <PipelineRead onRead={(text) => { setInput(text); run(text) }} />
+ */
+export const PipelineRead = ({ onRead, style, className = '' }) => {
+    const { payload } = usePipeline()
+    const { path } = usePane()
 
-    if (!pipelineData) return null
+    if (!payload || payload.kind !== 'text' || (payload.source && payload.source === path)) return null
 
+    const from = payload.label ? ` from ${payload.label}` : ''
     return (
         <button
-            onClick={() => onRead(pipelineData)}
-            title="Read data from Pipeline Context"
-            style={{
-                color: 'var(--primary)',
-                fontSize: '0.8rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                ...style
-            }}
+            type="button"
+            className={`btn btn-sm btn-outline ${className}`}
+            onClick={() => onRead(payload.value)}
+            title={`Load ${payload.value.length.toLocaleString()} characters${from} into this tool`}
+            style={style}
         >
-            <Download size={14} /> Read Pipeline
+            <Download size={14} aria-hidden="true" /> Use pipeline{from && <span style={{ fontWeight: 400, opacity: 0.85 }}>{from}</span>}
         </button>
     )
 }
 
-export const PipelineSend = ({ dataToSend, disabled = false, style = {} }) => {
-    const { setPipelineData } = usePipeline()
-    const isDisabled = disabled || !dataToSend
+/**
+ * "Send to pipeline" button for a tool's output.
+ *
+ *   <PipelineSend dataToSend={output} disabled={!!error} />
+ */
+export const PipelineSend = ({ dataToSend, disabled = false, label = 'Send to pipeline', style, className = '' }) => {
+    const { sendText } = usePipeline()
+    const { path } = usePane()
+    const isDisabled = disabled || typeof dataToSend !== 'string' || dataToSend === ''
 
     return (
         <button
-            onClick={() => setPipelineData(dataToSend)}
+            type="button"
+            className={`btn btn-sm btn-ghost ${className}`}
+            onClick={() => sendText(dataToSend, { source: path })}
             disabled={isDisabled}
-            title="Send output string to Pipeline Context"
-            style={{
-                color: 'var(--primary)',
-                fontSize: '0.8rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                background: 'transparent',
-                border: isDisabled ? '1px solid var(--border)' : '1px solid var(--primary)',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                cursor: isDisabled ? 'not-allowed' : 'pointer',
-                opacity: isDisabled ? 0.5 : 1,
-                ...style
-            }}
+            title="Make this output available to other tools via “Use pipeline”"
+            style={style}
         >
-            <Upload size={14} /> Send to Pipeline
+            <Upload size={14} aria-hidden="true" /> {label}
         </button>
     )
 }

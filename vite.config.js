@@ -9,31 +9,54 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.svg', 'favicon-32x32.png', 'apple-touch-icon.png'],
       workbox: {
-        // Exclude ffmpeg files (32MB WASM) — loaded on demand, never precache
-        globIgnores: ['**\/ffmpeg\/**', '**/llm.worker**'],
-        // Raise limit to cover large vendor JS chunks (e.g. vendor-faker ~2.8MB)
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // The ffmpeg core (32 MB) and the LLM worker are fetched on demand and
+        // cached at runtime instead of being precached on every install.
+        // Large, tool-specific chunks (Faker, Monaco, the HEIC decoder, PDF
+        // libraries, zxcvbn) are cached the first time their tool is opened
+        // (runtime cache below) instead of on install.
+        globIgnores: [
+          '**/ffmpeg/**', '**/llm.worker*', '**/*.br',
+          '**/vendor-faker-*.js', '**/Formatters-*.js', '**/heic2any-*.js',
+          '**/zxcvbn.worker-*.js', '**/pdf.worker-*.js', '**/vendor-pdf-lib-*.js', '**/vendor-jspdf-*.js',
+        ],
+        maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
+        navigateFallbackDenylist: [/^\/ffmpeg\//],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/ffmpeg/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ffmpeg-core',
+              expiration: { maxEntries: 4 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ request, url }) => url.origin === self.location.origin && (request.destination === 'script' || request.destination === 'worker' || request.destination === 'style' || request.destination === 'font'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'app-assets',
+              expiration: { maxEntries: 200 },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'Vibe Toolbelt',
-        short_name: 'VibeTools',
-        description: 'Developer tools with good vibes',
-        theme_color: '#ffffff',
+        short_name: 'Toolbelt',
+        description: 'Privacy-first developer tools that run entirely in your browser',
+        theme_color: '#110f18',
+        background_color: '#110f18',
+        display: 'standalone',
+        start_url: '/',
         icons: [
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
-      }
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
     }),
     // Brotli compression for production builds
     viteCompression({
@@ -58,40 +81,33 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
+  worker: {
+    format: 'es',
+  },
   build: {
-    // Use terser for better minification
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Remove console.logs in production
+        // Strip debug logging but keep console.error/warn for real failures
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug']
       }
     },
     rollupOptions: {
       output: {
         // Manual chunks for better code splitting
         manualChunks: {
-          // Core vendor chunks
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-icons': ['lucide-react'],
-
-          // Heavy dependencies get their own chunks
           'vendor-faker': ['@faker-js/faker'],
           'vendor-sql': ['sql-formatter'],
           'vendor-syntax': ['react-syntax-highlighter'],
-
-          // PDF/Image processing
           'vendor-pdf-lib': ['pdf-lib'],
           'vendor-jspdf': ['jspdf'],
-          'vendor-image': ['heic2any', 'html-to-image', 'jszip'],
-
-          // Crypto/Security
-          'vendor-crypto': ['crypto-js', 'jose', 'jsencrypt'],
+          'vendor-crypto': ['crypto-js', 'jose'],
         }
       }
     },
-    // Increase chunk size warning limit
     chunkSizeWarningLimit: 1500
   }
 })

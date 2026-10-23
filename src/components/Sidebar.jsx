@@ -1,234 +1,85 @@
-import React, { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import {
-    Home,
-    Wand2,
-    ChevronRight,
-    ChevronDown,
-    Menu,
-    X,
-    Code, Key, User, FileDiff, Fingerprint, Braces, Palette,
-    ShieldCheck, ArrowRightLeft, FileText, Hash, Shield, Layers, Eye, Link2, Globe, Database, Type,
-    Search, Star, Clock, Image, Lock, Monitor, Terminal, Pipette, Triangle, Network, Regex, QrCode, CaseSensitive, FileImage, Camera, FileStack, Video, Aperture, Zap, Keyboard,
-    Binary, ListOrdered, Server, ShieldAlert, Paintbrush, AlignLeft, FileCode,
-    Sun, Moon, Film, Pin,
-    Brain, Settings, Sparkles, Bot
-} from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { ChevronDown, ChevronRight, Moon, Pin, Search, Star, Sun, Wand2, X } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
+import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useTheme } from './ThemeProvider'
-import PrivacyBadge from './PrivacyBadge'
 import { usePipeline } from '../contexts/PipelineContext'
+import { ALL_TOOLS, SETTINGS_TOOL, TOOL_CATEGORIES, searchTools } from '../config/tools'
+import { BRAND } from '../config/brand'
 
-// Map of categories and tools
-export const TOOL_CATEGORIES = [
-    {
-        name: 'Core',
-        icon: Wand2,
-        items: [
-            { to: '/', icon: Home, label: 'Home' },
-            { to: '/recorder', icon: Video, label: 'Screen Recorder' },
-            { to: '/video', icon: Film, label: 'Video Studio' },
-            { to: '/inspect', icon: Search, label: 'Inspector' },
-            { to: '/api', icon: Zap, label: 'API Tester' },
-            { to: '/image', icon: FileImage, label: 'Image Converter' },
-        ]
-    },
-    {
-        name: 'AI & Intelligence',
-        icon: Sparkles,
-        items: [
-            { to: '/ai-settings', icon: Settings, label: 'AI Settings' },
-            /* future ai tools here */
-        ]
-    },
-    {
-        name: 'Converters',
-        icon: Code,
-        items: [
-            { to: '/base64', icon: Code, label: 'Base64' },
-            { to: '/csv-json', icon: ArrowRightLeft, label: 'CSV <> JSON' },
-            { to: '/hex', icon: FileCode, label: 'Hex Viewer' },
-            { to: '/formatters', icon: Braces, label: 'Formatters' },
-            { to: '/converter', icon: ArrowRightLeft, label: 'JSON <> YAML' },
-            { to: '/type-converter', icon: FileCode, label: 'JSON to Type' },
-            { to: '/markdown', icon: FileText, label: 'Markdown' },
-            { to: '/cron', icon: Clock, label: 'Cron Parser' },
-            { to: '/unix', icon: Clock, label: 'Unix Timestamp' },
-            { to: '/qrcode', icon: QrCode, label: 'QR Code' },
-            { to: '/pdf', icon: FileStack, label: 'PDF Tools' },
-            { to: '/image-base64', icon: Image, label: 'Base64 Image' },
-            { to: '/favicon', icon: Layers, label: 'Favicon Generator' },
-            { to: '/keycode', icon: Keyboard, label: 'Keycode' },
-            { to: '/svg', icon: Image, label: 'SVG Compressor' },
-            { to: '/urlencode', icon: Link2, label: 'URL Encode' },
-            { to: '/html-entity', icon: Code, label: 'HTML Entity' },
-            { to: '/number-base', icon: Binary, label: 'Number Base' },
-        ]
-    },
-    {
-        name: 'Security',
-        icon: ShieldCheck,
-        items: [
-            { to: '/bcrypt', icon: Shield, label: 'Bcrypt Hash' },
-            { to: '/aes', icon: Lock, label: 'AES Encrypt' },
-            { to: '/otp', icon: Clock, label: 'OTP / TOTP' },
-            { to: '/jwt', icon: Key, label: 'JWT Decoder' },
-            { to: '/diff', icon: FileDiff, label: 'Secure Diff' },
-            { to: '/uuid', icon: Fingerprint, label: 'UUID Gen' },
-            { to: '/username', icon: User, label: 'Username' },
-            { to: '/hash', icon: Hash, label: 'Hash Gen' },
-            { to: '/hmac', icon: Shield, label: 'HMAC Gen' },
-            { to: '/rsa', icon: Lock, label: 'RSA Key Gen' },
-            { to: '/password', icon: Shield, label: 'Password Audit' },
-            { to: '/nanoid', icon: Fingerprint, label: 'Nano ID / ULID' },
-            { to: '/chmod', icon: ShieldAlert, label: 'Chmod Calc' },
-        ]
-    },
-    {
-        name: 'Web',
-        icon: Globe,
-        items: [
-            { to: '/url', icon: Link2, label: 'URL Parser' },
-            { to: '/ua', icon: Monitor, label: 'User Agent' },
-            { to: '/curl', icon: Terminal, label: 'Curl to Fetch' },
-            { to: '/cidr', icon: Network, label: 'IP / CIDR' },
-            { to: '/meta', icon: Globe, label: 'Meta Tags' },
-            { to: '/http-status', icon: Server, label: 'HTTP Status' },
-        ]
-    },
-    {
-        name: 'Text',
-        icon: AlignLeft,
-        items: [
-            { to: '/text-stats', icon: AlignLeft, label: 'Text Stats' },
-            { to: '/list', icon: ListOrdered, label: 'List Sorter' },
-            { to: '/case', icon: CaseSensitive, label: 'Case Converter' },
-            { to: '/regex', icon: Regex, label: 'Regex Tester' },
-            { to: '/lorem', icon: Type, label: 'Lorem Ipsum' },
-        ]
-    },
-    {
-        name: 'Privacy',
-        icon: Eye,
-        items: [
-            { to: '/privacy-scanner', icon: ShieldAlert, label: 'Privacy Scanner' },
-            { to: '/exif', icon: Aperture, label: 'EXIF Viewer' },
-        ]
-    },
-    {
-        name: 'Faker',
-        icon: Database,
-        items: [
-            { to: '/faker', icon: Database, label: 'Data Gen' },
-        ]
-    },
-    {
-        name: 'Design',
-        icon: Palette,
-        items: [
-            { to: '/css', icon: Palette, label: 'Glassmorphism' },
-            { to: '/gradient', icon: Pipette, label: 'Gradient' },
-            { to: '/triangle', icon: Triangle, label: 'Triangle' },
-            { to: '/color-blindness', icon: Eye, label: 'Color Blindness' },
-            { to: '/box-shadow', icon: Layers, label: 'Box Shadow' },
-            { to: '/snippets', icon: Camera, label: 'Code Snippets' },
-            { to: '/color', icon: Paintbrush, label: 'Color Converter' },
-        ]
-    }
-]
+const navItemStyle = (isActive) => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-sm)',
+    padding: '10px 12px',
+    paddingRight: 64,
+    margin: '1px 0',
+    borderRadius: 'var(--radius-md)',
+    background: isActive ? 'var(--primary-glow)' : 'transparent',
+    color: isActive ? 'var(--primary-text)' : 'var(--text-muted)',
+    fontSize: '0.9rem',
+    fontWeight: isActive ? 600 : 400,
+    minHeight: 40,
+    transition: 'background-color 0.15s ease, color 0.15s ease',
+})
 
-const NavItem = ({ item, onClick, isFav, onToggleFav }) => {
-    const location = useLocation()
-    const isActive = location.pathname === item.to
+function NavItem({ item, onNavigate, isFav, onToggleFav, showPin }) {
     const { setPinnedToolRoute, pinnedToolRoute } = usePipeline()
-    const isPinned = pinnedToolRoute === item.to
+    const isPinned = pinnedToolRoute === item.path
 
     return (
-        <div
-            className="nav-item-wrapper"
-            style={{ position: 'relative' }}
-        >
-            <Link
-                to={item.to}
-                onClick={onClick}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-sm)',
-                    padding: '12px', /* Increased from 8px 12px for touch target */
-                    margin: '2px 0',
-                    borderRadius: 'var(--radius-md)',
-                    background: isActive ? 'var(--primary-glow)' : 'transparent',
-                    color: isActive ? 'var(--primary)' : 'var(--text-muted)',
-                    textDecoration: 'none',
-                    fontSize: '0.9rem',
-                    fontWeight: isActive ? 500 : 400,
-                    transition: 'all 0.2s',
-                    paddingRight: '60px', // Space for star and pin
-                    minHeight: '44px' /* Ensure min touch target height */
-                }}
+        <div className="nav-item-wrapper" style={{ position: 'relative' }}>
+            <NavLink
+                to={item.path}
+                end
+                onClick={onNavigate}
+                className="sidebar-link"
+                style={({ isActive }) => navItemStyle(isActive)}
             >
-                <item.icon size={16} />
-                <span>{item.label}</span>
-            </Link>
+                <item.icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+            </NavLink>
 
-            <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>
+            <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>
+                {showPin && item.path !== '/' && (
+                    <button
+                        type="button"
+                        className={`fav-btn icon-btn icon-btn-sm ${isPinned ? 'active' : ''}`}
+                        title={isPinned ? 'Unpin from split view' : 'Pin to split view'}
+                        aria-label={isPinned ? `Unpin ${item.label}` : `Pin ${item.label} to split view`}
+                        aria-pressed={isPinned}
+                        onClick={() => setPinnedToolRoute(isPinned ? null : item.path)}
+                        style={{ color: isPinned ? 'var(--primary-text)' : undefined }}
+                    >
+                        <Pin size={14} fill={isPinned ? 'currentColor' : 'none'} aria-hidden="true" />
+                    </button>
+                )}
                 <button
-                    className={`fav-btn ${isPinned ? 'active' : ''}`}
-                    title={isPinned ? "Unpin tool" : "Pin tool to split view"}
-                    onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setPinnedToolRoute(isPinned ? null : item.to)
-                    }}
-                    style={{
-                        border: 'none',
-                        background: 'none',
-                        color: isPinned ? 'var(--primary)' : 'var(--text-dim)',
-                        cursor: 'pointer',
-                        padding: '4px 6px',
-                        opacity: isPinned ? 1 : 0, // Relies on fav-btn hover logic in CSS
-                        transition: 'opacity 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}
+                    type="button"
+                    className={`fav-btn icon-btn icon-btn-sm ${isFav ? 'active' : ''}`}
+                    aria-label={isFav ? `Remove ${item.label} from favorites` : `Add ${item.label} to favorites`}
+                    aria-pressed={isFav}
+                    title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                    onClick={() => onToggleFav(item.path)}
+                    style={{ color: isFav ? 'var(--warning)' : undefined }}
                 >
-                    <Pin size={14} fill={isPinned ? 'currentColor' : 'none'} />
-                </button>
-
-                <button
-                    className={`fav-btn ${isFav ? 'active' : ''}`}
-                    aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
-                    onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        onToggleFav(item.to)
-                    }}
-                    style={{
-                        border: 'none',
-                        background: 'none',
-                        color: isFav ? '#eab308' : 'var(--text-dim)',
-                        cursor: 'pointer',
-                        padding: '4px 6px',
-                        opacity: isFav ? 1 : 0,
-                        transition: 'opacity 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}
-                >
-                    <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
+                    <Star size={14} fill={isFav ? 'currentColor' : 'none'} aria-hidden="true" />
                 </button>
             </div>
         </div>
     )
 }
 
-const CategoryGroup = ({ category, onMobileClick, favorites, toggleFavorite }) => {
-    const [isOpen, setIsOpen] = useState(true)
-
+function CategoryGroup({ category, collapsed, onToggle, children }) {
+    const listId = `nav-${category.id}`
     return (
-        <div style={{ marginBottom: 'var(--space-md)' }}>
+        <div style={{ marginBottom: 'var(--space-sm)' }}>
             <button
-                aria-label={isOpen ? `Collapse ${category.name} category` : `Expand ${category.name} category`}
-                onClick={() => setIsOpen(!isOpen)}
+                type="button"
+                aria-expanded={!collapsed}
+                aria-controls={listId}
+                onClick={onToggle}
                 style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -236,291 +87,235 @@ const CategoryGroup = ({ category, onMobileClick, favorites, toggleFavorite }) =
                     width: '100%',
                     padding: '8px',
                     color: 'var(--text-dim)',
-                    fontSize: '0.8rem',
+                    fontSize: '0.75rem',
                     fontWeight: 600,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    cursor: 'pointer',
-                    border: 'none',
-                    background: 'none',
-                    minHeight: '44px' /* Accessible height */
+                    minHeight: 36,
                 }}
             >
-                <category.icon size={14} />
+                <category.icon size={14} aria-hidden="true" />
                 {category.name}
-                <div style={{ marginLeft: 'auto' }}>
-                    {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </div>
+                <span style={{ marginLeft: 'auto', display: 'flex' }}>
+                    {collapsed ? <ChevronRight size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+                </span>
             </button>
-
-            {isOpen && (
-                <div style={{ paddingLeft: '8px' }}>
-                    {category.items.map(item => (
-                        <NavItem
-                            key={item.to}
-                            item={item}
-                            onClick={onMobileClick}
-                            isFav={favorites.includes(item.to)}
-                            onToggleFav={toggleFavorite}
-                        />
-                    ))}
-                </div>
-            )}
+            {!collapsed && <div id={listId} style={{ paddingLeft: 6 }}>{children}</div>}
         </div>
     )
 }
 
-const ThemeToggle = () => {
+function ThemeToggle() {
     const { theme, toggle } = useTheme()
     const isDark = theme === 'dark'
-
     return (
         <button
+            type="button"
             onClick={toggle}
+            className="btn btn-secondary btn-sm"
             aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-lg)',
-                cursor: 'pointer',
-                color: 'var(--text-muted)',
-                fontSize: '0.8rem',
-                transition: 'all 0.3s ease',
-                width: '100%',
-                justifyContent: 'center'
-            }}
+            style={{ flex: 1 }}
         >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-            {isDark ? 'Light Mode' : 'Dark Mode'}
+            {isDark ? <Sun size={14} aria-hidden="true" /> : <Moon size={14} aria-hidden="true" />}
+            {isDark ? 'Light mode' : 'Dark mode'}
         </button>
     )
 }
 
-export default function Sidebar({ isOpen, onClose }) {
+export default function Sidebar({ isOpen, isDesktop, onClose, onOpenSearch }) {
     const [query, setQuery] = useState('')
+    const [activeIndex, setActiveIndex] = useState(0)
     const { favorites, toggleFavorite } = useFavorites()
+    const [collapsed, setCollapsed] = useLocalStorage('pt-sidebar-collapsed', [])
+    const navigate = useNavigate()
+    const searchRef = useRef(null)
 
-    // Flatten logic for search
-    const allItems = TOOL_CATEGORIES.flatMap(cat => cat.items)
-    const favItems = allItems.filter(item => favorites.includes(item.to))
+    const searchResults = query.trim() ? searchTools(query) : null
+    const favItems = favorites.map(path => ALL_TOOLS.find(t => t.path === path)).filter(Boolean)
+    const collapsedList = Array.isArray(collapsed) ? collapsed : []
 
-    // Search filtering
-    const searchResults = query
-        ? allItems.filter(item => item.label.toLowerCase().includes(query.toLowerCase()))
-        : null
+    const afterNavigate = () => {
+        if (!isDesktop) onClose()
+    }
+
+    const goTo = (path) => {
+        setQuery('')
+        navigate(path)
+        afterNavigate()
+    }
+
+    const renderItem = (item) => (
+        <NavItem
+            key={item.path}
+            item={item}
+            onNavigate={afterNavigate}
+            isFav={favorites.includes(item.path)}
+            onToggleFav={toggleFavorite}
+            showPin={isDesktop}
+        />
+    )
 
     return (
         <>
-            {/* Mobile Backdrop */}
-            <div
-                className="tablet-down"
-                style={{
-                    position: 'fixed',
-                    inset: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    backdropFilter: 'blur(4px)',
-                    opacity: isOpen ? 1 : 0,
-                    pointerEvents: isOpen ? 'auto' : 'none',
-                    transition: 'opacity 0.3s',
-                    zIndex: 40
-                }}
-                onClick={onClose}
-            />
+            {!isDesktop && (
+                <div
+                    aria-hidden="true"
+                    onClick={onClose}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'var(--overlay)',
+                        backdropFilter: 'blur(4px)',
+                        opacity: isOpen ? 1 : 0,
+                        pointerEvents: isOpen ? 'auto' : 'none',
+                        transition: 'opacity 0.3s',
+                        zIndex: 45,
+                    }}
+                />
+            )}
 
             <aside
-                className="glass-panel sidebar-fixed"
+                className="sidebar-fixed"
+                aria-label="Tools"
+                // Off-screen on small screens: keep it out of the tab order
+                inert={!isOpen ? '' : undefined}
+                onKeyDown={(e) => {
+                    if (e.key === 'Escape' && !isDesktop) onClose()
+                }}
                 style={{
                     position: 'fixed',
                     top: 0,
                     left: 0,
                     bottom: 0,
                     width: 'var(--sidebar-width)',
+                    maxWidth: '85vw',
                     zIndex: 50,
                     borderRight: '1px solid var(--border)',
-                    borderTop: 'none',
-                    borderBottom: 'none',
-                    borderLeft: 'none',
-                    borderRadius: 0,
                     transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
                     transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     display: 'flex',
                     flexDirection: 'column',
                     background: 'var(--bg-panel)',
-                    backdropFilter: 'blur(20px)'
                 }}
             >
-                {/* Header & Search */}
-                <div style={{
-                    padding: 'var(--space-md)',
-                    borderBottom: '1px solid var(--border)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 'var(--space-md)'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Link to="/" onClick={() => { setQuery(''); window.innerWidth <= 1024 && onClose(); }} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', textDecoration: 'none' }}>
-                            <Wand2 size={24} color="var(--primary)" />
-                            <span className="text-gradient" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>Private Toolkit</span>
+                <div style={{ padding: 'var(--space-md)', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <Link to="/" onClick={() => { setQuery(''); afterNavigate() }} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                            <Wand2 size={24} aria-hidden="true" style={{ color: 'var(--primary-text)' }} />
+                            <span className="text-gradient" style={{ fontWeight: 700, fontSize: '1.15rem' }}>{BRAND.name}</span>
                         </Link>
-                        <button
-                            aria-label="Close sidebar"
-                            className="mobile-only"
-                            onClick={onClose}
-                            style={{
-                                color: 'var(--text-muted)',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '8px', /* Better touch target */
-                                minWidth: '44px',
-                                minHeight: '44px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                        >
-                            <X size={20} />
-                        </button>
+                        {!isDesktop && (
+                            <button type="button" className="icon-btn" aria-label="Close menu" onClick={onClose}>
+                                <X size={20} aria-hidden="true" />
+                            </button>
+                        )}
                     </div>
 
-
-                    {/* Integrated Search */}
                     <div style={{ position: 'relative' }}>
-                        <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                        <Search size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', pointerEvents: 'none' }} />
                         <input
-                            type="text"
-                            placeholder="Search tools..."
+                            ref={searchRef}
+                            type="search"
+                            placeholder="Search tools…"
+                            aria-label="Search tools"
                             value={query}
-                            onChange={e => setQuery(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '8px 34px 8px 34px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--border)',
-                                background: 'var(--bg-app)',
-                                color: 'var(--text-main)',
-                                fontSize: '0.9rem'
+                            onChange={e => {
+                                setQuery(e.target.value)
+                                setActiveIndex(0)
+                            }}
+                            onKeyDown={e => {
+                                if (!searchResults?.length) return
+                                if (e.key === 'ArrowDown') {
+                                    e.preventDefault()
+                                    setActiveIndex(i => Math.min(i + 1, searchResults.length - 1))
+                                } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault()
+                                    setActiveIndex(i => Math.max(i - 1, 0))
+                                } else if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    goTo(searchResults[Math.min(activeIndex, searchResults.length - 1)].path)
+                                } else if (e.key === 'Escape') {
+                                    setQuery('')
+                                }
                             }}
                             autoComplete="off"
-                            name="app-search-tool-query"
+                            style={{ padding: '8px 34px', fontSize: '0.9rem', borderRadius: 'var(--radius-sm)' }}
                         />
                         {query && (
                             <button
-                                onClick={() => setQuery('')}
+                                type="button"
+                                className="icon-btn icon-btn-sm"
+                                onClick={() => { setQuery(''); searchRef.current?.focus() }}
                                 aria-label="Clear search"
-                                style={{
-                                    position: 'absolute',
-                                    right: 8,
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    background: 'none',
-                                    border: 'none',
-                                    color: 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    padding: '4px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderRadius: '4px',
-                                    transition: 'background 0.2s'
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-panel)'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)' }}
                             >
-                                <X size={16} />
+                                <X size={14} aria-hidden="true" />
                             </button>
                         )}
                     </div>
                 </div>
 
-                {/* Scrollable Content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
-
-                    {/* Search Results Mode */}
+                <nav aria-label="Tool categories" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-sm) var(--space-md) var(--space-md)' }}>
                     {searchResults ? (
                         <>
-                            <div style={{
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                color: 'var(--text-muted)',
-                                marginBottom: 8,
-                                textTransform: 'uppercase'
-                            }}>
-                                Search Results
+                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-dim)', margin: '8px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }} aria-live="polite">
+                                {searchResults.length ? `${searchResults.length} result${searchResults.length === 1 ? '' : 's'}` : 'No tools found'}
                             </div>
-                            {searchResults.length === 0 ? (
-                                <div style={{ color: 'var(--text-dim)', fontStyle: 'italic', fontSize: '0.9rem' }}>No tools found.</div>
-                            ) : (
-                                searchResults.map(item => (
-                                    <NavItem
-                                        key={item.to}
-                                        item={item}
-                                        onClick={() => window.innerWidth <= 1024 && onClose()}
-                                        isFav={favorites.includes(item.to)}
-                                        onToggleFav={toggleFavorite}
-                                    />
-                                ))
+                            {searchResults.length === 0 && (
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={onOpenSearch}>
+                                    Try the command palette
+                                </button>
                             )}
+                            {searchResults.map((item, i) => (
+                                <div key={item.path} style={{ outline: i === activeIndex ? '1px solid var(--primary-border)' : 'none', borderRadius: 'var(--radius-md)' }}>
+                                    {renderItem(item)}
+                                </div>
+                            ))}
                         </>
                     ) : (
                         <>
-                            {/* Favorites Section */}
                             {favItems.length > 0 && (
-                                <div style={{ marginBottom: 'var(--space-lg)' }}>
-                                    <div style={{
-                                        fontSize: '0.75rem',
-                                        fontWeight: 700,
-                                        color: '#eab308',
-                                        marginBottom: 8,
-                                        textTransform: 'uppercase',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6
-                                    }}>
-                                        <Star size={12} fill="currentColor" /> Favorites
+                                <div style={{ marginBottom: 'var(--space-md)' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--warning)', margin: '8px 0', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6, letterSpacing: '0.05em' }}>
+                                        <Star size={12} fill="currentColor" aria-hidden="true" /> Favorites
                                     </div>
-                                    {favItems.map(item => (
-                                        <NavItem
-                                            key={item.to}
-                                            item={item}
-                                            onClick={() => window.innerWidth <= 1024 && onClose()}
-                                            isFav={true}
-                                            onToggleFav={toggleFavorite}
-                                        />
-                                    ))}
-                                    <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
+                                    {favItems.map(renderItem)}
+                                    <div style={{ height: 1, background: 'var(--border)', margin: '12px 0 4px' }} />
                                 </div>
                             )}
-
-                            {/* Standard Categories */}
                             {TOOL_CATEGORIES.map(category => (
                                 <CategoryGroup
-                                    key={category.name}
+                                    key={category.id}
                                     category={category}
-                                    onMobileClick={() => window.innerWidth <= 1024 && onClose()}
-                                    favorites={favorites}
-                                    toggleFavorite={toggleFavorite}
-                                />
+                                    collapsed={collapsedList.includes(category.id)}
+                                    onToggle={() => setCollapsed(prev => {
+                                        const list = Array.isArray(prev) ? prev : []
+                                        return list.includes(category.id) ? list.filter(id => id !== category.id) : [...list, category.id]
+                                    })}
+                                >
+                                    {category.items.map(renderItem)}
+                                </CategoryGroup>
                             ))}
                         </>
                     )}
-                </div>
+                </nav>
 
-                {/* Footer */}
-                <div style={{
-                    padding: 'var(--space-md)',
-                    borderTop: '1px solid var(--border)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 'var(--space-sm)'
-                }}>
+                <div style={{ padding: 'var(--space-md)', borderTop: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
                     <ThemeToggle />
-                    <PrivacyBadge />
+                    <NavLink
+                        to={SETTINGS_TOOL.path}
+                        onClick={afterNavigate}
+                        className="btn btn-secondary btn-sm"
+                        aria-label="Settings"
+                        title="Settings: appearance and AI"
+                    >
+                        <SETTINGS_TOOL.icon size={14} aria-hidden="true" />
+                        <span>Settings</span>
+                    </NavLink>
+                    <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: 'var(--space-md)', fontSize: '0.75rem' }}>
+                        <Link to="/privacy" onClick={afterNavigate} style={{ color: 'var(--text-dim)' }}>Privacy</Link>
+                        <Link to="/terms" onClick={afterNavigate} style={{ color: 'var(--text-dim)' }}>Terms</Link>
+                    </div>
                 </div>
             </aside>
         </>

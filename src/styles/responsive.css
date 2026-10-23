@@ -1,27 +1,12 @@
-/* 
-  Responsive Breakpoints & Utilities 
-  
-  Breakpoints:
-  - Mobile Portrait:  < 640px
-  - Mobile Landscape: 640px - 768px
-  - Tablet Portrait:  768px - 1024px
-  - Tablet Landscape: 1024px - 1280px
-  - Desktop:          1280px - 1920px
-  - Massive Desktop:  > 1920px
+/*
+  Responsive breakpoints & helpers
+
+  - Mobile:  < 640px
+  - Tablet:  640px – 1024px  (sidebar is an overlay)
+  - Desktop: > 1024px        (sidebar is docked)
+
+  Spacing tokens live in variables.css.
 */
-
-:root {
-    /* Dynamic Spacing */
-    --space-xxs: clamp(2px, 0.5vw, 4px);
-    --space-xs: clamp(4px, 1vw, 8px);
-    --space-sm: clamp(8px, 1.5vw, 12px);
-    --space-md: clamp(16px, 2vw, 24px);
-    --space-lg: clamp(24px, 3vw, 32px);
-    --space-xl: clamp(32px, 5vw, 64px);
-
-    /* Sidebar Width */
-    --sidebar-width: 280px;
-}
 
 /* Base Container - Fluid with max bounds */
 .container-fluid {
@@ -45,7 +30,7 @@
     display: flex !important;
 }
 
-/* --- Mobile Portrait (< 640px) --- */
+/* --- Mobile (< 640px) --- */
 @media (max-width: 639.98px) {
     .mobile-only {
         display: flex !important;
@@ -60,24 +45,19 @@
         padding-right: var(--space-sm);
     }
 
-    /* Typography Scale Down */
-    h1 {
-        font-size: 1.75rem !important;
-    }
-
-    h2 {
-        font-size: 1.5rem !important;
-    }
-
-    h3 {
-        font-size: 1.25rem !important;
+    .page-title {
+        font-size: 1.6rem;
     }
 }
 
-/* --- Mobile Landscape & Tablet Portrait (640px - 1024px) --- */
+/* --- Mobile & Tablet (<= 1024px): sidebar becomes an overlay --- */
 @media (max-width: 1024px) {
     .tablet-down {
         display: flex !important;
+    }
+
+    .desktop-only {
+        display: none !important;
     }
 
     .desktop-sidebar-open {
@@ -90,7 +70,7 @@
     }
 }
 
-/* --- Desktop (>= 1025px) --- */
+/* --- Desktop (>= 1025px): docked sidebar --- */
 @media (min-width: 1025px) {
     .mobile-only {
         display: none !important;
@@ -100,7 +80,6 @@
         display: flex !important;
     }
 
-    /* Persistent Sidebar */
     .sidebar-fixed {
         transform: translateX(0) !important;
     }
@@ -110,21 +89,13 @@
     }
 }
 
-/* --- Massive Desktop (> 1920px) --- */
+/* --- Very wide screens --- */
 @media (min-width: 1921px) {
     :root {
-        --space-md: 32px;
-        /* More breathing room */
         --sidebar-width: 320px;
     }
 
     body {
-        font-size: 18px;
-        /* Slightly larger base text */
-    }
-
-    /* Constrain content width so it doesn't stretch infinitely */
-    main {
-        max-width: 2400px !important;
+        font-size: 17px;
     }
 }

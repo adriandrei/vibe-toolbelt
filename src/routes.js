@@ -1,4 +1,27 @@
-import { lazy } from 'react';
+import { lazy as reactLazy } from 'react';
+
+// After a new deploy, an open tab may request page chunks that no longer
+// exist. Reload once to pick up the new build instead of showing an error.
+const RELOAD_KEY = 'pt-chunk-reload';
+function lazy(factory) {
+  return reactLazy(() =>
+    factory()
+      .then((module) => {
+        try { sessionStorage.removeItem(RELOAD_KEY); } catch { /* ignore */ }
+        return module;
+      })
+      .catch((error) => {
+        let reloaded = false;
+        try { reloaded = sessionStorage.getItem(RELOAD_KEY) === '1'; } catch { /* ignore */ }
+        if (!reloaded && /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(String(error?.message))) {
+          try { sessionStorage.setItem(RELOAD_KEY, '1'); } catch { /* ignore */ }
+          window.location.reload();
+          return new Promise(() => {});
+        }
+        throw error;
+      })
+  );
+}
 
 export const Home = lazy(() => import('./pages/Home'));
 export const AISettings = lazy(() => import('./pages/AISettings'));
@@ -104,7 +127,7 @@ export const ROUTE_MAP = {
   '/pdf': PdfTools,
   '/recorder': Recorder,
   '/exif': ExifViewer,
-  '/api': ApiTester,
+  '/api-tester': ApiTester,
   '/image-base64': Base64Image,
   '/favicon': FaviconGenerator,
   '/keycode': KeycodeViewer,
