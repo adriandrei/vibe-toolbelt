@@ -34,14 +34,15 @@ function Key({ children }) {
 const STORED = [
     { what: 'Theme and accent colour', where: 'Local storage', keys: ['pt-theme', 'pt-hue'] },
     { what: 'Favorite tools', where: 'Local storage', keys: ['vibe-tools-favorites'] },
+    { what: 'Recently used tools (the last 8 you opened)', where: 'Local storage', keys: ['vibe-tools-recents'] },
     { what: 'Sidebar groups you collapsed', where: 'Local storage', keys: ['pt-sidebar-collapsed'] },
     { what: 'The tool pinned in split view', where: 'Local storage', keys: ['pt-pinned-tool'] },
     { what: 'Your AI model choice', where: 'Local storage', keys: ['ai_model'] },
     { what: 'Tool preferences (Formatters options, the code language chosen in the API Tester and cURL Converter)', where: 'Local storage', keys: ['vt-formatters-prefs', 'api-code-target', 'curl-target'] },
     {
-        what: <>API Tester history, collections and environments. <strong style={S.strong}>These can contain tokens, passwords or API keys you entered.</strong></>,
+        what: <>API Tester history, collections and environments. <strong style={S.strong}>Saved requests and environments can contain tokens, passwords or API keys you entered.</strong> History leaves them out unless you turn on “Keep secrets in history”.</>,
         where: 'Local storage',
-        keys: ['api-history', 'api-collections', 'api-envs', 'api-active-env'],
+        keys: ['api-history', 'api-history-secrets', 'api-collections', 'api-envs', 'api-active-env'],
     },
     { what: 'Text passed between tools with the pipeline (cleared when you close the tab)', where: 'Session storage', keys: ['pt-pipeline'] },
     { what: 'A one-time flag used to reload once after an app update', where: 'Session storage', keys: ['pt-chunk-reload'] },

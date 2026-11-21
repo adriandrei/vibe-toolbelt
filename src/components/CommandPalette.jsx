@@ -5,8 +5,10 @@ import { ArrowRight, CornerDownLeft, ScanSearch, Search, Sparkles } from 'lucide
 import { ALL_TOOLS, getTool, searchTools } from '../config/tools'
 import { detectFormats } from '../utils/detect'
 import { openInTool } from '../utils/smartNav'
+import { useRecents } from '../hooks/useRecents'
 
 const MAX_RESULTS = 40
+const MAX_RECENT = 5
 
 export default function CommandPalette({ isOpen, onClose }) {
     return (
@@ -23,6 +25,7 @@ function PaletteDialog({ onClose }) {
     const listRef = useRef(null)
     const navigate = useNavigate()
     const listboxId = useId()
+    const { recents } = useRecents()
 
     // Focus before the browser paints, so the first keystrokes aren't lost
     useLayoutEffect(() => {
@@ -55,10 +58,16 @@ function PaletteDialog({ onClose }) {
         return items
     }, [query])
 
+    // With no query: recently used tools first, then every tool
     const results = useMemo(() => {
-        const matches = query.trim() ? searchTools(query) : ALL_TOOLS
-        return matches.slice(0, MAX_RESULTS).map(tool => ({ kind: 'tool', key: tool.path, tool }))
-    }, [query])
+        if (query.trim()) return searchTools(query).slice(0, MAX_RESULTS).map(tool => ({ kind: 'tool', key: tool.path, tool }))
+        const recentTools = recents.map(getTool).filter(Boolean).slice(0, MAX_RECENT)
+        const recentPaths = new Set(recentTools.map(tool => tool.path))
+        return [
+            ...recentTools.map(tool => ({ kind: 'tool', key: tool.path, tool, recent: true })),
+            ...ALL_TOOLS.filter(tool => !recentPaths.has(tool.path)).map(tool => ({ kind: 'tool', key: tool.path, tool })),
+        ].slice(0, MAX_RESULTS)
+    }, [query, recents])
 
     const items = useMemo(() => [...suggestions, ...results], [suggestions, results])
     const activeIndex = items.length ? Math.min(selectedIndex, items.length - 1) : -1
@@ -212,7 +221,7 @@ function PaletteDialog({ onClose }) {
                                         {sub}
                                     </div>
                                 </div>
-                                {item.kind === 'tool' && <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.tool.category}</span>}
+                                {item.kind === 'tool' && <span style={{ fontSize: '0.7rem', color: item.recent ? 'var(--primary-text)' : 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.recent ? 'Recent' : item.tool.category}</span>}
                                 {active && (item.kind === 'smart' ? <ArrowRight size={16} aria-hidden="true" /> : <CornerDownLeft size={16} aria-hidden="true" style={{ color: 'var(--text-dim)' }} />)}
                             </div>
                         )

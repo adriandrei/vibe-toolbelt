@@ -5,8 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  // Build output, test artefacts and the vendored ffmpeg core
-  globalIgnores(['dist', 'dev-dist', 'playwright-report', 'test-results', 'public/ffmpeg']),
+  // Build output and test artefacts
+  globalIgnores(['dist', 'dev-dist', 'playwright-report', 'test-results']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -16,7 +16,8 @@ export default defineConfig([
     ],
     languageOptions: {
       ecmaVersion: 2022,
-      globals: globals.browser,
+      // __FFMPEG_CORE_VERSION__ is injected by `define` in vite.config.js
+      globals: { ...globals.browser, __FFMPEG_CORE_VERSION__: 'readonly' },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

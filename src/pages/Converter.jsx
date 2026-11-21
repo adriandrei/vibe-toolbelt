@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml'
 import { ArrowLeftRight, Download, FileInput, FileOutput, Play, Sparkles, Trash2 } from 'lucide-react'
 import ToolHeader from '../components/ui/ToolHeader'
@@ -128,16 +128,19 @@ function guessFormat(text) {
 
 // YAML 1.2 core schema (dates stay strings, no surprises like `on`/`yes`)
 // plus merge keys (<<: *defaults).
-const YAML_LOAD_SCHEMA = yaml.CORE_SCHEMA.extend({ implicit: [yaml.types.merge] })
-// BigInts (large TOML integers) are written as plain YAML integers.
-const YAML_DUMP_SCHEMA = yaml.DEFAULT_SCHEMA.extend({
-    implicit: [new yaml.Type('tag:vibe-toolbelt,2024:bigint', {
-        kind: 'scalar',
-        predicate: (v) => typeof v === 'bigint',
-        represent: (v) => v.toString(),
-        resolve: () => false,
-    })],
-})
+const YAML_LOAD_SCHEMA = yaml.CORE_SCHEMA.withTags(yaml.mergeTag)
+// BigInts (large TOML integers) are written as plain YAML integers: the dump
+// schema's int tag, extended to accept them. (A tag of its own would be printed
+// explicitly, as !<tag:...> 123.)
+const DUMP_INT = yaml.DUMP_SCHEMA.tags.find(tag => tag.tagName === 'tag:yaml.org,2002:int')
+const YAML_DUMP_SCHEMA = yaml.DUMP_SCHEMA.withTags(yaml.defineScalarTag(DUMP_INT.tagName, {
+    implicit: DUMP_INT.implicit,
+    implicitFirstChars: DUMP_INT.implicitFirstChars,
+    matchByTagPrefix: DUMP_INT.matchByTagPrefix,
+    resolve: DUMP_INT.resolve,
+    identify: (v) => typeof v === 'bigint' || DUMP_INT.identify(v),
+    represent: (v) => (typeof v === 'bigint' ? v.toString() : DUMP_INT.represent(v)),
+}))
 
 // ----- XML → value
 
@@ -350,6 +353,14 @@ function walk(value, visit, path = []) {
     else if (isRecord(value)) for (const k of Object.keys(value)) walk(value[k], visit, [...path, k])
 }
 
+// Integers above 2^53 keep their exact value (as BigInt) in browsers that give
+// JSON.parse revivers the source text; every writer here handles BigInt.
+function parseJsonExact(text) {
+    return JSON.parse(text, (key, value, context) =>
+        typeof value === 'number' && !Number.isSafeInteger(value) && /^-?\d+$/.test(context?.source ?? '') ? BigInt(context.source) : value
+    )
+}
+
 function toJsonText(value, indent) {
     const notices = []
     let bigints = 0
@@ -394,7 +405,7 @@ function parseSource(text, format, { inferXml }) {
         case 'json': {
             const clean = text.replace(/^\uFEFF/, '')
             try {
-                return { value: JSON.parse(clean) }
+                return { value: parseJsonExact(clean) }
             } catch (e) {
                 const message = String(e.message)
                 const pos = message.match(/at position (\d+)/)
@@ -406,7 +417,7 @@ function parseSource(text, format, { inferXml }) {
         case 'yaml': {
             let docs
             try {
-                docs = yaml.loadAll(text, null, { schema: YAML_LOAD_SCHEMA })
+                docs = yaml.loadAll(text, { schema: YAML_LOAD_SCHEMA })
             } catch (e) {
                 const mark = e.mark
                 throw new ConvertError('Invalid YAML', e.reason ? `${e.reason}${mark ? ` (line ${mark.line + 1}, column ${mark.column + 1})` : ''}` : String(e.message), {

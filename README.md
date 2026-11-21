@@ -47,10 +47,17 @@ npm install
 npm run dev        # http://localhost:5173
 npm run lint
 npm run build
+npm run preview    # serves dist/ with the production security headers
 npm test           # Playwright: smoke, contrast, layout and feature tests
+npm run notices    # regenerate THIRD_PARTY_NOTICES.md after changing dependencies
 ```
 
-- **Stack:** React 18, Vite 7, React Router 7, vite-plugin-pwa.
+- **Stack:** React 19, Vite 8 (Rolldown), React Router 7, vite-plugin-pwa 2. Node 24 in CI.
+- **Service worker:** hand-written in `src/sw.js` (`injectManifest`), because workbox's generated worker breaks the build when the project path contains a quote. It precaches the app shell and caches the ffmpeg core and large tool chunks on first use.
+- **ffmpeg:** the single-threaded core is served at `/ffmpeg/` straight from `node_modules/@ffmpeg/core` (copied into `dist/` at build time), so it always matches the installed version.
+- **Security headers:** the Content-Security-Policy and friends live in `public/staticwebapp.config.json`. `npm run preview` sends the same headers, so check new features there before deploying. Inline scripts aren't allowed: the pre-paint theme script is `public/theme-init.js`.
+- **Link previews:** the build writes `dist/<route>/index.html` for every tool with its own title and description. Set `SITE_URL` (e.g. `SITE_URL=https://example.com npm run build`) to add canonical URLs and an absolute `og:image`.
+- **Monaco** stays on 0.55.x: 0.56 restructured its packaging, and every language feature now bundles its own worker. Its bundled copy of DOMPurify is swapped for the patched version from `package.json` at build time (an alias in `vite.config.js`).
 - **Tool registry:** `src/config/tools.js` is the single list behind the sidebar, palette, Home and page headers. Add a tool there and in `src/routes.js`.
 - **UI kit:** shared tokens, CSS classes, components and hooks are documented in [`docs/ui-kit.md`](docs/ui-kit.md). Use them rather than hardcoding colours or re-implementing copy buttons, drop zones or toggles.
 - **Brand:** the app name lives in `src/config/brand.js`.
@@ -66,4 +73,4 @@ New tools and libraries must work fully client-side and offline. Anything that s
 
 ## License
 
-MIT
+MIT, see [`LICENSE`](LICENSE). Third-party packages and their licences are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Note that `@ffmpeg/core` is GPL-2.0-or-later, `heic-to` (libheif) is LGPL-3.0 and `ua-parser-js` 2.x is AGPL-3.0-or-later.

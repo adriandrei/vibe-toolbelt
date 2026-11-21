@@ -221,7 +221,7 @@ export function analyzeCron(expression, { use24Hour = false, timezone = 'local',
         return { status: 'ok', split, description, warnings, runs: [] }
     }
 
-    let runs = null
+    let runs
     let runsNote
     try {
         const job = new Cron(toCronerPattern(split), { timezone: zone, sloppyRanges: true })

@@ -178,17 +178,17 @@ function describeNumberChanges(list) {
     return list.length > 3 ? `${shown} and ${list.length - 3} more` : shown
 }
 
-function jsonNotices(text) {
+function jsonNotices(text, { numbersKept = false } = {}) {
     const { lossy, rewritten, duplicates, reordered } = inspectJsonText(text)
     const notices = []
-    if (lossy.length) {
+    if (lossy.length && !numbersKept) {
         notices.push({
             tone: 'warning',
             title: `${lossy.length} number${lossy.length > 1 ? 's' : ''} can't be represented exactly`,
             body: `JavaScript numbers are 64-bit floats, so these values change: ${describeNumberChanges(lossy)}. Keep them as strings if precision matters.`,
         })
     }
-    if (rewritten.length) {
+    if (rewritten.length && !numbersKept) {
         notices.push({
             tone: 'info',
             title: `${rewritten.length} number${rewritten.length > 1 ? 's are' : ' is'} written differently`,
@@ -315,17 +315,29 @@ function sqlError(text, error, dialect) {
 
 const EMPTY_RESULT = { output: '', error: null, queryError: null, notices: [] }
 
+// Without a JMESPath query, numbers keep the exact text they were written with
+// (integers above 2^53, 1.0, 1e3) in browsers that have JSON.rawJSON and give
+// JSON.parse revivers the source text. Queries need real numbers to compare.
+const CAN_KEEP_NUMBER_TEXT = typeof JSON.rawJSON === 'function'
+
+function parseJsonKeepingNumbers(text) {
+    return JSON.parse(text, (key, value, context) =>
+        typeof value === 'number' && typeof context?.source === 'string' ? JSON.rawJSON(context.source) : value
+    )
+}
+
 function formatJsonText(source, { action, indent, query }) {
     const text = source.replace(/^\uFEFF/, '')
+    const q = query.trim()
+    const keepNumbers = CAN_KEEP_NUMBER_TEXT && !q
     let data
     try {
-        data = JSON.parse(text)
+        data = keepNumbers ? parseJsonKeepingNumbers(text) : JSON.parse(text)
     } catch (e) {
         return { ...EMPTY_RESULT, error: jsonError(text, e) }
     }
-    const notices = jsonNotices(text)
+    const notices = jsonNotices(text, { numbersKept: keepNumbers })
     let value = data
-    const q = query.trim()
     if (q) {
         try {
             value = jmespath.search(data, q)

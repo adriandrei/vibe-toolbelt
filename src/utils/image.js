@@ -237,22 +237,23 @@ async function decodeSvg(blob) {
 
 /**
  * Decodes a HEIC/HEIF file at full quality (lossless PNG). The decoder
- * (heic2any, ~1.3 MB) is only downloaded the first time it's needed.
+ * (heic-to's libheif build, ~3 MB) is only downloaded the first time it's needed.
+ * The /csp build runs without 'unsafe-eval', which the Content-Security-Policy
+ * in public/staticwebapp.config.json doesn't allow.
  */
 export async function decodeHeic(blob) {
-    let heic2any
+    let heicTo
     try {
-        heic2any = (await import('heic2any')).default
+        ({ heicTo } = await import('heic-to/csp'))
     } catch (err) {
         throw new ImageError('Couldn’t load the HEIC decoder. Check your connection and try again.', { cause: err })
     }
     try {
-        const out = await heic2any({ blob, toType: 'image/png', multiple: false })
-        const png = Array.isArray(out) ? out[0] : out
+        const png = await heicTo({ blob, type: 'image/png' })
         if (!(png instanceof Blob) || !png.size) throw new Error('empty result')
         return png
     } catch (err) {
-        // heic2any rejects with { code, message } objects, not Errors
+        // The decoder may reject with plain strings or { code, message } objects
         const raw = String(err?.message || err || '')
         const detail = raw.replace(/^ERR_[A-Z]+\s*/, '').trim()
         throw new ImageError(`Couldn’t decode this HEIC/HEIF image${detail ? ` (${detail})` : ''}.`, { cause: err })

@@ -49,7 +49,7 @@ function clip(value) {
 function buildMessages(toolContext, history, question) {
     let system = SYSTEM_PROMPT
     if (toolContext?.tool) {
-        let data = {}
+        let data
         try {
             data = toolContext.getContext?.() || {}
         } catch {

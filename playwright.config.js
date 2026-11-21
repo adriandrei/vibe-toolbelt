@@ -3,9 +3,11 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
     testDir: './tests',
     fullyParallel: true,
-    retries: 0,
-    workers: 1, // Keep it simple for local dev
-    reporter: 'html',
+    // CI gates the deploy on this suite, so one retry keeps a single flaky run from
+    // blocking it. Tests are independent; four workers run the suite in ~4 minutes.
+    retries: process.env.CI ? 1 : 0,
+    workers: process.env.CI ? 2 : 4,
+    reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'html',
     timeout: 30000, // 30 second timeout for all tests
     use: {
         baseURL: 'http://localhost:5173',

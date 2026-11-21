@@ -110,7 +110,7 @@ function jsonToCsv(text, { delimiter }) {
     try {
         data = JSON.parse(text.replace(/^\uFEFF/, ''))
     } catch (e) {
-        throw new Error(`Invalid JSON: ${e.message}`)
+        throw new Error(`Invalid JSON: ${e.message}`, { cause: e })
     }
     const notices = []
     if (isRecord(data)) {

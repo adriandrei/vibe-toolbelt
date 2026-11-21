@@ -496,16 +496,18 @@ async function fetchToObjectURL(url, type, onProgress) {
 }
 
 /**
- * Loads the self-hosted single-threaded ffmpeg core into an FFmpeg instance.
+ * Loads the self-hosted single-threaded ffmpeg core (served at /ffmpeg/ from
+ * node_modules/@ffmpeg/core, see vite.config.js) into an FFmpeg instance.
+ * The ?v= query makes the service worker cache each core version separately.
  * The core is fetched into temporary blob URLs that are released as soon as
  * the worker has compiled it. onProgress(fraction | null) reports the download.
  */
 export async function loadFFmpegCore(ffmpeg, onProgress) {
     const base = `${window.location.origin}${import.meta.env.BASE_URL || '/'}ffmpeg/`
-    const coreURL = await fetchToObjectURL(`${base}ffmpeg-core.js`, 'text/javascript')
+    const coreURL = await fetchToObjectURL(`${base}ffmpeg-core.js?v=${__FFMPEG_CORE_VERSION__}`, 'text/javascript')
     let wasmURL = null
     try {
-        wasmURL = await fetchToObjectURL(`${base}ffmpeg-core.wasm`, 'application/wasm', onProgress)
+        wasmURL = await fetchToObjectURL(`${base}ffmpeg-core.wasm?v=${__FFMPEG_CORE_VERSION__}`, 'application/wasm', onProgress)
         // workerURL: the single-threaded core never starts a pthread worker,
         // but ffmpeg.wasm would otherwise try to resolve one next to the core.
         await ffmpeg.load({ coreURL, wasmURL, workerURL: coreURL })

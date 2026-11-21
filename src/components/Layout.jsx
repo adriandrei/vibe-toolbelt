@@ -13,7 +13,8 @@ import PipelineIndicator from './PipelineIndicator'
 import { usePipeline } from '../contexts/PipelineContext'
 import { PaneContext } from '../contexts/pane'
 import { ROUTE_MAP } from '../routes'
-import { getTool } from '../config/tools'
+import { SETTINGS_TOOL, getTool } from '../config/tools'
+import { useRecents } from '../hooks/useRecents'
 import { BRAND } from '../config/brand'
 import { OPEN_PALETTE_EVENT, isMacPlatform as isMac } from '../utils/palette'
 
@@ -63,6 +64,27 @@ export default function Layout() {
     const { pinnedToolRoute, setPinnedToolRoute } = usePipeline()
 
     const isSidebarOpen = isDesktop || mobileSidebarOpen
+
+    // Remember the tools you open, for "Recently used" on Home and in the palette
+    const { recordVisit } = useRecents()
+    useEffect(() => {
+        const tool = getTool(location.pathname)
+        if (tool && tool.path !== '/' && tool.path !== SETTINGS_TOOL.path) recordVisit(tool.path)
+    }, [location.pathname, recordVisit])
+
+    // A file dropped outside a drop zone would open in the tab and throw away the
+    // user's work, on any page (FileDropZone only guards pages that have one).
+    useEffect(() => {
+        const keepFilesOut = (event) => {
+            if (event.dataTransfer && Array.from(event.dataTransfer.types || []).includes('Files')) event.preventDefault()
+        }
+        window.addEventListener('dragover', keepFilesOut)
+        window.addEventListener('drop', keepFilesOut)
+        return () => {
+            window.removeEventListener('dragover', keepFilesOut)
+            window.removeEventListener('drop', keepFilesOut)
+        }
+    }, [])
 
     // Unsaved-work guards (see useLeaveGuard): one router blocker for the app
     const mainBusy = useRef(null)

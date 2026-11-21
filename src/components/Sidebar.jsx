@@ -178,7 +178,7 @@ export default function Sidebar({ isOpen, isDesktop, onClose, onOpenSearch }) {
                 className="sidebar-fixed"
                 aria-label="Tools"
                 // Off-screen on small screens: keep it out of the tab order
-                inert={!isOpen ? '' : undefined}
+                inert={!isOpen}
                 onKeyDown={(e) => {
                     if (e.key === 'Escape' && !isDesktop) onClose()
                 }}

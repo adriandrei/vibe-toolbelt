@@ -1,11 +1,12 @@
 // Message digests and HMAC over bytes, used by src/workers/crypto.worker.js.
 //
 // SHA-1/SHA-2 use WebCrypto when it's available (it isn't on plain-http
-// origins, where crypto-js takes over). MD5 uses crypto-js; SHA-3 and Keccak
-// use ./sha3.js (crypto-js's "SHA3" is pre-standard Keccak). HMAC is the
+// origins, where @noble/hashes takes over). MD5 uses @noble/hashes; SHA-3 and
+// Keccak use ./sha3.js. HMAC is the
 // generic RFC 2104 construction, so it works for every algorithm here and
 // with an empty key.
-import CryptoJS from 'crypto-js'
+import { md5, sha1 } from '@noble/hashes/legacy.js'
+import { sha256, sha384, sha512 } from '@noble/hashes/sha2.js'
 import { createKeccak } from './sha3.js'
 import { concatBytes } from './encoding.js'
 
@@ -24,29 +25,23 @@ export const BLOCK_SIZES = {
 export const ALGORITHMS = Object.keys(BLOCK_SIZES)
 
 const WEBCRYPTO = new Set(['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'])
-const CRYPTOJS_ALGO = { MD5: 'MD5', 'SHA-1': 'SHA1', 'SHA-256': 'SHA256', 'SHA-384': 'SHA384', 'SHA-512': 'SHA512' }
+const NOBLE = { MD5: md5, 'SHA-1': sha1, 'SHA-256': sha256, 'SHA-384': sha384, 'SHA-512': sha512 }
 const CHUNK = 1 << 20
-
-function wordArrayToBytes({ words, sigBytes }) {
-    const out = new Uint8Array(sigBytes)
-    for (let i = 0; i < sigBytes; i++) out[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff
-    return out
-}
 
 // Incremental hasher with update(bytes) / digest() for the JS implementations.
 function createJsHasher(algorithm) {
     if (algorithm.startsWith('SHA3-')) return createKeccak({ bits: Number(algorithm.slice(5)) })
     if (algorithm === 'Keccak-256') return createKeccak({ bits: 256, padding: 'keccak' })
-    const name = CRYPTOJS_ALGO[algorithm]
-    if (!name) throw new Error(`Unsupported algorithm: ${algorithm}`)
-    const hasher = CryptoJS.algo[name].create()
+    const hash = NOBLE[algorithm]
+    if (!hash) throw new Error(`Unsupported algorithm: ${algorithm}`)
+    const hasher = hash.create()
     return {
         update(bytes) {
-            hasher.update(CryptoJS.lib.WordArray.create(bytes))
+            hasher.update(bytes)
             return this
         },
         digest() {
-            return wordArrayToBytes(hasher.finalize())
+            return hasher.digest()
         },
     }
 }

@@ -435,6 +435,7 @@ export default function VideoTools() {
         const media = takeMedia('/video')
         if (!media?.file) return
         const incoming = { file: media.file, fromRecorder: media.source === '/recorder' }
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- the media is taken (once) from the external pipeline store
         if (source?.fromRecorder && !source.saved) setPendingMedia(incoming)
         else loadSource(incoming.file, { fromRecorder: incoming.fromRecorder })
     }, [pane.kind, hasMedia, takeMedia, loadSource, source])

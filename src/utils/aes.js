@@ -9,7 +9,7 @@
 // Legacy format: OpenSSL "Salted__" (as produced by CryptoJS.AES.encrypt and
 // `openssl enc -aes-256-cbc -md md5 -a`): AES-256-CBC + PKCS#7, key and IV
 // from EVP_BytesToKey with one MD5 pass. It has no integrity check.
-import CryptoJS from 'crypto-js'
+import { md5 } from '@noble/hashes/legacy.js'
 import { base64ToBytes, bytesToBase64, concatBytes, utf8Decode, utf8Encode } from './encoding.js'
 
 export const GCM_ITERATIONS = 600_000
@@ -109,12 +109,6 @@ export async function decryptGcm(bytes, passphrase, iterations) {
 }
 
 // ---- legacy OpenSSL / CryptoJS ----
-function md5(bytes) {
-    const { words, sigBytes } = CryptoJS.MD5(CryptoJS.lib.WordArray.create(bytes))
-    const out = new Uint8Array(sigBytes)
-    for (let i = 0; i < sigBytes; i++) out[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff
-    return out
-}
 
 // EVP_BytesToKey with one iteration: 32-byte key + 16-byte IV
 async function evpBytesToKey(password, salt, digest) {

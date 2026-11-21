@@ -124,7 +124,7 @@ function headerIndex(headers, name) {
 // A value in double quotes may contain ; (with \" and \\ escapes), as in curl.
 function splitFormSpec(content) {
     let value = ''
-    let i = 0
+    let i
     if (content.startsWith('"')) {
         i = 1
         while (i < content.length && content[i] !== '"') {

@@ -14,6 +14,7 @@ import StatusBanner from '../components/ui/StatusBanner'
 import { useToast } from '../components/ToastProvider'
 import { usePane } from '../contexts/pane'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import { redactRequest } from '../utils/redact'
 import { useObjectURL } from '../hooks/useObjectURL'
 import { useSmartInput } from '../hooks/useSmartInput'
 import { parseCurl } from '../utils/curlParser'
@@ -1030,6 +1031,8 @@ export default function ApiTester() {
     const passId = useId()
 
     const [history, setHistory] = useLocalStorage('api-history', [])
+    // Off by default: history leaves out tokens, passwords and API keys
+    const [historySecrets, setHistorySecrets] = useLocalStorage('api-history-secrets', false)
     const [collections, setCollections] = useLocalStorage('api-collections', [])
     const [storedEnvs, setEnvs] = useLocalStorage('api-envs', DEFAULT_ENVS)
     const [activeEnvId, setActiveEnvId] = useLocalStorage('api-active-env', 'default')
@@ -1137,8 +1140,10 @@ export default function ApiTester() {
 
     // ------------------------------------------------- history/saved ---
     const addHistory = (stored, status, time) => {
-        const entry = { id: `h-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, at: Date.now(), status, time: Math.round(time), request: stored }
-        if (stored.body.length > HISTORY_BODY_LIMIT) entry.request = { ...stored, body: '', bodyOmitted: true }
+        const { request, redacted } = historySecrets === true ? { request: stored, redacted: false } : redactRequest(stored)
+        const entry = { id: `h-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, at: Date.now(), status, time: Math.round(time), request }
+        if (redacted) entry.redacted = true
+        if (request.body.length > HISTORY_BODY_LIMIT) entry.request = { ...request, body: '', bodyOmitted: true }
         const sig = signature(entry.request)
         setHistory(prev => [entry, ...(Array.isArray(prev) ? prev : []).filter(h => !isObject(h) || !isObject(h.request) || signature(h.request) !== sig)].slice(0, HISTORY_LIMIT))
     }
@@ -1147,6 +1152,7 @@ export default function ApiTester() {
         if (isObject(entry.request)) {
             replaceRequest(hydrate(entry.request), name)
             if (entry.request.bodyOmitted) toast.warning('The body of this request was too large to keep in history, so it was left empty.')
+            else if (entry.redacted) toast.info('Tokens, passwords and keys aren’t kept in history. Fill them in again before sending.', 6000)
         } else if (typeof entry.url === 'string') {
             // Entries saved by older versions: a saved request with top-level
             // fields, or a history item with only the method and URL
@@ -1643,6 +1649,12 @@ export default function ApiTester() {
                             { value: 'saved', label: `Saved (${savedList.length})`, icon: FolderOpen },
                         ]}
                     />
+                    {dock === 'history' && (
+                        <label className="field-hint" style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={historySecrets === true} onChange={e => setHistorySecrets(e.target.checked)} />
+                            Keep secrets in history
+                        </label>
+                    )}
                     {dock === 'history' && historyList.length > 0 && (
                         <button
                             type="button"
@@ -1656,7 +1668,7 @@ export default function ApiTester() {
                 </div>
 
                 {dock === 'history' && (historyList.length === 0 ? (
-                    <p className="field-hint" style={{ marginTop: 0 }}>Requests you send appear here, newest first (up to {HISTORY_LIMIT}).</p>
+                    <p className="field-hint" style={{ marginTop: 0 }}>Requests you send appear here, newest first (up to {HISTORY_LIMIT}). Tokens, passwords and API keys are left out unless you tick “Keep secrets in history”.</p>
                 ) : (
                     <ul className="auto-grid" style={{ '--auto-grid-min': '260px', listStyle: 'none', gap: 'var(--space-xs)', maxHeight: 280, overflowY: 'auto' }}>
                         {historyList.map((entry, i) => {

@@ -1,15 +1,25 @@
 import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion as Motion } from 'framer-motion'
-import { ArrowRight, Github, Search, ShieldCheck, Sparkles, Star, WifiOff, Zap } from 'lucide-react'
+import { ArrowRight, History, Search, ShieldCheck, Sparkles, Star, WifiOff, Zap } from 'lucide-react'
 import SEO from '../components/SEO'
 import PageHeader from '../components/ui/PageHeader'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFavorites } from '../hooks/useFavorites'
+import { useRecents } from '../hooks/useRecents'
 import { BRAND } from '../config/brand'
 import { SETTINGS_TOOL, TOOL_CATEGORIES, TOOL_COUNT, getTool } from '../config/tools'
 import { MODELS } from '../services/ai/webllmService'
 import { isMacPlatform, openCommandPalette } from '../utils/palette'
+
+// lucide-react 1.x no longer ships brand icons, so the GitHub mark is inlined.
+function GithubIcon({ size = 16 }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.39-5.27 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z" />
+        </svg>
+    )
+}
 
 const YEAR = new Date().getFullYear()
 const SHORTCUT = isMacPlatform ? '⌘K' : 'Ctrl K'
@@ -179,6 +189,8 @@ export default function Home() {
     useDocumentTitle(null)
     const { favorites } = useFavorites()
     const favoriteTools = favorites.map(getTool).filter(tool => tool && tool.path !== '/')
+    const { recents } = useRecents()
+    const recentTools = recents.map(getTool).filter(tool => tool && tool.path !== '/').slice(0, 4)
     const headings = useRef({})
 
     const jumpTo = (id) => {
@@ -216,6 +228,15 @@ export default function Home() {
                         <span className="home-count">{favoriteTools.length}</span>
                     </h2>
                     <ToolGrid tools={favoriteTools} />
+                </section>
+            )}
+
+            {recentTools.length > 0 && (
+                <section aria-labelledby="home-recents">
+                    <h2 id="home-recents" className="home-section-title">
+                        <History size={18} aria-hidden="true" /> Recently used
+                    </h2>
+                    <ToolGrid tools={recentTools} />
                 </section>
             )}
 
@@ -290,7 +311,7 @@ export default function Home() {
                 </div>
                 <div className="home-cta-actions">
                     <a className="btn btn-primary" href={BRAND.repoUrl} target="_blank" rel="noopener noreferrer">
-                        <Github size={16} aria-hidden="true" /> Star on GitHub<NewTabNote />
+                        <GithubIcon size={16} /> Star on GitHub<NewTabNote />
                     </a>
                     <a className="btn btn-secondary" href={`${BRAND.repoUrl}/issues`} target="_blank" rel="noopener noreferrer">
                         Report a bug or idea<NewTabNote />
