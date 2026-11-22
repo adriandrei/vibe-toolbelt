@@ -14,9 +14,16 @@ const NOTES = {
     '@mlc-ai/web-llm': 'Apache-2.0. The AI model weights are not part of the app: they are downloaded at runtime, only when you load a model, under their own licences (Phi-3.5 mini: MIT; Qwen2.5: Apache-2.0).',
     exifreader: 'MPL-2.0. Used unmodified; source code: https://github.com/mattiasw/ExifReader',
     jszip: 'Dual-licensed MIT or GPL-3.0-or-later; used under the MIT licence.',
+    '@wordlist/english-eff': 'The package is MIT; the word list it contains is the Electronic Frontier Foundation\'s long word list for passphrases, licensed CC BY 3.0 US (https://www.eff.org/dice). Used by the Password Generator.',
+    prettier: 'MIT. Only the standalone build and the language plugins are used, loaded on demand by the Code Formatters page. The plugins bundle third-party code (Babel, TypeScript under Apache-2.0, PostCSS and others), listed in `node_modules/prettier/THIRD-PARTY-NOTICES.md`.',
     '@fontsource-variable/inter': 'The Inter font files are licensed under the SIL Open Font License 1.1.',
     '@fontsource-variable/jetbrains-mono': 'The JetBrains Mono font files are licensed under the SIL Open Font License 1.1.',
 }
+
+// Material shipped in the app that doesn't come from an npm dependency
+const OTHER_MATERIAL = [
+    '`src/utils/recipes/htmlEntities.js`: the named character references of the WHATWG HTML Standard (© WHATWG, CC BY 4.0), generated from character-entities and character-entities-legacy (MIT, © Titus Wormer). Used by the Recipes HTML entity steps.',
+]
 
 const licenseOf = (meta) => {
     if (typeof meta.license === 'string') return meta.license
@@ -31,6 +38,7 @@ const sourceOf = (meta) => {
         .replace(/^git\+/, '')
         .replace(/^git:\/\//, 'https://')
         .replace(/^github:/, 'https://github.com/')
+        .replace(/^([\w.-]+\/[\w.-]+)$/, 'https://github.com/$1') // "owner/repo" shorthand
         .replace(/\.git$/, '')
 }
 
@@ -52,6 +60,10 @@ const lines = [
     '## Notes',
     '',
     ...rows.filter(r => NOTES[r.name]).map(r => `- **${r.name}**: ${NOTES[r.name]}`),
+    '',
+    '## Other material',
+    '',
+    ...OTHER_MATERIAL.map(line => `- ${line}`),
     '',
 ]
 

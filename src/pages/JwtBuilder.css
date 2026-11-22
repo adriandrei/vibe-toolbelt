@@ -1,0 +1,166 @@
+/* JWT Builder & Signer (src/pages/JwtBuilder.jsx) */
+
+/* The mono font draws sequences such as ==, //, ++ and -> as ligatures;
+   keys and tokens must show every character as itself. */
+.jwtb-mono {
+    font-variant-ligatures: none;
+    font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
+.jwtb-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.jwtb-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+}
+
+.jwtb-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+/* Signed token: header.payload.signature, coloured per part */
+.jwtb-token {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    transition: none;
+}
+
+/* Waiting for a new signature: dim the previous token only if it takes a moment */
+.jwtb-token.is-pending {
+    opacity: 0.4;
+    transition: opacity 0.15s ease 0.15s;
+}
+
+.jwtb-part-header { color: var(--danger); }
+.jwtb-part-payload { color: var(--accent-text); }
+.jwtb-part-signature { color: var(--info); }
+.jwtb-dot { color: var(--text-muted); }
+
+.jwtb-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-md);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.jwtb-legend span::before {
+    content: '';
+    display: inline-block;
+    width: 0.6em;
+    height: 0.6em;
+    margin-right: 0.4em;
+    border-radius: 2px;
+    background: currentColor;
+}
+
+.jwtb-legend .jwtb-legend-length::before {
+    display: none;
+}
+
+.jwtb-placeholder {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.jwtb-placeholder > svg {
+    flex-shrink: 0;
+    margin-top: 0.15em;
+}
+
+.jwtb-placeholder ul {
+    margin: var(--space-xs) 0 0;
+    padding-left: 1.1rem;
+}
+
+/* Claim helpers */
+.jwtb-claims {
+    display: grid;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border);
+}
+
+.jwtb-claim-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.jwtb-claim-row .field-label {
+    margin: 0 var(--space-xs) 0 0;
+}
+
+.jwtb-custom-exp {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.jwtb-custom-exp input {
+    width: 4.5rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.jwtb-custom-exp select {
+    width: auto;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.jwtb-dates {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+}
+
+.jwtb-dates li {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+    gap: var(--space-sm);
+    align-items: center;
+    padding: 0.35rem 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+
+.jwtb-claim-name {
+    color: var(--primary-text);
+    font-weight: 600;
+}
+
+.jwtb-date-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.jwtb-key-block {
+    margin: 0;
+    max-height: 260px;
+    font-size: 0.75rem;
+    word-break: break-all;
+}

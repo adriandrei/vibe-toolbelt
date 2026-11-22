@@ -8,6 +8,7 @@ import Field from '../components/ui/Field'
 import { useToast } from '../components/ToastProvider'
 import { useObjectURL } from '../hooks/useObjectURL'
 import { useLeaveGuard } from '../hooks/useLeaveGuard'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
 import { downloadBlob, formatBytes, splitFilename } from '../utils/download'
 
 const MODES = [
@@ -242,6 +243,16 @@ export default function PdfTools() {
         setError(null)
         inspect(entry, updateSingle)
     }
+
+    // PDFs handed over by Smart Drop or "Open with": several go to Merge
+    useIncomingFiles('/pdf', (list) => {
+        if (list.length > 1 || mode === 'merge') {
+            setMode('merge')
+            addFiles(list)
+        } else {
+            pickSingle(list)
+        }
+    })
 
     const parsed = single?.status === 'ready' ? parsePageSelection(selection, single.pages) : null
     const canExtract = !!parsed?.pages && !busy

@@ -11,6 +11,7 @@ import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 import { useToast } from '../components/ToastProvider'
 import { usePane } from '../contexts/pane'
 import { useSmartInput } from '../hooks/useSmartInput'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useObjectURL } from '../hooks/useObjectURL'
 import { downloadBlob, formatBytes, splitFilename } from '../utils/download'
@@ -105,7 +106,7 @@ function DataPreview({ value }) {
     )
 }
 
-function EncodePanel({ active }) {
+function EncodePanel({ active, onIncoming }) {
     const toast = useToast()
     const { size } = usePane()
     const [file, setFile] = useState(null)
@@ -155,6 +156,12 @@ function EncodePanel({ active }) {
         }
         reader.readAsDataURL(next)
     }
+
+    // An image handed over by Smart Drop or "Open with"
+    useIncomingFiles('/image-base64', ([next]) => {
+        onIncoming?.()
+        handleFile(next)
+    })
 
     const clear = () => {
         readerRef.current?.abort()
@@ -361,7 +368,7 @@ export default function Base64Image() {
                 )}
             />
             {/* Both panels stay mounted so switching modes keeps their state */}
-            <div hidden={mode !== 'encode'}><EncodePanel active={mode === 'encode'} /></div>
+            <div hidden={mode !== 'encode'}><EncodePanel active={mode === 'encode'} onIncoming={() => setMode('encode')} /></div>
             <div hidden={mode !== 'decode'}><DecodePanel text={decodeText} setText={setDecodeText} /></div>
         </div>
     )

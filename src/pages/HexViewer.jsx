@@ -7,6 +7,8 @@ import EmptyState from '../components/ui/EmptyState'
 import CopyButton from '../components/ui/CopyButton'
 import { PipelineRead } from '../components/PipelineFeature'
 import { useSmartInput } from '../hooks/useSmartInput'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
+import { parseHexText } from '../utils/hexdump'
 import { usePane } from '../contexts/pane'
 import { formatBytes } from '../utils/download'
 import { sniffFileType } from '../utils/base64'
@@ -19,11 +21,11 @@ const printable = (b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : '.')
 
 // Text from the pipeline or smart input: hex digits become bytes, anything else is UTF-8
 function textToFile(text) {
-    const compact = text.replace(/0x/gi, '').replace(/[\s:,-]/g, '')
-    if (compact.length >= 2 && compact.length % 2 === 0 && /^[0-9a-f]+$/i.test(compact) && /[\s:,-]|^[0-9a-f]+$/i.test(text.trim())) {
-        const bytes = new Uint8Array(compact.length / 2)
-        for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(compact.slice(i * 2, i * 2 + 2), 16)
-        return { file: new File([bytes], 'hex-input.bin', { type: 'application/octet-stream' }), note: 'Hex text converted to bytes' }
+    // Hex dumps (xxd, hexdump -C) and hex bytes become the bytes they describe
+    const hex = parseHexText(text)
+    if (hex) {
+        const note = hex.format === 'xxd' || hex.format === 'hexdump' ? 'Hex dump converted back to bytes' : 'Hex text converted to bytes'
+        return { file: new File([hex.bytes], 'hex-input.bin', { type: 'application/octet-stream' }), note }
     }
     return { file: new File([text], 'text-input.txt', { type: 'text/plain' }), note: 'Text shown as UTF-8 bytes' }
 }
@@ -117,6 +119,9 @@ export default function HexViewer() {
     }
 
     const close = () => open(null)
+
+    // A file handed over by Smart Drop or "Open with"
+    useIncomingFiles('/hex', ([next]) => open(next))
 
     const loadText = (text) => {
         if (typeof text !== 'string' || !text) return

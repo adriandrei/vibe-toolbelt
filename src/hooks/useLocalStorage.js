@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 
-const SYNC_EVENT = 'pt-local-storage'
+// Same-tab writes are announced with this event (the browser's `storage`
+// event only reaches other tabs). Exported for code that writes storage directly.
+export const SYNC_EVENT = 'pt-local-storage'
 
 function read(key, initialValue) {
     try {

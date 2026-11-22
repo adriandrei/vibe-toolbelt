@@ -64,7 +64,7 @@ test.describe('Text Tools', () => {
         await page.goto('/formatters');
 
         // Switch to SQL mode
-        await page.getByRole('button', { name: 'SQL', exact: true }).click();
+        await page.getByRole('region', { name: 'Formatting options' }).getByLabel('Language').selectOption('sql');
 
         const messySQL = 'select * from users where id=1';
         await page.waitForSelector('.monaco-editor');
@@ -89,12 +89,12 @@ test.describe('Text Tools', () => {
         await expect(options.getByRole('option', { name: 'PostgreSQL' })).toHaveCount(0);
 
         // SQL: JMESPath filter is hidden, the dialect choice appears
-        await page.getByRole('button', { name: 'SQL', exact: true }).click();
+        await options.getByLabel('Language').selectOption('sql');
         await expect(page.getByPlaceholder(/JMESPath Filter/i)).not.toBeVisible();
         await expect(options.getByRole('option', { name: 'PostgreSQL' })).toHaveCount(1);
 
         // Back to JSON
-        await page.getByRole('button', { name: 'JSON', exact: true }).click();
+        await options.getByLabel('Language').selectOption('json');
         await expect(page.getByPlaceholder(/JMESPath Filter/i)).toBeVisible();
         await expect(options.getByRole('option', { name: 'PostgreSQL' })).toHaveCount(0);
     });

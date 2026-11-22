@@ -51,6 +51,8 @@ const PREVIEW_COMPONENTS = {
         )
     },
     img: ({ node: _node, alt, ...props }) => <img alt={alt ?? ''} {...props} referrerPolicy="no-referrer" loading="lazy" />,
+    // Task list checkboxes ("- [x] item") are read-only; give them a name
+    input: ({ node: _node, ...props }) => (props.type === 'checkbox' ? <input {...props} aria-label={props.checked ? 'Done' : 'To do'} /> : <input {...props} />),
     table: ({ node: _node, ...props }) => (
         <div className="md-table-wrap">
             <table {...props} />

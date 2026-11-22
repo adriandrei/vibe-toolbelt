@@ -132,14 +132,18 @@ function applyDerivedTokens(theme, hue) {
     const dark = theme === 'dark'
     const button = accentButtonColors(dark ? 'dark' : 'light', hue, primary)
     const onPrimary = button.text
+    const { s: sat, l: baseL, hoverDelta } = PRIMARY_FILL[dark ? 'dark' : 'light']
     if (button.fill) {
-        const { s: sat, hoverDelta } = PRIMARY_FILL[dark ? 'dark' : 'light']
         root.style.setProperty('--primary', `hsl(${hue}, ${sat}%, ${button.fillL}%)`)
-        root.style.setProperty('--primary-hover', `hsl(${hue}, ${sat}%, ${button.fillL + hoverDelta}%)`)
         primary.r = button.fill.r
         primary.g = button.fill.g
         primary.b = button.fill.b
     }
+    // Hover moves the fill away from the text colour (darker under white text,
+    // lighter under dark text), so a hovered button never loses contrast
+    const textIsLight = onPrimary.r + onPrimary.g + onPrimary.b > 382
+    const hoverL = (button.fill ? button.fillL : baseL) + (textIsLight ? -1 : 1) * Math.abs(hoverDelta)
+    root.style.setProperty('--primary-hover', `hsl(${hue}, ${sat}%, ${hoverL}%)`)
 
     // Accent text must also be readable on the accent "glow" tint over panels
     const glowOver = (bg, a) => ({ r: primary.r * a + bg.r * (1 - a), g: primary.g * a + bg.g * (1 - a), b: primary.b * a + bg.b * (1 - a) })

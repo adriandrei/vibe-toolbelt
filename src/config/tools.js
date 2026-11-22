@@ -13,6 +13,7 @@ import {
     FileStack, Shapes, Layers, Aperture, ScanEye,
     Droplets, Palette, Triangle, SquareStack, Pipette, Eye, Camera,
     Wand2, Settings, Sparkles, Wrench, FileImage, Lightbulb,
+    Workflow, ListChecks, Stamp, FileBadge, Dices, Activity, Earth, Contrast,
 } from 'lucide-react'
 
 export const TOOL_CATEGORIES = [
@@ -23,7 +24,8 @@ export const TOOL_CATEGORIES = [
         items: [
             { path: '/', label: 'Home', title: 'Home', icon: Home, description: 'Every tool in one place.', keywords: 'start overview all tools' },
             { path: '/inspect', label: 'Inspector', title: 'Universal Inspector', icon: ScanSearch, description: 'Paste anything to detect its format, decode it and get stats.', keywords: 'detect analyze identify entropy auto' },
-            { path: '/api-tester', label: 'API Tester', title: 'API Tester', icon: Zap, description: 'Send HTTP requests with headers, auth, environments and history.', keywords: 'rest http request postman fetch client' },
+            { path: '/recipes', label: 'Recipes', title: 'Recipes', icon: Workflow, description: 'Chain decode, encode, hash and format steps into reusable recipes.', keywords: 'chain pipeline cyberchef steps operations decode encode gunzip transform bake' },
+            { path: '/api-tester', label: 'API Tester', title: 'API Tester', icon: Zap, description: 'Send HTTP requests and test WebSocket and server-sent event streams, with environments and history.', keywords: 'rest http request postman fetch client websocket ws wss sse server-sent events eventsource stream realtime' },
             { path: '/recorder', label: 'Screen Recorder', title: 'Screen Recorder', icon: ScreenShare, description: 'Record your screen, a window or a tab, with mic and webcam.', keywords: 'capture video webm gif record' },
             { path: '/video', label: 'Video Studio', title: 'Video Studio', icon: Film, description: 'Trim, crop, speed up and convert videos with ffmpeg.', keywords: 'ffmpeg mp4 gif mp3 edit trim crop' },
             { path: '/image', label: 'Image Converter', title: 'Image Converter', icon: Images, description: 'Convert, resize, rotate and crop images in bulk.', keywords: 'png jpeg webp avif heic ico pdf resize compress' },
@@ -34,10 +36,11 @@ export const TOOL_CATEGORIES = [
         name: 'Data & Formats',
         icon: Braces,
         items: [
-            { path: '/formatters', label: 'Formatters', title: 'Code Formatters', icon: Braces, description: 'Prettify, minify and query JSON, SQL and XML.', keywords: 'json sql xml beautify prettify minify jmespath lint' },
+            { path: '/formatters', label: 'Formatters', title: 'Code Formatters', icon: Braces, description: 'Format JSON, YAML, XML, HTML, CSS, JavaScript, TypeScript, SQL, GraphQL and Markdown.', keywords: 'json sql xml beautify prettify minify jmespath lint yaml html css scss less javascript typescript jsx tsx graphql markdown prettier' },
             { path: '/converter', label: 'Data Converter', title: 'Data Converter', icon: ArrowRightLeft, description: 'Convert between JSON, YAML, TOML and XML.', keywords: 'yaml toml xml json convert' },
             { path: '/csv-json', label: 'CSV ↔ JSON', title: 'CSV ↔ JSON', icon: Sheet, description: 'Convert CSV to JSON and back.', keywords: 'csv tsv spreadsheet table excel' },
             { path: '/type-converter', label: 'JSON to Types', title: 'JSON to Types', icon: FileType, description: 'Generate TypeScript, Go structs or JSON Schema from JSON.', keywords: 'typescript interface go struct schema types' },
+            { path: '/json-schema', label: 'JSON Schema', title: 'JSON Schema Validator', icon: ListChecks, description: 'Validate JSON against a JSON Schema and see every error.', keywords: 'schema validate validation draft 2020-12 draft-07 draft-04 ajv' },
             { path: '/markdown', label: 'Markdown', title: 'Markdown Editor', icon: FileText, description: 'Write Markdown with a live GitHub-flavored preview.', keywords: 'md preview gfm readme' },
             { path: '/hex', label: 'Hex Viewer', title: 'Hex Viewer', icon: Binary, description: 'Inspect any file byte by byte.', keywords: 'binary bytes dump file' },
         ],
@@ -60,12 +63,15 @@ export const TOOL_CATEGORIES = [
         icon: ShieldCheck,
         items: [
             { path: '/jwt', label: 'JWT Decoder', title: 'JWT Decoder & Verifier', icon: KeyRound, description: 'Decode JSON Web Tokens and verify their signatures.', keywords: 'jwt token jose bearer jws verify' },
+            { path: '/jwt-builder', label: 'JWT Builder', title: 'JWT Builder & Signer', icon: Stamp, description: 'Create and sign JSON Web Tokens with HMAC, RSA, ECDSA or EdDSA keys.', keywords: 'jwt sign create encode token jose jws hs256 rs256 es256 eddsa test' },
             { path: '/hash', label: 'Hash Generator', title: 'Hash Generator', icon: Hash, description: 'MD5, SHA-1, SHA-2 and SHA-3 digests of text or files.', keywords: 'md5 sha sha256 sha3 keccak checksum digest file' },
             { path: '/hmac', label: 'HMAC Generator', title: 'HMAC Generator', icon: Fingerprint, description: 'Keyed message signatures for webhooks and APIs.', keywords: 'hmac signature webhook sha256' },
             { path: '/bcrypt', label: 'Bcrypt', title: 'Bcrypt Hash & Verify', icon: ShieldCheck, description: 'Hash passwords with bcrypt and check them against a hash.', keywords: 'password hash salt verify' },
             { path: '/aes', label: 'AES Encryption', title: 'AES Encrypt / Decrypt', icon: Lock, description: 'Encrypt and decrypt text with a passphrase, using AES-256-GCM by default.', keywords: 'aes gcm encrypt decrypt openssl cryptojs cipher pbkdf2' },
             { path: '/rsa', label: 'RSA Keys', title: 'RSA Key Generator', icon: FileLock2, description: 'Generate RSA key pairs in your browser with WebCrypto, as PEM or JWK.', keywords: 'rsa pem jwk keypair public private pkcs8 pkcs1' },
+            { path: '/certificate', label: 'Certificates', title: 'Certificate & Key Inspector', icon: FileBadge, description: 'Decode PEM and DER certificates, CSRs and public keys.', keywords: 'x509 x.509 pem der crt cer csr ssl tls san fingerprint chain public key asn1 p7b pkcs7 pkcs8 jwk spki pin private key' },
             { path: '/otp', label: 'TOTP', title: 'TOTP Generator', icon: Timer, description: 'Two-factor codes and QR setup for authenticator apps.', keywords: 'otp 2fa authenticator totp mfa' },
+            { path: '/password-generator', label: 'Password Generator', title: 'Password Generator', icon: Dices, description: 'Random passwords and diceware passphrases, made on your device.', keywords: 'random secure generate passphrase diceware eff pin strong' },
             { path: '/password', label: 'Password Audit', title: 'Password Strength Audit', icon: Gauge, description: 'Check how hard a password is to crack.', keywords: 'zxcvbn strength entropy' },
         ],
     },
@@ -102,6 +108,7 @@ export const TOOL_CATEGORIES = [
             { path: '/url', label: 'URL Parser', title: 'URL Parser', icon: Link, description: 'Break a URL into its parts and query parameters.', keywords: 'query string link params' },
             { path: '/ua', label: 'User Agent', title: 'User Agent Parser', icon: Monitor, description: 'Identify browser, OS, engine and device from a user-agent string.', keywords: 'browser device os ua' },
             { path: '/curl', label: 'cURL Converter', title: 'cURL Converter', icon: TerminalSquare, description: 'Convert cURL commands to fetch or Python code.', keywords: 'curl fetch python request http' },
+            { path: '/har', label: 'HAR Viewer', title: 'HAR Viewer & Sanitizer', icon: Activity, description: 'Inspect browser network recordings and strip secrets before sharing them.', keywords: 'har network devtools requests waterfall sanitize redact cookies tokens' },
             { path: '/cidr', label: 'IP / CIDR', title: 'IP / CIDR Calculator', icon: Network, description: 'Address ranges, masks and host counts for IPv4 and IPv6.', keywords: 'subnet ip network mask ipv6' },
             { path: '/meta', label: 'Meta Tags', title: 'Meta Tag Generator', icon: Tags, description: 'SEO, Open Graph and Twitter Card tags.', keywords: 'seo og twitter html head' },
             { path: '/http-status', label: 'HTTP Status', title: 'HTTP Status Codes', icon: Server, description: 'Searchable reference of HTTP status codes.', keywords: '404 500 200 response codes' },
@@ -113,6 +120,7 @@ export const TOOL_CATEGORIES = [
         icon: Wrench,
         items: [
             { path: '/unix', label: 'Unix Timestamp', title: 'Unix Timestamp Converter', icon: Clock, description: 'Convert epoch timestamps to dates and back.', keywords: 'epoch time date milliseconds' },
+            { path: '/timezones', label: 'Time Zones', title: 'Time Zone Converter', icon: Earth, description: 'Compare a date and time across time zones and find meeting slots.', keywords: 'timezone tz utc gmt offset dst meeting planner world clock iana' },
             { path: '/cron', label: 'Cron Parser', title: 'Cron Expression Parser', icon: CalendarClock, description: 'Explain cron schedules and list upcoming runs.', keywords: 'schedule crontab job' },
             { path: '/chmod', label: 'Chmod', title: 'Chmod Calculator', icon: FolderLock, description: 'Unix permissions in octal and symbolic form, both ways.', keywords: 'permissions unix rwx octal symbolic setuid sticky' },
             { path: '/keycode', label: 'Keycode', title: 'Keycode Viewer', icon: Keyboard, description: 'See key, code and keyCode for any key press.', keywords: 'keyboard event key code' },
@@ -140,6 +148,7 @@ export const TOOL_CATEGORIES = [
             { path: '/triangle', label: 'CSS Triangle', title: 'CSS Triangle Generator', icon: Triangle, description: 'Pure CSS triangles.', keywords: 'css arrow border triangle' },
             { path: '/box-shadow', label: 'Box Shadow', title: 'Box Shadow Generator', icon: SquareStack, description: 'Layered CSS box shadows.', keywords: 'css shadow elevation' },
             { path: '/color', label: 'Color Converter', title: 'Color Converter', icon: Pipette, description: 'Convert any CSS colour to HEX, RGB, HSL, HWB and OKLCH, with alpha.', keywords: 'hex rgb hsl hwb oklch alpha colour picker contrast' },
+            { path: '/contrast', label: 'Contrast Checker', title: 'Contrast Checker', icon: Contrast, description: 'Check text and UI colour pairs against WCAG AA and AAA.', keywords: 'wcag accessibility a11y contrast ratio aa aaa apca colour color' },
             { path: '/color-blindness', label: 'Color Blindness', title: 'Color Blindness Simulator', icon: Eye, description: 'See images the way people with color-vision deficiencies do.', keywords: 'accessibility cvd protanopia deuteranopia' },
             { path: '/snippets', label: 'Code Screenshot', title: 'Code Screenshot', icon: Camera, description: 'Turn code into a shareable image.', keywords: 'carbon snippet image png share code' },
         ],
@@ -152,8 +161,8 @@ export const SETTINGS_TOOL = {
     label: 'Settings',
     title: 'Settings',
     icon: Settings,
-    description: 'Appearance, accent colour and the on-device AI model.',
-    keywords: 'theme dark light accent color hue ai model webgpu preferences',
+    description: 'Appearance, the on-device AI model, and backing up or clearing your data.',
+    keywords: 'theme dark light accent color hue ai model webgpu preferences backup restore export import clear reset delete data',
 }
 
 export const AI_ICON = Sparkles

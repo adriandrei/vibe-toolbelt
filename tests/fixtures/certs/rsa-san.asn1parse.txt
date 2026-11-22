@@ -1,0 +1,103 @@
+    0:d=0  hl=4 l=1361 cons: SEQUENCE          
+    4:d=1  hl=4 l=1081 cons: SEQUENCE          
+    8:d=2  hl=2 l=   3 cons: cont [ 0 ]        
+   10:d=3  hl=2 l=   1 prim: INTEGER           :02
+   13:d=2  hl=2 l=  20 prim: INTEGER           :F1E2D3C4B5A69788796A5B4C3D2E1F00112233
+   35:d=2  hl=2 l=  13 cons: SEQUENCE          
+   37:d=3  hl=2 l=   9 prim: OBJECT            :sha256WithRSAEncryption
+   48:d=3  hl=2 l=   0 prim: NULL              
+   50:d=2  hl=3 l= 194 cons: SEQUENCE          
+   53:d=3  hl=2 l=  11 cons: SET               
+   55:d=4  hl=2 l=   9 cons: SEQUENCE          
+   57:d=5  hl=2 l=   3 prim: OBJECT            :countryName
+   62:d=5  hl=2 l=   2 prim: PRINTABLESTRING   :RO
+   66:d=3  hl=2 l=  19 cons: SET               
+   68:d=4  hl=2 l=  17 cons: SEQUENCE          
+   70:d=5  hl=2 l=   3 prim: OBJECT            :stateOrProvinceName
+   75:d=5  hl=2 l=  10 prim: UTF8STRING        :București
+   87:d=3  hl=2 l=  20 cons: SET               
+   89:d=4  hl=2 l=  18 cons: SEQUENCE          
+   91:d=5  hl=2 l=   3 prim: OBJECT            :localityName
+   96:d=5  hl=2 l=  11 prim: UTF8STRING        :Cluj-Napoca
+  109:d=3  hl=2 l=  38 cons: SET               
+  111:d=4  hl=2 l=  36 cons: SEQUENCE          
+  113:d=5  hl=2 l=   3 prim: OBJECT            :organizationName
+  118:d=5  hl=2 l=  29 prim: UTF8STRING        :Toolbelt Test Ünïcödé SRL
+  149:d=3  hl=2 l=  34 cons: SET               
+  151:d=4  hl=2 l=   9 cons: SEQUENCE          
+  153:d=5  hl=2 l=   3 prim: OBJECT            :organizationalUnitName
+  158:d=5  hl=2 l=   2 prim: UTF8STRING        :QA
+  162:d=4  hl=2 l=  21 cons: SEQUENCE          
+  164:d=5  hl=2 l=  10 prim: OBJECT            :userId
+  176:d=5  hl=2 l=   7 prim: UTF8STRING        :qa-team
+  185:d=3  hl=2 l=  25 cons: SET               
+  187:d=4  hl=2 l=  23 cons: SEQUENCE          
+  189:d=5  hl=2 l=   3 prim: OBJECT            :commonName
+  194:d=5  hl=2 l=  16 prim: UTF8STRING        :www.example.test
+  212:d=3  hl=2 l=  33 cons: SET               
+  214:d=4  hl=2 l=  31 cons: SEQUENCE          
+  216:d=5  hl=2 l=   9 prim: OBJECT            :emailAddress
+  227:d=5  hl=2 l=  18 prim: IA5STRING         :admin@example.test
+  247:d=2  hl=2 l=  30 cons: SEQUENCE          
+  249:d=3  hl=2 l=  13 prim: UTCTIME           :261121182509Z
+  264:d=3  hl=2 l=  13 prim: UTCTIME           :290223182509Z
+  279:d=2  hl=3 l= 194 cons: SEQUENCE          
+  282:d=3  hl=2 l=  11 cons: SET               
+  284:d=4  hl=2 l=   9 cons: SEQUENCE          
+  286:d=5  hl=2 l=   3 prim: OBJECT            :countryName
+  291:d=5  hl=2 l=   2 prim: PRINTABLESTRING   :RO
+  295:d=3  hl=2 l=  19 cons: SET               
+  297:d=4  hl=2 l=  17 cons: SEQUENCE          
+  299:d=5  hl=2 l=   3 prim: OBJECT            :stateOrProvinceName
+  304:d=5  hl=2 l=  10 prim: UTF8STRING        :București
+  316:d=3  hl=2 l=  20 cons: SET               
+  318:d=4  hl=2 l=  18 cons: SEQUENCE          
+  320:d=5  hl=2 l=   3 prim: OBJECT            :localityName
+  325:d=5  hl=2 l=  11 prim: UTF8STRING        :Cluj-Napoca
+  338:d=3  hl=2 l=  38 cons: SET               
+  340:d=4  hl=2 l=  36 cons: SEQUENCE          
+  342:d=5  hl=2 l=   3 prim: OBJECT            :organizationName
+  347:d=5  hl=2 l=  29 prim: UTF8STRING        :Toolbelt Test Ünïcödé SRL
+  378:d=3  hl=2 l=  34 cons: SET               
+  380:d=4  hl=2 l=   9 cons: SEQUENCE          
+  382:d=5  hl=2 l=   3 prim: OBJECT            :organizationalUnitName
+  387:d=5  hl=2 l=   2 prim: UTF8STRING        :QA
+  391:d=4  hl=2 l=  21 cons: SEQUENCE          
+  393:d=5  hl=2 l=  10 prim: OBJECT            :userId
+  405:d=5  hl=2 l=   7 prim: UTF8STRING        :qa-team
+  414:d=3  hl=2 l=  25 cons: SET               
+  416:d=4  hl=2 l=  23 cons: SEQUENCE          
+  418:d=5  hl=2 l=   3 prim: OBJECT            :commonName
+  423:d=5  hl=2 l=  16 prim: UTF8STRING        :www.example.test
+  441:d=3  hl=2 l=  33 cons: SET               
+  443:d=4  hl=2 l=  31 cons: SEQUENCE          
+  445:d=5  hl=2 l=   9 prim: OBJECT            :emailAddress
+  456:d=5  hl=2 l=  18 prim: IA5STRING         :admin@example.test
+  476:d=2  hl=4 l= 290 cons: SEQUENCE          
+  480:d=3  hl=2 l=  13 cons: SEQUENCE          
+  482:d=4  hl=2 l=   9 prim: OBJECT            :rsaEncryption
+  493:d=4  hl=2 l=   0 prim: NULL              
+  495:d=3  hl=4 l= 271 prim: BIT STRING        
+  770:d=2  hl=4 l= 315 cons: cont [ 3 ]        
+  774:d=3  hl=4 l= 311 cons: SEQUENCE          
+  778:d=4  hl=2 l=  12 cons: SEQUENCE          
+  780:d=5  hl=2 l=   3 prim: OBJECT            :X509v3 Basic Constraints
+  785:d=5  hl=2 l=   1 prim: BOOLEAN           :255
+  788:d=5  hl=2 l=   2 prim: OCTET STRING      [HEX DUMP]:3000
+  792:d=4  hl=2 l=  14 cons: SEQUENCE          
+  794:d=5  hl=2 l=   3 prim: OBJECT            :X509v3 Key Usage
+  799:d=5  hl=2 l=   1 prim: BOOLEAN           :255
+  802:d=5  hl=2 l=   4 prim: OCTET STRING      [HEX DUMP]:030205A0
+  808:d=4  hl=2 l=  19 cons: SEQUENCE          
+  810:d=5  hl=2 l=   3 prim: OBJECT            :X509v3 Extended Key Usage
+  815:d=5  hl=2 l=  12 prim: OCTET STRING      [HEX DUMP]:300A06082B06010505070301
+  829:d=4  hl=2 l=  29 cons: SEQUENCE          
+  831:d=5  hl=2 l=   3 prim: OBJECT            :X509v3 Subject Key Identifier
+  836:d=5  hl=2 l=  22 prim: OCTET STRING      [HEX DUMP]:0414AFE18551B7508ADD733EE6FC71E5B57E6AE3C088
+  860:d=4  hl=3 l= 226 cons: SEQUENCE          
+  863:d=5  hl=2 l=   3 prim: OBJECT            :X509v3 Subject Alternative Name
+  868:d=5  hl=3 l= 218 prim: OCTET STRING      [HEX DUMP]:3081D782107777772E6578616D706C652E74657374820E2A2E6578616D706C652E746573748704C000020A871020010DB8000000000000000000000010811261646D696E406578616D706C652E74657374861D68747470733A2F2F6578616D706C652E746573742F706174683F713D31A021060A2B060104018237140203A0130C1175736572406578616D706C652E74657374A440303E310B300906035504061302524F31163014060355040A0C0D4469726563746F7279204F72673117301506035504030C0E4469726563746F7279204E616D6588032A0304
+ 1089:d=1  hl=2 l=  13 cons: SEQUENCE          
+ 1091:d=2  hl=2 l=   9 prim: OBJECT            :sha256WithRSAEncryption
+ 1102:d=2  hl=2 l=   0 prim: NULL              
+ 1104:d=1  hl=4 l= 257 prim: BIT STRING        

@@ -3,6 +3,7 @@ import { Eye, EyeOff, Loader2, RotateCcw } from 'lucide-react'
 import ToolHeader from '../components/ui/ToolHeader'
 import Field from '../components/ui/Field'
 import StatusBanner from '../components/ui/StatusBanner'
+import { useSmartInput } from '../hooks/useSmartInput'
 import { useWorkerClient } from '../utils/workerClient'
 import { BRAND } from '../config/brand'
 
@@ -66,6 +67,8 @@ export default function Password() {
     const [result, setResult] = useState(null) // { input, ...analysis } | { input, error }
     const [attempt, setAttempt] = useState(0)
     const client = useWorkerClient(() => new Worker(new URL('../workers/zxcvbn.worker.js', import.meta.url), { type: 'module' }))
+
+    useSmartInput({ input: setPassword })
 
     const analysed = Array.from(password).slice(0, MAX_LENGTH).join('')
     const truncated = analysed.length < password.length

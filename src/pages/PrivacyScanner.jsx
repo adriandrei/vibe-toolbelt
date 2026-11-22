@@ -13,6 +13,8 @@ import { usePipeline } from '../contexts/PipelineContext'
 import { usePane } from '../contexts/pane'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { formatBytes, splitFilename } from '../utils/download'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
+import { fileKind } from '../utils/fileRouting'
 import { sniffImageType, typeLabel } from '../utils/image'
 import {
     findImageRisks, findOfficeRisks, findPdfRisks, isOfficeFile,
@@ -25,6 +27,8 @@ const MAX_TEXT = 10 * 1024 * 1024
 const HIGHLIGHT_LIMIT = 200_000 // characters rendered with highlights
 const LIST_LIMIT = 200
 const TEXT_FILE_ACCEPT = '.txt,.csv,.tsv,.log,.json,.md,.xml,.yaml,.yml,.ini,.conf,.env,.html,.htm,.js,.ts,.sql,.eml,text/*'
+// File kinds (utils/fileRouting.js) scanned as text; everything else gets the metadata scan
+const TEXT_KINDS = new Set(['text', 'csv', 'json', 'har', 'yaml', 'toml', 'xml', 'markdown', 'sql', 'html', 'css', 'scss', 'less', 'javascript', 'typescript', 'graphql'])
 
 const SEVERITY = {
     high: { label: 'High', badge: 'badge-danger', mark: { background: 'var(--danger-bg)', boxShadow: 'inset 0 -2px 0 var(--danger)' } },
@@ -337,7 +341,7 @@ function MetadataTable({ rows }) {
     )
 }
 
-function FileMode({ onScanText }) {
+function FileMode({ onScanText, incoming }) {
     const navigate = useNavigate()
     const { size } = usePane()
     const { sendMedia } = usePipeline()
@@ -371,6 +375,15 @@ function FileMode({ onScanText }) {
             if (id === requestRef.current) setReport({ status: 'error', message: err?.message || 'The file couldn’t be read.' })
         }
     }
+
+    // A file handed over by Smart Drop (see the page component)
+    const scanRef = useRef(scan)
+    useEffect(() => {
+        scanRef.current = scan
+    })
+    useEffect(() => {
+        if (incoming?.file) scanRef.current([incoming.file])
+    }, [incoming])
 
     const openInExif = () => {
         sendMedia(file, { source: '/privacy-scanner', target: '/exif', kind: 'image' })
@@ -507,8 +520,30 @@ function FileMode({ onScanText }) {
 }
 
 export default function PrivacyScanner() {
+    const toast = useToast()
     const [mode, setMode] = useState('text')
     const [text, setText] = useState('')
+    const [incoming, setIncoming] = useState(null) // { file } for the metadata scan
+
+    // A file handed over by Smart Drop or "Open with": text is scanned for
+    // personal data, anything else (images, PDFs, documents) for metadata
+    useIncomingFiles('/privacy-scanner', async ([file]) => {
+        if (!TEXT_KINDS.has(fileKind(file))) {
+            setMode('file')
+            setIncoming({ file })
+            return
+        }
+        if (file.size > MAX_TEXT) {
+            toast.error(`${file.name} is ${formatBytes(file.size)}. The limit is ${formatBytes(MAX_TEXT)}.`)
+            return
+        }
+        try {
+            setText(await file.text())
+            setMode('text')
+        } catch (err) {
+            toast.error(`Couldn’t read ${file.name}: ${err?.message || 'unknown error'}`)
+        }
+    })
 
     return (
         <div className="page page-wide">
@@ -524,7 +559,7 @@ export default function PrivacyScanner() {
             />
             {/* Both modes stay mounted so switching keeps the text and the last file report */}
             <div hidden={mode !== 'text'}><TextMode text={text} setText={setText} /></div>
-            <div hidden={mode !== 'file'}><FileMode onScanText={(content) => { setText(content); setMode('text') }} /></div>
+            <div hidden={mode !== 'file'}><FileMode incoming={incoming} onScanText={(content) => { setText(content); setMode('text') }} /></div>
         </div>
     )
 }

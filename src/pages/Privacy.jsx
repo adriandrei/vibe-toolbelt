@@ -38,15 +38,20 @@ const STORED = [
     { what: 'Sidebar groups you collapsed', where: 'Local storage', keys: ['pt-sidebar-collapsed'] },
     { what: 'The tool pinned in split view', where: 'Local storage', keys: ['pt-pinned-tool'] },
     { what: 'Your AI model choice', where: 'Local storage', keys: ['ai_model'] },
-    { what: 'Tool preferences (Formatters options, the code language chosen in the API Tester and cURL Converter)', where: 'Local storage', keys: ['vt-formatters-prefs', 'api-code-target', 'curl-target'] },
+    { what: 'Tool preferences (Formatters options, the API Tester’s protocol, the code language chosen in the API Tester and cURL Converter)', where: 'Local storage', keys: ['vt-formatters-prefs', 'api-protocol', 'api-code-target', 'curl-target'] },
     {
-        what: <>API Tester history, collections and environments. <strong style={S.strong}>Saved requests and environments can contain tokens, passwords or API keys you entered.</strong> History leaves them out unless you turn on “Keep secrets in history”.</>,
+        what: <>API Tester history, collections and environments. <strong style={S.strong}>Saved requests and environments can contain tokens, passwords or API keys you entered.</strong> History leaves them out unless you turn on “Keep secrets in history”. The last WebSocket and event stream URLs are kept without passwords or the values of secret-looking query parameters; messages, events and their headers are never stored.</>,
         where: 'Local storage',
-        keys: ['api-history', 'api-history-secrets', 'api-collections', 'api-envs', 'api-active-env'],
+        keys: ['api-history', 'api-history-secrets', 'api-collections', 'api-envs', 'api-active-env', 'api-ws-url', 'api-sse-url'],
     },
+    { what: 'Password Generator options (never the passwords) and the JWT Builder’s algorithm (never keys, secrets or claims)', where: 'Local storage', keys: ['pwgen-options', 'jwt-builder-alg'] },
+    { what: 'Your Time Zones list and 12- or 24-hour clock', where: 'Local storage', keys: ['tz-zones', 'tz-hour-cycle'] },
+    { what: 'Recipes: the recipe you’re editing and the recipes you saved (steps and options only, never the input)', where: 'Local storage', keys: ['recipes-current', 'recipes-saved'] },
     { what: 'Text passed between tools with the pipeline (cleared when you close the tab)', where: 'Session storage', keys: ['pt-pipeline'] },
     { what: 'A one-time flag used to reload once after an app update', where: 'Session storage', keys: ['pt-chunk-reload'] },
-    { what: `Downloaded AI model files (${MODELS.map(m => `${m.label.replace(/\s*\(.*\)\s*$/, '')}: ${m.size}`).join(', ')})`, where: 'Cache Storage', keys: ['webllm/…'] },
+    { what: 'A one-time message shown after restoring a backup or clearing your data', where: 'Session storage', keys: ['pt-data-notice'] },
+    { what: `Downloaded AI model files (${MODELS.map(m => `${m.label.replace(/\s*\(.*\)\s*$/, '')}: ${m.size}`).join(', ')})`, where: 'Cache Storage', keys: ['webllm/model', 'webllm/config', 'webllm/wasm'] },
+    { what: 'Files or text shared to the installed app from another app, until the app opens them (then deleted)', where: 'Cache Storage', keys: ['share-target'] },
     { what: 'The app itself, for offline use (scripts, styles, fonts, and the video engine once used)', where: 'Service worker caches', keys: [] },
 ]
 
@@ -85,7 +90,7 @@ export default function Privacy() {
                             <strong style={S.strong}>The AI assistant, if you load a model.</strong> Choosing a model in <Link to={SETTINGS_TOOL.path} style={S.link}>Settings</Link> downloads its files once from <Key>huggingface.co</Key> and <Key>raw.githubusercontent.com</Key>. Those services see your IP address and which files were requested. Your prompts and the answers are processed on your device and never leave it.
                         </li>
                         <li>
-                            <strong style={S.strong}>The <ToolLink title="API Tester" />.</strong> It sends requests to the URLs you enter, with the headers and body you set. That’s its purpose: the servers you call receive whatever you send them.
+                            <strong style={S.strong}>The <ToolLink title="API Tester" />.</strong> It sends requests, and opens WebSocket and event stream connections, to the URLs you enter, with the headers and body you set. That’s its purpose: the servers you call receive whatever you send them.
                         </li>
                         <li>
                             <strong style={S.strong}>The Markdown preview.</strong> Images referenced by URL in your document are loaded from the servers that host them.
@@ -116,7 +121,8 @@ export default function Privacy() {
                 <section style={S.section} aria-labelledby="privacy-clear">
                     <h2 id="privacy-clear" style={S.h2}>How to delete your data</h2>
                     <ul style={S.list}>
-                        <li><strong style={S.strong}>Everything at once:</strong> clear this site’s data in your browser (for example, in Chrome: the icon left of the address bar, then <em>Site settings</em> and <em>Delete data</em>; in Firefox: the padlock, then <em>Clear cookies and site data</em>; in Safari: <em>Settings</em>, <em>Privacy</em>, <em>Manage Website Data</em>). This removes settings, favorites, API Tester data, downloaded AI models and the offline copy of the app.</li>
+                        <li><strong style={S.strong}>From the app:</strong> <Link to={SETTINGS_TOOL.path} style={S.link}>Settings</Link>, <em>Your data</em>, <em>Clear all data</em> removes everything the app stores, optionally including downloaded AI models. <em>Download backup</em> saves a copy first, which you can restore later.</li>
+                        <li><strong style={S.strong}>Everything at once, from the browser:</strong> clear this site’s data in your browser (for example, in Chrome: the icon left of the address bar, then <em>Site settings</em> and <em>Delete data</em>; in Firefox: the padlock, then <em>Clear cookies and site data</em>; in Safari: <em>Settings</em>, <em>Privacy</em>, <em>Manage Website Data</em>). This removes settings, favorites, API Tester data, downloaded AI models and the offline copy of the app.</li>
                         <li><strong style={S.strong}>API Tester data:</strong> delete saved requests, collections and environments in the <ToolLink title="API Tester" />.</li>
                         <li><strong style={S.strong}>AI models:</strong> remove downloaded models in <Link to={SETTINGS_TOOL.path} style={S.link}>Settings</Link>.</li>
                         <li><strong style={S.strong}>Favorites:</strong> click the star next to a tool in the sidebar to remove it.</li>

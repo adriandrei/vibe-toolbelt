@@ -190,7 +190,8 @@
 
 .btn-danger:hover:not(:disabled) {
     background: var(--danger);
-    color: #fff;
+    /* Dark text on the light red of the dark theme, white on the deep red of the light theme */
+    color: var(--on-danger);
 }
 
 .icon-btn {

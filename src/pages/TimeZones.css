@@ -1,0 +1,383 @@
+/* Time Zone Converter */
+
+.tz-input-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+    align-items: end;
+    gap: var(--space-sm) var(--space-md);
+}
+
+[data-pane-size="sm"] .tz-input-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.tz-input-grid input {
+    padding: 0.55rem 0.75rem;
+    font-size: 0.95rem;
+}
+
+.tz-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+/* ---------- Zone picker (combobox) ---------- */
+.tz-picker {
+    position: relative;
+    min-width: 0;
+}
+
+.tz-picker-input {
+    width: 100%;
+}
+
+.tz-picker-list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 30;
+    max-height: min(320px, 50vh);
+    overflow-y: auto;
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+}
+
+.tz-picker-option {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: 0.45rem 0.6rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-main);
+    min-width: 0;
+}
+
+.tz-picker-option[aria-selected="true"] {
+    background: var(--primary-glow);
+    box-shadow: inset 0 0 0 1px var(--primary-border);
+}
+
+.tz-picker-option-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tz-picker-option-name small {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.tz-picker-option-offset {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.tz-picker-empty {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* ---------- Zone rows ---------- */
+.tz-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.tz-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: 0.75rem 0.9rem;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    min-width: 0;
+}
+
+.tz-row.is-source {
+    border-color: var(--primary-border);
+}
+
+.tz-row-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-xs) var(--space-md);
+    flex-wrap: wrap;
+}
+
+.tz-row-name {
+    min-width: 0;
+    flex: 1 1 12rem;
+}
+
+.tz-row-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs) var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.tz-city {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0;
+}
+
+.tz-zone-id {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+.tz-row-when {
+    text-align: right;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.tz-time {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+}
+
+.tz-date {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.tz-row-change {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.tz-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.tz-row-actions .tz-spacer {
+    flex: 1;
+}
+
+/* ---------- Meeting planner ---------- */
+.tz-planner {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-panel);
+    overscroll-behavior-x: contain;
+}
+
+.tz-planner:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.tz-planner-grid {
+    display: flex;
+    width: max-content;
+    min-width: 100%;
+}
+
+.tz-planner-labels {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    flex: 0 0 7.5rem;
+    width: 7.5rem;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-strong);
+}
+
+.tz-planner-label,
+.tz-cell {
+    height: 2.6rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.tz-planner-label {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 0.55rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-main);
+    min-width: 0;
+}
+
+.tz-planner-label span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tz-planner-label small {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tz-slot {
+    flex: 1 0 2.75rem;
+    min-width: 2.75rem;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    position: relative;
+    color: var(--text-main);
+}
+
+.tz-slot-button {
+    width: 100%;
+    cursor: pointer;
+}
+
+/* The hour button covers its whole column, so any cell can be clicked */
+.tz-slot-button::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.tz-slot-button:focus-visible {
+    outline: none;
+}
+
+.tz-slot:has(.tz-slot-button:focus-visible) {
+    outline: 2px solid var(--primary-text);
+    outline-offset: -2px;
+    z-index: 1;
+}
+
+.tz-slot:last-child {
+    border-right: none;
+}
+
+.tz-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+
+.tz-cell-sub {
+    font-family: var(--font-family);
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.tz-cell.is-head {
+    font-weight: 700;
+    background: var(--bg-panel);
+}
+
+.tz-cell.is-work {
+    background: var(--success-bg);
+}
+
+.tz-cell.is-off {
+    background: var(--bg-subtle);
+}
+
+.tz-cell.is-night {
+    background: var(--bg-inset);
+    color: var(--text-muted);
+}
+
+.tz-cell.is-day-start {
+    box-shadow: inset 2px 0 0 var(--primary);
+}
+
+.tz-slot:hover .tz-cell {
+    background-image: linear-gradient(var(--bg-hover), var(--bg-hover));
+}
+
+.tz-slot.is-overlap .tz-cell.is-head {
+    background: var(--success-bg);
+    color: var(--success);
+    box-shadow: inset 0 3px 0 var(--success);
+}
+
+.tz-slot.is-selected {
+    z-index: 1;
+    box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.tz-slot.is-selected .tz-cell.is-head {
+    background: var(--primary);
+    color: var(--on-primary);
+    box-shadow: none;
+}
+
+.tz-slot.is-selected .tz-cell.is-head .tz-cell-sub,
+.tz-slot.is-overlap .tz-cell.is-head .tz-cell-sub {
+    color: inherit;
+}
+
+.tz-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-md);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tz-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+}
+
+.tz-swatch {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 3px;
+    border: 1px solid var(--border-strong);
+    flex-shrink: 0;
+}
+
+.tz-swatch.is-work { background: var(--success-bg); }
+.tz-swatch.is-off { background: var(--bg-subtle); }
+.tz-swatch.is-night { background: var(--bg-inset); }
+.tz-swatch.is-overlap { background: var(--success-bg); box-shadow: inset 0 3px 0 var(--success); }

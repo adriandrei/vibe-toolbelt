@@ -84,6 +84,14 @@ export const HexViewer = lazy(() => import('./pages/HexViewer'));
 export const PrivacyScanner = lazy(() => import('./pages/PrivacyScanner'));
 export const VideoTools = lazy(() => import('./pages/VideoTools'));
 export const TypeConverter = lazy(() => import('./pages/TypeConverter'));
+export const Recipes = lazy(() => import('./pages/Recipes'));
+export const JsonSchema = lazy(() => import('./pages/JsonSchema'));
+export const JwtBuilder = lazy(() => import('./pages/JwtBuilder'));
+export const Certificate = lazy(() => import('./pages/Certificate'));
+export const PasswordGenerator = lazy(() => import('./pages/PasswordGenerator'));
+export const HarViewer = lazy(() => import('./pages/HarViewer'));
+export const TimeZones = lazy(() => import('./pages/TimeZones'));
+export const Contrast = lazy(() => import('./pages/Contrast'));
 export const NotFound = lazy(() => import('./pages/NotFound'));
 
 export const ROUTE_MAP = {
@@ -148,4 +156,12 @@ export const ROUTE_MAP = {
   '/privacy-scanner': PrivacyScanner,
   '/video': VideoTools,
   '/type-converter': TypeConverter,
+  '/recipes': Recipes,
+  '/json-schema': JsonSchema,
+  '/jwt-builder': JwtBuilder,
+  '/certificate': Certificate,
+  '/password-generator': PasswordGenerator,
+  '/har': HarViewer,
+  '/timezones': TimeZones,
+  '/contrast': Contrast,
 };

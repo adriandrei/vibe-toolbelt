@@ -20,6 +20,7 @@ function generateBatch({ type, count, size, alphabet }) {
     if (type === 'ulid') return { ids: Array.from({ length: count }, () => ulid()) }
     const check = validateAlphabet(alphabet)
     if (check.error) return { ids: [], error: check.error }
+    if (!Number.isInteger(size) || size < 1) return { ids: [], error: 'The length must be a whole number of 1 or more.' }
     return { ids: Array.from({ length: count }, () => nanoid(size, check.symbols)) }
 }
 

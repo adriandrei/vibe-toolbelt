@@ -128,7 +128,7 @@ export default function SvgCompressor() {
                         </label>
                         <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', alignItems: 'center' }}>
                             <PipelineRead onRead={text => load(text)} />
-                            <FileDropZone accept=".svg,image/svg+xml" onFiles={onFiles} compact ariaLabel="Open an SVG file" style={{ padding: '0.3rem 0.65rem', borderWidth: 1, gap: 6 }}>
+                            <FileDropZone accept=".svg,image/svg+xml" onFiles={onFiles} compact ariaLabel="Open file (SVG)" style={{ padding: '0.3rem 0.65rem', borderWidth: 1, gap: 6 }}>
                                 <FileUp size={14} aria-hidden="true" />
                                 <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Open file</span>
                             </FileDropZone>

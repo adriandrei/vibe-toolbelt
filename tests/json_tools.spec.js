@@ -6,7 +6,7 @@ test.describe('JSON Power Tools', () => {
     });
 
     test('Loads JSON mode by default', async ({ page }) => {
-        await expect(page.getByRole('button', { name: 'JSON', exact: true })).toBeVisible();
+        await expect(page.getByRole('region', { name: 'Formatting options' }).getByLabel('Language')).toHaveValue('json');
         await expect(page.getByPlaceholder(/JMESPath/)).toBeVisible();
     });
 

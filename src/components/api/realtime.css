@@ -1,0 +1,390 @@
+/*
+  API Tester: WebSocket and server-sent events clients (src/components/api/).
+  Colours come from the design tokens (src/styles/variables.css).
+*/
+
+/* ---------- Layout ---------- */
+.api-rt-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    min-width: 0;
+}
+
+.api-rt-panel[hidden] {
+    display: none;
+}
+
+.api-rt-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.api-rt-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.api-rt-spread {
+    justify-content: space-between;
+}
+
+/* Paragraphs, lists and code inside banners */
+.api-rt-panel .status-banner-body > * + * {
+    margin-top: var(--space-xs);
+}
+
+/* ---------- Connection ---------- */
+.api-rt-url {
+    flex: 1 1 160px;
+    min-width: 0;
+    width: auto;
+    padding: 0.6rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+}
+
+.api-rt-url[readonly] {
+    color: var(--text-muted);
+}
+
+.api-rt-compact-input {
+    padding: 0.5rem 0.65rem;
+    font-size: 0.9rem;
+}
+
+.api-rt-env {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-width: 0;
+}
+
+.api-rt-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs) var(--space-sm);
+    min-width: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.api-rt-status .badge {
+    font-size: 0.8rem;
+}
+
+.api-rt-reason {
+    overflow-wrap: anywhere;
+}
+
+.api-rt-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 0;
+}
+
+.api-rt-note > svg {
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+.api-rt-causes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 1.2rem;
+}
+
+.api-rt-causes strong {
+    color: var(--text-main);
+}
+
+/* ---------- Headers and options (SSE) ---------- */
+.api-rt-kv {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.api-rt-kv input {
+    padding: 0.5rem 0.65rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+}
+
+.api-rt-row-note {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--warning);
+}
+
+.api-rt-check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+}
+
+.api-rt-check > input {
+    margin-top: 4px;
+}
+
+.api-rt-check label {
+    font-size: 0.9rem;
+}
+
+.api-rt-check .field-hint {
+    margin-top: 2px;
+}
+
+.api-rt-inline-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* ---------- Message log ---------- */
+.api-rt-log-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.api-rt-log-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+}
+
+.api-rt-log-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs) var(--space-sm);
+    min-width: 0;
+}
+
+.api-rt-filter {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 0 1 12rem;
+    min-width: 8rem;
+}
+
+.api-rt-filter > svg {
+    position: absolute;
+    left: 0.55rem;
+    color: var(--text-dim);
+    pointer-events: none;
+}
+
+.api-rt-filter input {
+    padding: 0.35rem 0.6rem 0.35rem 1.8rem;
+    font-size: 0.85rem;
+}
+
+.api-rt-log-wrap {
+    position: relative;
+    min-width: 0;
+}
+
+.api-rt-log {
+    list-style: none;
+    max-height: min(65vh, 560px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.api-rt-row {
+    min-width: 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.api-rt-row:last-child {
+    border-bottom: none;
+}
+
+.api-rt-row-head {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding-right: var(--space-xs);
+}
+
+.api-rt-row-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem var(--space-sm);
+    padding: 0.45rem var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    text-align: left;
+    color: var(--text-muted);
+}
+
+/* Hover and the opened row are marked with a bar, not a darker fill, so the
+   small text and badges in the row keep their contrast */
+.api-rt-row-main:hover {
+    box-shadow: inset 3px 0 0 var(--border-strong);
+}
+
+.api-rt-row-main[aria-expanded="true"] {
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* The list scrolls, so keep the focus ring inside it */
+.api-rt-row-main:focus-visible {
+    outline-offset: -2px;
+}
+
+.api-rt-dir {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--text-dim);
+}
+
+.api-rt-dir.is-in {
+    color: var(--success);
+}
+
+.api-rt-dir.is-out {
+    color: var(--info);
+}
+
+.api-rt-time,
+.api-rt-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.api-rt-preview {
+    flex: 1 1 10rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-code);
+}
+
+/* Named event types: the accent tint, with the body text colour so the name
+   stays readable on the inset log background for every accent hue */
+.api-rt-named-type {
+    background: var(--primary-glow);
+    border-color: var(--primary-border);
+    color: var(--text-main);
+}
+
+.api-rt-none {
+    font-family: var(--font-family);
+    font-style: italic;
+    color: var(--text-dim);
+}
+
+.api-rt-comment .api-rt-preview {
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.api-rt-system {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem var(--space-sm);
+    padding: 0.35rem var(--space-sm);
+    background: var(--bg-subtle);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.api-rt-system-text {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.api-rt-system.tone-success .api-rt-dir {
+    color: var(--success);
+}
+
+.api-rt-system.tone-warning .api-rt-dir {
+    color: var(--warning);
+}
+
+.api-rt-system.tone-danger .api-rt-dir,
+.api-rt-system.tone-danger .api-rt-system-text {
+    color: var(--danger);
+}
+
+.api-rt-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    min-width: 0;
+    padding: 0 var(--space-sm) var(--space-sm);
+}
+
+.api-rt-detail-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.api-rt-detail-bar > :last-child {
+    margin-left: auto;
+}
+
+/* hexdump -C lines keep their columns and scroll sideways when narrow */
+.api-rt-hex {
+    margin: 0;
+    white-space: pre;
+    word-break: normal;
+}
+
+/* The start of an error response, in a banner */
+.api-rt-body {
+    max-height: 200px;
+    margin: 0;
+}
+
+.api-rt-no-match {
+    padding: var(--space-lg);
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+/* "N new messages" while the user has scrolled up: solid, as it floats over the list */
+.api-rt-jump.btn-secondary,
+.api-rt-jump.btn-secondary:hover:not(:disabled) {
+    position: absolute;
+    left: 50%;
+    bottom: var(--space-sm);
+    transform: translateX(-50%);
+    background: var(--bg-elevated);
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+}

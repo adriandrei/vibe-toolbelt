@@ -5,6 +5,7 @@ import ToolHeader from '../components/ui/ToolHeader'
 import Field from '../components/ui/Field'
 import CopyButton from '../components/ui/CopyButton'
 import SegmentedControl from '../components/ui/SegmentedControl'
+import ShareButton from '../components/ui/ShareButton'
 import StatusBanner from '../components/ui/StatusBanner'
 import EmptyState from '../components/ui/EmptyState'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
@@ -13,6 +14,8 @@ import { useAI } from '../contexts/AIContext'
 import { usePane } from '../contexts/pane'
 import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { useSharedState } from '../hooks/useSharedState'
+import { field, ignoredFieldsMessage, readSharedFields } from '../utils/shareFields'
 import { getTool } from '../config/tools'
 
 const TOOL_NAME = getTool('/regex')?.title ?? 'Regex Tester'
@@ -44,6 +47,16 @@ const FLAGS = [
 
 const KNOWN_FLAGS = new Set(FLAGS.map(f => f.flag))
 const SUPPORTED_FLAGS = FLAGS.filter(f => f.supported).map(f => f.flag).join('')
+
+// What a shared link may set. Flags are kept as typed (the flags box drops
+// spaces and slashes), so a link with a bad flag shows the same error.
+const SHARE_FIELDS = {
+    pattern: field.string(),
+    flags: field.string({ max: 32, pattern: /^[^\s/]*$/ }),
+    text: field.string(),
+    mode: field.oneOf(['match', 'replace']),
+    replacement: field.string(),
+}
 
 const CHEAT_SHEET = [
     {
@@ -389,6 +402,16 @@ export default function RegexTester() {
     const busyRef = useRef(false)
     const jobIdRef = useRef(0)
 
+    useSharedState((data) => {
+        const { values, ignored } = readSharedFields(data, SHARE_FIELDS)
+        if ('pattern' in values) setPattern(values.pattern)
+        if ('flags' in values) setFlags(values.flags)
+        if ('text' in values) setText(values.text)
+        if ('mode' in values) setMode(values.mode)
+        if ('replacement' in values) setReplacement(values.replacement)
+        if (ignored.length) toast.warning(ignoredFieldsMessage(ignored), 6000)
+    })
+
     // Syntax and flag problems show instantly, without waiting for the worker
     const syntaxError = useMemo(() => (pattern ? validate(pattern, flags) : null), [pattern, flags])
 
@@ -593,6 +616,11 @@ export default function RegexTester() {
                                     <Sparkles size={14} aria-hidden="true" /> Generate with AI
                                 </button>
                                 {cheatSheetToggle}
+                                <ShareButton
+                                    className="btn btn-ghost btn-sm"
+                                    disabled={!pattern && !text}
+                                    getState={() => ({ pattern, flags, text, mode, replacement })}
+                                />
                             </div>
                         </div>
 

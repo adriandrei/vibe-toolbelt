@@ -318,7 +318,7 @@ export function describeField(name, value, { use24Hour = false } = {}) {
     if (value === '*') return EVERY[name]
     const parts = value.split(',').map(part => describePart(name, part, use24Hour)).filter(Boolean)
     if (!parts.length) return EVERY[name]
-    const simple = value.split(',').every(p => /^[\w]+(-[\w]+)?$/.test(p) && !/^(L|LW|\d+W|\w+L|\w+#\d)$/i.test(p))
+    const simple = value.split(',').every(p => /^[\w]+(-[\w]+)?$/.test(p) && !/^(L|LW|L-\d+|\d+W|\w+L|\w+#\d)$/i.test(p))
     const text = joinList(parts)
     if (simple && PREFIX[name]) {
         if (name === 'hour') return `${PREFIX[name]}${parts.length > 1 || /through/.test(text) ? 's' : ''} ${text}`

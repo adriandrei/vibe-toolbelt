@@ -24,9 +24,10 @@ function readText() {
  * <PipelineSend>/<PipelineRead> exchange. They survive reloads for the rest of
  * the browser session and show up in the header's pipeline indicator.
  *
- * Media (e.g. a screen recording handed to the Video Studio) travels through
- * a separate slot: sendMedia(file, { target }) / takeMedia(target). Only the
- * main pane takes media, and only when it's the intended target.
+ * Media (a screen recording handed to the Video Studio, files from Smart Drop)
+ * travels through a separate slot: sendMedia(file, { target, files }) /
+ * takeMedia(target), or useIncomingFiles(). Only the main pane takes media,
+ * and only when it's the intended target.
  *
  * The provider also holds the pinned (split view) tool route.
  */
@@ -59,8 +60,8 @@ export function PipelineProvider({ children }) {
         }
     }, [])
 
-    const sendMedia = useCallback((file, { source = null, target = null, kind = 'video' } = {}) => {
-        const next = { kind, file, source, target, ts: Date.now() }
+    const sendMedia = useCallback((file, { source = null, target = null, kind = 'video', files = null } = {}) => {
+        const next = { kind, file, files: files ?? [file], source, target, ts: Date.now() }
         mediaRef.current = next
         setMedia(next)
     }, [])

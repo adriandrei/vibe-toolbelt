@@ -8,6 +8,7 @@ import SegmentedControl from '../components/ui/SegmentedControl'
 import StatusBanner from '../components/ui/StatusBanner'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 import { useSmartInput } from '../hooks/useSmartInput'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
 import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 import { useWorkerClient } from '../utils/workerClient'
 import { encodeBytes, hasLoneSurrogates, parseDigest, timingSafeEqual, utf8Length } from '../utils/encoding'
@@ -55,6 +56,12 @@ export default function Hash() {
     }
 
     useSmartInput({ input: loadText })
+
+    // A file handed over by Smart Drop or "Open with"
+    useIncomingFiles('/hash', ([next]) => {
+        setSource('file')
+        setFile(next)
+    })
 
     // The input the digests belong to: the text itself, or the File object
     const input = source === 'text' ? text : file

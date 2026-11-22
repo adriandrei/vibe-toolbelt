@@ -107,8 +107,11 @@ Import from the file, e.g. `import CopyButton from '../components/ui/CopyButton'
   - Modes sent today:
     - `/base64` `decode`
     - `/formatters` `json` / `sql` / `xml`
-    - `/converter` `yaml`
+    - `/converter` `yaml` / `toml`
     - `/image-base64` `decode`
+    - `/type-converter` `schema`
+- **Files** (Smart Drop, "Open with", share target): `useIncomingFiles('/my-tool', (files) => …)` from `hooks/useIncomingFiles.js` receives `File` objects sent with `sendMedia(file, { target, files })`. Which tools a file kind is offered to lives in `utils/fileRouting.js`.
+- **Shareable links:** `<ShareButton getState={() => state} />` (`components/ui/ShareButton.jsx`) copies a link with the state in the URL fragment; `useSharedState((data) => …)` applies it when the page opens. Validate what arrives and never share secrets.
 - **Pipeline** (text between tools): `<PipelineSend dataToSend={output} disabled={!!error} />` and `<PipelineRead onRead={text => …} />` from `components/PipelineFeature.jsx`. Reading should load *and process* the text. Media hand-offs (Recorder → Video Studio) use `usePipeline().sendMedia(file, { source, target })` / `takeMedia(target)`.
 - **AI assistant:** `useRegisterAIContext({ tool, getContext, suggestedPrompts })`. There's no deps array; `getContext` is read through a ref and always sees the latest state.
 - **Tab title:** set by `ToolHeader` (or `useDocumentTitle(title)`); the pinned pane never changes it.

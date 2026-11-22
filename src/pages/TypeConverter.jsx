@@ -76,7 +76,11 @@ export default function TypeConverter() {
     const targetInfo = TARGETS.find(t => t.value === target) ?? TARGETS[0]
     const status = input.trim() === '' ? 'empty' : parsed.error ? 'invalid' : 'valid'
 
-    useSmartInput({ input: (value) => typeof value === 'string' && setInput(value) })
+    // `mode` picks the output tab (the JSON Schema Validator sends 'schema')
+    useSmartInput({
+        input: (value) => typeof value === 'string' && setInput(value),
+        mode: (value) => TARGETS.some(t => t.value === value) && setTarget(value),
+    })
 
     useRegisterAIContext({
         tool: 'JSON to Types',

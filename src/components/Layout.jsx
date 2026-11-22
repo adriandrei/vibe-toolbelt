@@ -4,6 +4,7 @@ import { MotionConfig } from 'framer-motion'
 import { Loader2, Maximize2, Menu, PinOff, Search, Wand2 } from 'lucide-react'
 import Sidebar from './Sidebar'
 import SmartPaste from './SmartPaste'
+import SmartDrop from './SmartDrop'
 import CommandPalette from './CommandPalette'
 import PrivacyBadge from './PrivacyBadge'
 import AIStatusBadge from './AIStatusBadge'
@@ -71,20 +72,6 @@ export default function Layout() {
         const tool = getTool(location.pathname)
         if (tool && tool.path !== '/' && tool.path !== SETTINGS_TOOL.path) recordVisit(tool.path)
     }, [location.pathname, recordVisit])
-
-    // A file dropped outside a drop zone would open in the tab and throw away the
-    // user's work, on any page (FileDropZone only guards pages that have one).
-    useEffect(() => {
-        const keepFilesOut = (event) => {
-            if (event.dataTransfer && Array.from(event.dataTransfer.types || []).includes('Files')) event.preventDefault()
-        }
-        window.addEventListener('dragover', keepFilesOut)
-        window.addEventListener('drop', keepFilesOut)
-        return () => {
-            window.removeEventListener('dragover', keepFilesOut)
-            window.removeEventListener('drop', keepFilesOut)
-        }
-    }, [])
 
     // Unsaved-work guards (see useLeaveGuard): one router blocker for the app
     const mainBusy = useRef(null)
@@ -165,6 +152,8 @@ export default function Layout() {
 
                 <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
                 <SmartPaste />
+                {/* Files dropped anywhere (also keeps them from replacing the app), "Open with" and shares */}
+                <SmartDrop />
                 <AIAssistant />
 
                 <div className={`app-main-column ${isDesktop ? 'desktop-sidebar-open' : ''}`}>
@@ -192,11 +181,12 @@ export default function Layout() {
                                 type="button"
                                 className="header-search"
                                 onClick={() => setIsSearchOpen(true)}
-                                aria-label="Search tools"
+                                // The name includes the visible shortcut hint (WCAG 2.5.3, label in name)
+                                aria-label={`Search tools ${isMac ? '⌘K' : 'Ctrl K'}`}
                                 aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}
                             >
                                 <Search size={14} aria-hidden="true" />
-                                <span className="hide-sm">Search tools</span>
+                                <span className="hide-sm">Search tools</span>{' '}
                                 <span className="kbd hide-sm">{isMac ? '⌘K' : 'Ctrl K'}</span>
                             </button>
                             <PipelineIndicator />

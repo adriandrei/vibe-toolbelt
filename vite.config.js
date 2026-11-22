@@ -98,8 +98,48 @@ function ffmpegCore() {
   }
 }
 
+// File types the installed app registers for "Open with" (manifest
+// file_handlers). Explicit MIME types, because operating systems match
+// handlers by extension and type; utils/fileRouting.js picks the tool.
+const FILE_HANDLER_TYPES = {
+  'image/png': ['.png'],
+  'image/jpeg': ['.jpg', '.jpeg', '.jfif'],
+  'image/webp': ['.webp'],
+  'image/avif': ['.avif'],
+  'image/gif': ['.gif'],
+  'image/heic': ['.heic', '.heif'],
+  'image/tiff': ['.tif', '.tiff'],
+  'image/svg+xml': ['.svg'],
+  'application/pdf': ['.pdf'],
+  'application/json': ['.json', '.har'],
+  'application/yaml': ['.yaml', '.yml'],
+  'application/toml': ['.toml'],
+  'application/xml': ['.xml'],
+  'text/csv': ['.csv', '.tsv'],
+  'text/markdown': ['.md', '.markdown'],
+  'application/x-x509-ca-cert': ['.pem', '.crt', '.cer', '.der'],
+  'application/pkcs10': ['.csr'],
+}
+
+// What other apps may share with the installed app (manifest share_target).
+const SHARE_TARGET_TYPES = [
+  'image/*', 'video/*', 'audio/*', 'text/*', 'application/pdf', 'application/json', 'application/xml',
+  'application/x-x509-ca-cert', 'application/pkcs10',
+  '.har', '.pem', '.crt', '.cer', '.der', '.csr', '.yaml', '.yml', '.toml', '.md',
+]
+
 // Matches modules inside the given node_modules packages.
 const vendor = (...packages) => new RegExp(`[\\\\/]node_modules[\\\\/](?:${packages.join('|')})[\\\\/]`)
+
+// Prettier's standalone build and the language plugins the Formatters page
+// loads on demand. Each gets its own named chunk (prettier-<name>-<hash>.js),
+// so a plugin is downloaded only when its language is formatted, and the
+// service worker leaves them out of the precache (globIgnores above).
+const PRETTIER_MODULES = ['standalone', 'babel', 'estree', 'typescript', 'postcss', 'html', 'yaml', 'graphql', 'markdown']
+const prettierGroups = PRETTIER_MODULES.map((name) => ({
+  name: `prettier-${name}`,
+  test: new RegExp(`[\\\\/]node_modules[\\\\/]prettier[\\\\/](?:plugins[\\\\/])?${name}\\.mjs$`),
+}))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -126,8 +166,9 @@ export default defineConfig({
         // copies are only for crawlers: offline navigations use the root index.html.
         globIgnores: [
           '**/ffmpeg/**', '**/llm.worker*', '*/index.html',
-          '**/vendor-faker-*.js', '**/Formatters-*.js', '**/vendor-heic-*.js',
+          '**/vendor-faker-*.js', '**/vendor-monaco-*', '**/editor.worker-*.js', '**/json.worker-*.js', '**/vendor-heic-*.js',
           '**/zxcvbn.worker-*.js', '**/pdf.worker-*.js', '**/vendor-pdf-lib-*.js', '**/vendor-jspdf-*.js',
+          '**/prettier-*.js',
         ],
         maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
       },
@@ -144,16 +185,35 @@ export default defineConfig({
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // The installed app shows up in "Open with" for these files and opens
+        // them with Smart Drop's tool chooser (src/components/SmartDrop.jsx).
+        // An already open window is reused instead of starting a new one.
+        file_handlers: [{ action: '/', accept: FILE_HANDLER_TYPES }],
+        launch_handler: { client_mode: ['focus-existing', 'auto'] },
+        // Files and text shared from other apps (Android, ChromeOS, Windows)
+        // go through the service worker (src/sw.js) to the same chooser.
+        share_target: {
+          action: '/share-target',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url',
+            files: [{ name: 'files', accept: SHARE_TARGET_TYPES }],
+          },
+        },
       },
     }),
     // (No pre-compression plugin: Azure Static Web Apps compresses responses itself.)
   ],
   resolve: {
     alias: [
-      // Monaco 0.55 ships its own copy of DOMPurify (3.2.7, with known advisories)
-      // and imports it as './dompurify/dompurify.js'. Use the patched version from
-      // package.json instead; the API is the same. (package.json's "overrides"
-      // only changes Monaco's declared dependency, not the file it bundles.)
+      // Monaco ships its own copy of DOMPurify (3.4.15 in 0.57; 0.55 had 3.2.7,
+      // with known advisories) and imports it as './dompurify/dompurify.js'. Use
+      // the version from package.json instead, so it gets security updates with
+      // the rest of the dependencies; the API is the same. (package.json's
+      // "overrides" only changes a declared dependency, not a bundled file.)
       {
         find: /^\.\/dompurify\/dompurify\.js$/,
         replacement: fileURLToPath(new URL('./node_modules/dompurify/dist/purify.es.mjs', import.meta.url)),
@@ -165,9 +225,15 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
-    // Imported only inside Web Workers, which Vite's dependency scan doesn't crawl;
-    // listing them avoids a mid-session re-optimise and page reload in dev.
-    include: ['bcryptjs', 'zxcvbn', 'pdf-lib', 'jszip'],
+    // Imported only inside Web Workers (which Vite's dependency scan doesn't
+    // crawl) or only through dynamic imports of optional parts (Prettier's
+    // plugins, the JSON Schema validator, the EFF word list). Listing them avoids
+    // a mid-session re-optimise and page reload in dev.
+    include: [
+      'bcryptjs', 'zxcvbn', 'pdf-lib', 'jszip',
+      ...PRETTIER_MODULES.map((name) => (name === 'standalone' ? 'prettier/standalone' : `prettier/plugins/${name}`)),
+      '@cfworker/json-schema', '@wordlist/english-eff/long',
+    ],
   },
   // No cross-origin isolation headers: the single-threaded ffmpeg core doesn't need
   // SharedArrayBuffer, and production doesn't send them. The dev server also skips the
@@ -197,7 +263,11 @@ export default defineConfig({
             { name: 'vendor-icons', test: vendor('lucide-react') },
             { name: 'vendor-faker', test: vendor('@faker-js[\\\\/]faker') },
             { name: 'vendor-sql', test: vendor('sql-formatter') },
-            { name: 'vendor-syntax', test: vendor('react-syntax-highlighter') },
+            // Monaco's core (~4 MB), shared by the pages with code editors. Its
+            // per-language tokenizers stay out of it: they load lazily, per language.
+            { name: 'vendor-monaco', test: /[\\/]node_modules[\\/]monaco-editor[\\/](?!esm[\\/]vs[\\/]languages[\\/]definitions[\\/])/ },
+            { name: 'vendor-syntax', test: vendor('react-syntax-highlighter', 'refractor') },
+            ...prettierGroups,
             { name: 'vendor-pdf-lib', test: vendor('pdf-lib', '@pdf-lib') },
             { name: 'vendor-jspdf', test: vendor('jspdf') },
             { name: 'vendor-heic', test: vendor('heic-to') },

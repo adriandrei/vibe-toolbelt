@@ -7,6 +7,7 @@ import StatusBanner from '../components/ui/StatusBanner'
 import FileDropZone from '../components/ui/FileDropZone'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
 import { useSmartInput } from '../hooks/useSmartInput'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
 import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 import { useToast } from '../components/ToastProvider'
 import { usePane } from '../contexts/pane'
@@ -218,6 +219,9 @@ export default function CsvJson() {
     }
 
     useSmartInput({ input: () => {} }, { onInject: (values) => typeof values.input === 'string' && loadText(values.input) })
+
+    // A CSV or JSON file handed over by Smart Drop or "Open with"
+    useIncomingFiles('/csv-json', openFile)
 
     useRegisterAIContext({
         tool: 'CSV ↔ JSON',

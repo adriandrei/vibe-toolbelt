@@ -5,6 +5,7 @@ import FileDropZone from '../components/ui/FileDropZone'
 import SegmentedControl from '../components/ui/SegmentedControl'
 import StatusBanner from '../components/ui/StatusBanner'
 import { useObjectURL } from '../hooks/useObjectURL'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
 import { usePane } from '../contexts/pane'
 
 // Simulation matrices, applied to linear RGB.
@@ -99,6 +100,9 @@ export default function ColorBlindness() {
         setFile(next)
         setBroken(false)
     }
+
+    // An image handed over by Smart Drop or "Open with"
+    useIncomingFiles('/color-blindness', ([next]) => load(next))
 
     const loadSample = () => load(new File([SAMPLE_SVG], 'colour-sample.svg', { type: 'image/svg+xml' }))
 

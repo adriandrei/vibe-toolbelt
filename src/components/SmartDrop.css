@@ -1,0 +1,96 @@
+.smart-drop-hint {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100vw - 24px);
+    padding: 10px 16px;
+    background: var(--bg-elevated);
+    color: var(--text-main);
+    border: 1px dashed var(--primary-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    font-size: 0.9rem;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.smart-drop {
+    display: grid;
+    gap: var(--space-sm);
+}
+
+.smart-drop-detail {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    overflow-wrap: anywhere;
+}
+
+.smart-drop-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-xs);
+}
+
+.smart-drop-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    color: var(--text-main);
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font: inherit;
+}
+
+.smart-drop-option:hover,
+.smart-drop-option:focus-visible {
+    border-color: var(--primary-border);
+    background: var(--primary-glow);
+}
+
+.smart-drop-option-icon {
+    flex-shrink: 0;
+    color: var(--primary-text);
+}
+
+.smart-drop-option-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.smart-drop-option-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.smart-drop-option-desc {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.smart-drop-best {
+    font-size: 0.7rem;
+}
+
+.smart-drop-option-go {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}

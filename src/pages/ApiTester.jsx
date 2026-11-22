@@ -1,9 +1,10 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
     Check, Clock, Code2, Download, Eye, EyeOff, FolderOpen, Globe, History, Import, Loader2, Lock,
     Plus, Save, Send, Settings2, Square, Trash2, TriangleAlert, X,
 } from 'lucide-react'
 import ToolHeader from '../components/ui/ToolHeader'
+import RealtimeClient from '../components/api/RealtimeClient'
 import CodeBlock from '../components/ui/CodeBlock'
 import CopyButton from '../components/ui/CopyButton'
 import EmptyState from '../components/ui/EmptyState'
@@ -57,6 +58,11 @@ const COMMON_HEADERS = ['Accept', 'Accept-Language', 'Authorization', 'Cache-Con
 const VAR_RE = /\{\{\s*([\w.-]+)\s*\}\}/g
 const SAFELISTED_TYPES = ['application/x-www-form-urlencoded', 'multipart/form-data', 'text/plain']
 const SEND_SHORTCUT = isMacPlatform ? '⌘ Enter' : 'Ctrl + Enter'
+const PROTOCOLS = [
+    { value: 'http', label: 'HTTP' },
+    { value: 'ws', label: 'WebSocket' },
+    { value: 'sse', label: <>SSE<span className="sr-only"> (server-sent events)</span></>, title: 'Server-sent events' },
+]
 
 // Row ids only need to be unique among rows that are on screen together,
 // including ones restored from storage that were created in other sessions
@@ -1043,6 +1049,13 @@ export default function ApiTester() {
     const historyList = useMemo(() => (Array.isArray(history) ? history.filter(h => isObject(h) && (isObject(h.request) || typeof h.url === 'string')) : []), [history])
     const savedList = useMemo(() => (Array.isArray(collections) ? collections.filter(c => isObject(c) && c.id !== undefined) : []), [collections])
 
+    // HTTP (this page), or the WebSocket and server-sent events clients
+    const [storedProtocol, setProtocol] = useLocalStorage('api-protocol', 'http')
+    const protocol = PROTOCOLS.some(p => p.value === storedProtocol) ? storedProtocol : 'http'
+    const [realtimeLive, setRealtimeLive] = useState({ ws: false, sse: false })
+    const resolveVars = useCallback((text, unresolved) => substitute(text, vars, unresolved), [vars])
+    const onRealtimeLive = useCallback((kind, live) => setRealtimeLive(prev => (prev[kind] === live ? prev : { ...prev, [kind]: live })), [])
+
     const [req, setReq] = useState(() => hydrate(DEFAULT_REQUEST))
     const [requestTab, setRequestTab] = useState('params')
     const [phase, setPhase] = useState('idle') // idle | loading | done | error
@@ -1133,6 +1146,7 @@ export default function ApiTester() {
 
     useSmartInput({
         input: (text) => {
+            setProtocol('http')
             const result = importWithFeedback(text)
             if (!result.ok) toast.error(`Couldn't import the cURL command: ${result.error}`)
         },
@@ -1350,9 +1364,50 @@ export default function ApiTester() {
         { value: 'options', label: 'Options' },
     ]
 
+    const liveDot = <><span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} /><span className="sr-only"> (connected)</span></>
+    const header = (
+        <ToolHeader
+            actions={(
+                <SegmentedControl
+                    ariaLabel="Protocol"
+                    value={protocol}
+                    onChange={setProtocol}
+                    options={PROTOCOLS.map(p => ({ ...p, label: <>{p.label}{realtimeLive[p.value] && liveDot}</> }))}
+                />
+            )}
+        />
+    )
+    // Rendered with the same key in both layouts below, so that an open
+    // connection and its log survive switching to HTTP and back
+    const realtime = (
+        <RealtimeClient
+            key="realtime"
+            protocol={protocol}
+            envs={envs}
+            activeEnvId={activeEnv.id}
+            onSelectEnv={setActiveEnvId}
+            onManageEnvs={() => setModal('env')}
+            resolveVars={resolveVars}
+            onLiveChange={onRealtimeLive}
+        />
+    )
+
+    if (protocol !== 'http') {
+        return (
+            <div className="page page-wide">
+                {header}
+                {realtime}
+                {modal === 'env' && (
+                    <EnvModal envs={envs} activeId={activeEnv.id} setEnvs={setEnvs} setActiveId={setActiveEnvId} onClose={() => setModal(null)} />
+                )}
+            </div>
+        )
+    }
+
     return (
         <div className="page page-wide" onKeyDown={onKeyDown}>
-            <ToolHeader />
+            {header}
+            {realtime}
 
             {/* Request line */}
             <form

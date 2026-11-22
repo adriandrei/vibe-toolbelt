@@ -14,6 +14,7 @@ import EmptyState from '../components/ui/EmptyState'
 import { useToast } from '../components/ToastProvider'
 import { useObjectURL } from '../hooks/useObjectURL'
 import { useLeaveGuard } from '../hooks/useLeaveGuard'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
 import { usePane } from '../contexts/pane'
 import { downloadBlob, formatBytes, splitFilename } from '../utils/download'
 import {
@@ -388,6 +389,9 @@ export default function ImageConverter() {
         // Decode one at a time: HEIC decoding is heavy
         for (const item of items) queueRef.current = queueRef.current.then(() => decodeItem(item))
     }
+
+    // Images handed over by Smart Drop or "Open with"
+    useIncomingFiles('/image', addFiles)
 
     const convertAll = async () => {
         if (converting || settingsInvalid) return

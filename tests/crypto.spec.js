@@ -180,7 +180,7 @@ test.describe('OTP / TOTP Generator', () => {
 
     test('Generates a 6-digit TOTP token on load', async ({ page }) => {
         // The current code appears immediately (no 1 s delay)
-        await expect(page.getByRole('button', { name: /^Copy code \d{6}$/ })).toBeVisible({ timeout: 2000 });
+        await expect(page.getByRole('button', { name: /^Copy code \d{3} \d{3}$/ })).toBeVisible({ timeout: 2000 });
     });
 
     test('Timer progress bar is visible', async ({ page }) => {
@@ -214,7 +214,7 @@ test.describe('OTP / TOTP Generator', () => {
         // JBSWY3DPEHPK3PXP is the canonical test secret from RFC 6238
         await secretInput.fill('JBSWY3DPEHPK3PXP');
 
-        await expect(page.getByRole('button', { name: /^Copy code \d{6}$/ })).toBeVisible({ timeout: 3000 });
+        await expect(page.getByRole('button', { name: /^Copy code \d{3} \d{3}$/ })).toBeVisible({ timeout: 3000 });
     });
 });
 

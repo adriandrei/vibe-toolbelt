@@ -11,6 +11,7 @@ import StatusBanner from '../components/ui/StatusBanner'
 import { useToast } from '../components/ToastProvider'
 import { usePane } from '../contexts/pane'
 import { useObjectURL } from '../hooks/useObjectURL'
+import { useIncomingFiles } from '../hooks/useIncomingFiles'
 import { downloadBlob, formatBytes } from '../utils/download'
 import { createIco, encodeCanvas, isSvgFile, loadImage, releaseCanvas, renderIcon } from '../utils/image'
 
@@ -130,6 +131,9 @@ export default function FaviconGenerator() {
             loaded?.close()
         }
     }
+
+    // An image handed over by Smart Drop or "Open with"
+    useIncomingFiles('/favicon', ([next]) => handleFile(next))
 
     const clear = () => {
         requestRef.current++

@@ -1,0 +1,3 @@
+# Binary test fixtures: never convert line endings or diff them as text
+tests/fixtures/certs/*.der binary
+tests/fixtures/certs/*.p7b binary

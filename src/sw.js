@@ -31,6 +31,38 @@ registerRoute(
     })
 )
 
+// Web Share Target (manifest share_target): when files or text are shared to
+// the installed app, the share sheet POSTs them here. They're kept in a cache
+// for the page, which opens with ?share-target=1 and offers the matching tools
+// (src/components/SmartDrop.jsx reads and then deletes the cache).
+const SHARE_CACHE = 'share-target'
+registerRoute(
+    ({ url }) => url.origin === self.location.origin && url.pathname === '/share-target',
+    async ({ request }) => {
+        try {
+            const form = await request.formData()
+            await caches.delete(SHARE_CACHE)
+            const cache = await caches.open(SHARE_CACHE)
+            const files = form.getAll('files').filter(value => typeof value !== 'string')
+            const manifest = { files: [] }
+            for (const key of ['title', 'text', 'url']) {
+                const value = form.get(key)
+                manifest[key] = typeof value === 'string' ? value : ''
+            }
+            await Promise.all(files.map((file, index) => {
+                const key = `/share-target/file-${index}`
+                manifest.files.push({ key, name: file.name, type: file.type })
+                return cache.put(key, new Response(file, { headers: { 'content-type': file.type || 'application/octet-stream' } }))
+            }))
+            await cache.put('/share-target/manifest.json', new Response(JSON.stringify(manifest), { headers: { 'content-type': 'application/json' } }))
+        } catch {
+            // Open the app anyway; there's just nothing to pick up
+        }
+        return Response.redirect('/?share-target=1', 303)
+    },
+    'POST'
+)
+
 // Large tool-specific chunks left out of the precache (Faker, Monaco, the HEIC
 // decoder, PDF libraries, zxcvbn, the LLM worker) are kept here once a tool has
 // loaded them, along with the fonts.

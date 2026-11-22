@@ -63,6 +63,9 @@ export function validateAlphabet(text) {
 export function nanoid(size = 21, symbols = Array.from(NANOID_ALPHABET)) {
     const length = symbols.length
     if (length < 2 || length > 256) throw new RangeError('Alphabet must have 2–256 symbols')
+    // The loop below only ends when exactly `size` symbols are collected
+    if (!Number.isInteger(size) || size < 0) throw new RangeError('Size must be a whole number of 0 or more')
+    if (size === 0) return ''
     const mask = (2 << (31 - Math.clz32((length - 1) | 1))) - 1
     const step = Math.ceil((1.6 * mask * size) / length)
     let id = ''

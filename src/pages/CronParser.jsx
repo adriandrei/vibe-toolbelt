@@ -5,9 +5,13 @@ import CopyButton from '../components/ui/CopyButton'
 import EmptyState from '../components/ui/EmptyState'
 import Field from '../components/ui/Field'
 import SegmentedControl from '../components/ui/SegmentedControl'
+import ShareButton from '../components/ui/ShareButton'
 import StatusBanner from '../components/ui/StatusBanner'
+import { useToast } from '../components/ToastProvider'
+import { useSharedState } from '../hooks/useSharedState'
 import { useSmartInput } from '../hooks/useSmartInput'
 import { CRON_FIELDS, LAYOUT_NOTES, analyzeCron, describeField } from '../utils/cron'
+import { field, ignoredFieldsMessage, readSharedFields } from '../utils/shareFields'
 import { LOCAL_TIME_ZONE, formatRelativeTo } from '../utils/timestamp'
 
 const EXAMPLES = [
@@ -22,6 +26,14 @@ const EXAMPLES = [
 ]
 
 const RUN_COUNTS = [5, 10, 25]
+
+// What a shared link may set. "Local" time is the local time of whoever opens it.
+const SHARE_FIELDS = {
+    expression: field.string({ max: 10_000 }),
+    timezone: field.oneOf(['local', 'utc']),
+    use24Hour: field.boolean(),
+    count: field.oneOf(RUN_COUNTS),
+}
 
 // Follow the locale's clock style by default (e.g. 24-hour in most of Europe)
 const LOCALE_USES_24H = (() => {
@@ -87,6 +99,7 @@ function FieldTable({ fields, use24Hour }) {
 
 export default function CronParser() {
     const inputId = useId()
+    const toast = useToast()
     const [expression, setExpression] = useState('*/5 * * * *')
     const [timezone, setTimezone] = useState('local')
     const [use24Hour, setUse24Hour] = useState(LOCALE_USES_24H)
@@ -94,6 +107,15 @@ export default function CronParser() {
     const [now, setNow] = useState(() => Date.now())
 
     useSmartInput({ input: setExpression })
+
+    useSharedState((data) => {
+        const { values, ignored } = readSharedFields(data, SHARE_FIELDS)
+        if ('expression' in values) setExpression(values.expression)
+        if ('timezone' in values) setTimezone(values.timezone)
+        if ('use24Hour' in values) setUse24Hour(values.use24Hour)
+        if ('count' in values) setCount(values.count)
+        if (ignored.length) toast.warning(ignoredFieldsMessage(ignored), 6000)
+    })
 
     // Keep "next runs" and their relative times current
     useEffect(() => {
@@ -137,7 +159,16 @@ export default function CronParser() {
                     label="Cron expression"
                     error={analysis.status === 'error' ? analysis.message : undefined}
                     hint={layoutNote ?? 'Minute, hour, day of month, month and day of week. 6- and 7-field expressions (with seconds or a year) and shortcuts like @daily work too.'}
-                    labelAction={<CopyButton text={expression.trim()} iconOnly label="Copy expression" />}
+                    labelAction={(
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                            <ShareButton
+                                className="btn btn-ghost btn-sm"
+                                disabled={!expression.trim()}
+                                getState={() => ({ expression, timezone, use24Hour, count })}
+                            />
+                            <CopyButton text={expression.trim()} iconOnly label="Copy expression" />
+                        </div>
+                    )}
                 >
                     <input
                         id={inputId}

@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { format as formatSql } from 'sql-formatter'
 import jmespath from 'jmespath'
-import { AlignLeft, Braces, Code, Database, Download, FileCode, FileOutput, Minimize2, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { AlignLeft, Download, FileCode, FileOutput, Loader2, Minimize2, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import ToolHeader from '../components/ui/ToolHeader'
 import SegmentedControl from '../components/ui/SegmentedControl'
 import CopyButton from '../components/ui/CopyButton'
@@ -17,13 +17,49 @@ import { usePane } from '../contexts/pane'
 import { formatXml, minifyXml } from '../utils/xml'
 import { downloadText, formatBytes } from '../utils/download'
 import { isMacPlatform } from '../utils/palette'
+import {
+    LANGUAGE_OPTIONS,
+    MINIFIABLE_LANGUAGES,
+    PRETTIER_DEFAULTS,
+    PRINT_WIDTHS,
+    formatCode,
+    isFormatterLoaded,
+    isPrettierLanguage,
+    readPrettierOptions,
+} from '../utils/prettierFormat'
 
+// Languages, grouped in the picker. JSON, SQL and XML have their own
+// formatters; the rest use Prettier (utils/prettierFormat.js), loaded on
+// first use. `liveLimit`: live formatting pauses above this many characters
+// (the Format button still works), sized so a run stays around 200 ms.
 const MODES = [
-    { value: 'json', label: 'JSON', icon: Braces },
-    { value: 'sql', label: 'SQL', icon: Database },
-    { value: 'xml', label: 'XML', icon: Code },
+    { value: 'json', label: 'JSON', group: 'Data', ext: 'json', mime: 'application/json', liveLimit: 2_000_000 },
+    { value: 'yaml', label: 'YAML', group: 'Data', ext: 'yaml', mime: 'application/yaml', liveLimit: 100_000 },
+    { value: 'xml', label: 'XML', group: 'Markup', ext: 'xml', mime: 'application/xml', liveLimit: 1_000_000 },
+    { value: 'html', label: 'HTML', group: 'Markup', ext: 'html', mime: 'text/html', liveLimit: 100_000 },
+    { value: 'markdown', label: 'Markdown', group: 'Markup', ext: 'md', mime: 'text/markdown', liveLimit: 50_000 },
+    { value: 'css', label: 'CSS', group: 'Styles', ext: 'css', mime: 'text/css', liveLimit: 60_000 },
+    { value: 'scss', label: 'SCSS', group: 'Styles', ext: 'scss', mime: 'text/plain', liveLimit: 60_000 },
+    { value: 'less', label: 'Less', group: 'Styles', ext: 'less', mime: 'text/plain', liveLimit: 60_000 },
+    { value: 'javascript', label: 'JavaScript', option: 'JavaScript / JSX', group: 'Scripts', ext: 'js', mime: 'text/javascript', liveLimit: 150_000 },
+    { value: 'typescript', label: 'TypeScript', option: 'TypeScript / TSX', group: 'Scripts', ext: 'ts', mime: 'text/plain', liveLimit: 150_000 },
+    { value: 'sql', label: 'SQL', group: 'Queries', ext: 'sql', mime: 'application/sql', liveLimit: 150_000 },
+    { value: 'graphql', label: 'GraphQL', group: 'Queries', ext: 'graphql', mime: 'text/plain', liveLimit: 100_000 },
 ]
-const MODE_IDS = MODES.map(m => m.value)
+const MODE_INFO = Object.fromEntries(MODES.map(m => [m.value, m]))
+const MODE_GROUPS = [...new Set(MODES.map(m => m.group))].map(group => ({ group, modes: MODES.filter(m => m.group === group) }))
+const modeLabel = (mode) => MODE_INFO[mode]?.label ?? mode.toUpperCase()
+
+// Other names a mode may arrive as (smart input, pipeline)
+const MODE_ALIASES = { js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript', yml: 'yaml', md: 'markdown', gql: 'graphql', htm: 'html' }
+function normalizeMode(value) {
+    if (typeof value !== 'string') return null
+    const key = value.trim().toLowerCase()
+    if (Object.hasOwn(MODE_INFO, key)) return key
+    return Object.hasOwn(MODE_ALIASES, key) ? MODE_ALIASES[key] : null
+}
+
+const canMinify = (mode) => mode === 'json' || mode === 'xml' || MINIFIABLE_LANGUAGES.includes(mode)
 
 const ACTIONS = [
     { value: 'pretty', label: 'Prettify', icon: AlignLeft, title: 'Prettify (indented)' },
@@ -68,19 +104,56 @@ const SAMPLES = {
     json: '{"name":"Vibe Toolbelt","version":2,"tags":["dev","tools"],"owner":{"name":"Ada","active":true},"items":[{"id":1,"price":9.5},{"id":2,"price":12}]}',
     sql: "select u.id, u.name, count(o.id) as orders from users u left join orders o on o.user_id = u.id where u.active = true and u.created_at > '2024-01-01' group by u.id, u.name having count(o.id) > 3 order by orders desc limit 10;",
     xml: '<?xml version="1.0" encoding="UTF-8"?><catalog><book id="bk101"><author>Gambardella, Matthew</author><title>XML Developer\'s Guide</title><price currency="USD">44.95</price></book><book id="bk102"><author>Ralls, Kim</author><title>Midnight Rain</title><price currency="USD">5.95</price></book></catalog>',
+    html: '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Vibe Toolbelt</title><style>body{font-family:system-ui;margin:0}.card{padding:16px;border-radius:8px}</style></head><body><main class="card"><h1>Hello</h1><p>Formatted with <a href="https://prettier.io">Prettier</a>.</p><ul><li>One</li><li>Two</li></ul></main><script>document.querySelector(\'h1\').addEventListener(\'click\',()=>{console.log("hi")})</script></body></html>',
+    css: ':root{--accent:#6d5efc;--radius:8px}body{margin:0;font:16px/1.5 system-ui,sans-serif;color:#222}.btn,.btn:hover{display:inline-flex;align-items:center;padding:.5rem 1rem;border-radius:var(--radius);background:var(--accent);color:#fff}@media (max-width:600px){.btn{width:100%}}',
+    scss: '$accent:#6d5efc;$radius:8px;@mixin card($pad:16px){padding:$pad;border-radius:$radius}.card{@include card(24px);background:lighten($accent,40%);&:hover{box-shadow:0 2px 8px rgba(0,0,0,.2)}.title{font-weight:600;color:$accent}}',
+    less: '@accent:#6d5efc;@radius:8px;.rounded(@r:@radius){border-radius:@r}.card{.rounded(12px);background:lighten(@accent,40%);&:hover{color:darken(@accent,10%)}.title{font-weight:600}}',
+    javascript: "import {useState} from 'react'\nexport default function Counter({initial=0,step=1}){const [count,setCount]=useState(initial);const label=count===1?\"1 click\":`${count} clicks`\nreturn <div className=\"counter\"><button onClick={()=>setCount(c=>c+step)}>Add {step}</button><span>{label}</span></div>}",
+    typescript: "interface User{id:number;name:string;email?:string;roles:Array<'admin'|'editor'|'viewer'>}\ntype Result<T>={ok:true;value:T}|{ok:false;error:string}\nexport async function fetchUser(id:number):Promise<Result<User>>{const res=await fetch(`/api/users/${id}`);if(!res.ok){return {ok:false,error:res.statusText}}return {ok:true,value:await res.json() as User}}",
+    yaml: 'name:   vibe-toolbelt\non: {push: {branches: [main]}, pull_request: {}}\njobs:\n  build:\n      runs-on: ubuntu-latest\n      steps:\n          - uses: actions/checkout@v4\n          - name:   Install\n            run: npm ci\n          - run: npm test\n',
+    graphql: 'query GetUser($id:ID!,$withPosts:Boolean=false){user(id:$id){id name email posts(first:10)@include(if:$withPosts){edges{node{id title}}}}}',
+    markdown: 'Vibe Toolbelt\n===\nA set of *developer tools* that run in your browser.\n* Formatters\n* Encoders\n\n1) Paste some code\n2) Pick a language\n```js\nconst greeting = {text:"hello"}\n```\n',
 }
 
-const FILE_TYPES = {
-    json: { ext: 'json', mime: 'application/json' },
-    sql: { ext: 'sql', mime: 'application/sql' },
-    xml: { ext: 'xml', mime: 'application/xml' },
-}
-
-// Live formatting is paused above these sizes; the Format button still works.
-const LIVE_LIMIT = { json: 2_000_000, xml: 1_000_000, sql: 150_000 }
 const DIFF_LIMIT = 400_000
 
-const DEFAULT_PREFS = { indent: '2', dialect: 'sql', keywordCase: 'upper', live: true }
+const DEFAULT_PREFS = { indent: '2', dialect: 'sql', keywordCase: 'upper', live: true, ...PRETTIER_DEFAULTS }
+
+// How each Prettier option is shown. LANGUAGE_OPTIONS (utils/prettierFormat.js)
+// decides which ones a language gets; Print width sits next to Indent.
+const EMBEDDED_HINTS = {
+    html: 'Also format the CSS and JavaScript in <style>, <script> and style attributes',
+    markdown: 'Also format fenced code blocks (JavaScript, TypeScript, JSON, CSS, YAML, GraphQL, HTML) and YAML front matter',
+}
+const PRETTIER_CONTROLS = {
+    semi: { label: 'Semicolons' },
+    singleQuote: { label: 'Single quotes' },
+    jsxSingleQuote: { label: 'Single quotes in JSX' },
+    bracketSpacing: { label: 'Spaces inside braces', title: '{ a: 1 } instead of {a: 1}' },
+    bracketSameLine: { label: 'Bracket on same line', title: 'Put the > of a multi-line tag at the end of its last line' },
+    singleAttributePerLine: { label: 'One attribute per line' },
+    embeddedLanguageFormatting: { label: 'Format embedded code', on: 'auto', off: 'off' },
+    trailingComma: { label: 'Trailing commas', choices: [['all', 'All'], ['es5', 'ES5'], ['none', 'None']] },
+    quoteProps: { label: 'Quote keys', choices: [['as-needed', 'When needed'], ['consistent', 'Consistently'], ['preserve', 'As written']] },
+    arrowParens: { label: 'Arrow parens', title: 'Parentheses around a single arrow function parameter: (x) => x', choices: [['always', 'Always'], ['avoid', 'When needed']] },
+    htmlWhitespaceSensitivity: { label: 'Whitespace', title: 'How whitespace between inline elements is treated', choices: [['css', 'Follow CSS display'], ['strict', 'Strict'], ['ignore', 'Ignore']] },
+    proseWrap: { label: 'Wrap prose', choices: [['preserve', 'As written'], ['always', 'At print width'], ['never', 'Never']] },
+}
+
+const PROMPTS = {
+    json: ['Explain the structure of this JSON', 'Write a JMESPath query to extract the ids', 'Are there any issues with this data?'],
+    sql: ['What does this SQL query do?', 'How can I optimize this query?', 'Are there any bugs in this query?'],
+    xml: ['Summarize what this XML represents', 'Is this XML well-formed?', 'Write an XPath to select the items'],
+    html: ['Is this HTML accessible?', 'Explain the structure of this page', 'Are there any invalid or deprecated tags?'],
+    css: ['Explain what these styles do', 'Are any of these rules redundant?', 'How can I make this layout responsive?'],
+    scss: ['Explain these variables and mixins', 'Convert this SCSS to plain CSS', 'Are any of these rules redundant?'],
+    less: ['Explain these variables and mixins', 'Convert this Less to plain CSS', 'Are any of these rules redundant?'],
+    javascript: ['Explain what this code does', 'Are there any bugs in this code?', 'How can I simplify this?'],
+    typescript: ['Explain what this code does', 'Are there any type or logic errors?', 'How can I make these types stricter?'],
+    yaml: ['Explain this configuration', 'Are there any mistakes in this YAML?', 'Convert this YAML to JSON'],
+    graphql: ['What data does this query fetch?', 'Are there any problems with this query?', 'Write a TypeScript type for the result'],
+    markdown: ['Summarize this document', 'Suggest a clearer structure', 'Fix spelling and grammar'],
+}
 
 // ---------------------------------------------------------------- helpers
 
@@ -212,12 +285,53 @@ function jsonNotices(text, { numbersKept = false } = {}) {
     return notices
 }
 
+// Only unambiguous starts: the guess can switch the language (pipeline, smart
+// input without a mode) and suggests "Format as …" on errors.
+const HTML_START = /^<(?:!doctype\s+html|html|head|body|div|span|p|ul|ol|table|section|article|header|footer|main|nav|aside|form|button|img|script|style|meta|h[1-6]|template|iframe|br|hr)\b/i
+const GRAPHQL_START = /^(?:(?:query|mutation|subscription)\b[^{}]*\{|fragment\s+[_A-Za-z]\w*\s+on\s+[_A-Za-z])/
+
 function guessMode(text) {
     const t = text.trimStart()
     if (/^[[{]/.test(t)) return 'json'
-    if (t.startsWith('<')) return 'xml'
+    if (t.startsWith('<')) return HTML_START.test(t) ? 'html' : 'xml'
     if (/^(select|insert|update|delete|with|create|alter|drop|merge|explain)\b/i.test(t)) return 'sql'
+    if (GRAPHQL_START.test(t)) return 'graphql'
     return null
+}
+
+// Hints for a failed parse: syntax that belongs to a sibling language.
+const TYPESCRIPT_SYNTAX = /\binterface\s+[A-Za-z_$][\w$]*\s*(?:<[^>]*>\s*)?(?:extends\s[^{]+)?\{|\btype\s+[A-Za-z_$][\w$]*\s*(?:<[^>]*>\s*)?=|\benum\s+[A-Za-z_$][\w$]*\s*\{|\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:\s*[A-Za-z_$]|\)\s*:\s*(?:string|number|boolean|void|any|unknown|never|Promise\b)|\bas\s+(?:const|string|number|unknown|any)\b|\b(?:private|public|protected|readonly)\s+[A-Za-z_$][\w$]*\s*[:;=(]/
+const LESS_SYNTAX = /^\s*@[\w-]+\s*:|^\s*\.[\w-]+\([^)]*\)\s*;/m
+
+function siblingSuggestion(text, mode) {
+    if (mode === 'javascript' && TYPESCRIPT_SYNTAX.test(text)) return 'typescript'
+    if ((mode === 'css' || mode === 'scss') && LESS_SYNTAX.test(text)) return 'less'
+    const guessed = guessMode(text)
+    return guessed && guessed !== mode ? guessed : null
+}
+
+// Error details for a Prettier failure (see describePrettierError).
+function prettierError(text, mode, error) {
+    const label = modeLabel(mode)
+    if (error.kind === 'load') {
+        return {
+            title: `Couldn’t load the ${label} formatter`,
+            message: 'It’s downloaded the first time you format this language. Check your connection and try again.',
+            plain: true,
+            action: { label: 'Try again', retry: true },
+        }
+    }
+    const location = error.line
+        ? { line: error.line, column: error.column, endLine: error.endLine, endColumn: error.endColumn }
+        : null
+    const suggestion = siblingSuggestion(text, mode)
+    return {
+        title: `Invalid ${label}`,
+        message: location ? `${error.message} (line ${location.line}, column ${location.column})` : error.message,
+        location,
+        hint: suggestion ? `This looks like ${modeLabel(suggestion)}.` : null,
+        action: suggestion ? { label: `Format as ${modeLabel(suggestion)}`, mode: suggestion } : null,
+    }
 }
 
 function jsonError(text, error) {
@@ -237,8 +351,8 @@ function jsonError(text, error) {
     let action = null
     const guessed = guessMode(text)
     if (guessed && guessed !== 'json') {
-        hint = `This looks like ${guessed.toUpperCase()}.`
-        action = { label: `Format as ${guessed.toUpperCase()}`, mode: guessed }
+        hint = `This looks like ${modeLabel(guessed)}.`
+        action = { label: `Format as ${modeLabel(guessed)}`, mode: guessed }
     } else if (/^\s*\/\/|\/\*[\s\S]*?\*\//m.test(text)) {
         hint = 'JSON doesn’t allow comments. Remove the // or /* */ comments.'
     } else if (/,\s*[}\]]/.test(text)) {
@@ -392,21 +506,81 @@ function formatXmlText(source, { action, indent }) {
                 title: 'Invalid XML',
                 message,
                 location: lc ? { line: Number(lc[1]), column: Number(lc[2]) } : null,
-                hint: guessed && guessed !== 'xml' ? `This looks like ${guessed.toUpperCase()}.` : 'Check that every tag is closed and attribute values are quoted.',
-                action: guessed && guessed !== 'xml' ? { label: `Format as ${guessed.toUpperCase()}`, mode: guessed } : null,
+                hint: guessed && guessed !== 'xml' ? `This looks like ${modeLabel(guessed)}.` : 'Check that every tag is closed and attribute values are quoted.',
+                action: guessed && guessed !== 'xml' ? { label: `Format as ${modeLabel(guessed)}`, mode: guessed } : null,
             },
         }
     }
 }
 
+// JSON, SQL and XML (synchronous). `source` records the text a result is for.
 function runFormat(source, settings) {
     if (!source || !source.trim()) return EMPTY_RESULT
-    if (settings.mode === 'sql') return formatSqlText(source, settings)
-    if (settings.mode === 'xml') return formatXmlText(source, settings)
-    return formatJsonText(source, settings)
+    if (settings.mode === 'sql') return { ...formatSqlText(source, settings), source }
+    if (settings.mode === 'xml') return { ...formatXmlText(source, settings), source }
+    return { ...formatJsonText(source, settings), source }
 }
 
-const countLines = (text) => (text ? text.split('\n').length : 0)
+// Lets the browser paint the "Formatting…" status before a long synchronous
+// Prettier run starts (with a fallback for background tabs, which skip frames).
+const nextPaint = () => new Promise((resolve) => {
+    const fallback = setTimeout(resolve, 100)
+    requestAnimationFrame(() => setTimeout(() => {
+        clearTimeout(fallback)
+        resolve()
+    }, 0))
+})
+
+// The other languages (asynchronous: Prettier is downloaded on first use).
+async function runPrettier({ source, mode, action, indent, options }) {
+    if (source.length > 20_000) await nextPaint()
+    const { output, error } = await formatCode(source, mode, { ...options, indent, minify: action === 'minify' })
+    return error
+        ? { ...EMPTY_RESULT, source, error: prettierError(source, mode, error) }
+        : { ...EMPTY_RESULT, source, output }
+}
+
+// Prettier ends its output with a newline, which isn't a line of its own
+const countLines = (text) => (text ? text.split('\n').length - (text.endsWith('\n') ? 1 : 0) : 0)
+
+const INLINE_LABEL = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: 'var(--text-muted)' }
+const SELECT_STYLE = { width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }
+const OPTIONS_ROW = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-sm) var(--space-md)' }
+const OPTIONS_BOX = { marginTop: 'var(--space-sm)', paddingTop: 'var(--space-sm)', borderTop: '1px solid var(--border)' }
+
+// A compact labelled select. The label is associated with htmlFor rather than
+// wrapped around the select, so the accessible name is just the label.
+function InlineSelect({ label, value, onChange, title, children }) {
+    const id = useId()
+    return (
+        <span style={INLINE_LABEL} title={title}>
+            <label htmlFor={id}>{label}</label>
+            <select id={id} value={value} onChange={e => onChange(e.target.value)} style={SELECT_STYLE}>
+                {children}
+            </select>
+        </span>
+    )
+}
+
+// One Prettier option: a checkbox, or a select for choices
+function PrettierOption({ name, mode, value, onChange }) {
+    const control = PRETTIER_CONTROLS[name]
+    if (control.choices) {
+        return (
+            <InlineSelect label={control.label} title={control.title} value={value} onChange={next => onChange(name, next)}>
+                {control.choices.map(([choice, label]) => <option key={choice} value={choice}>{label}</option>)}
+            </InlineSelect>
+        )
+    }
+    const checked = control.on ? value === control.on : value
+    const toValue = (on) => (control.on ? (on ? control.on : control.off) : on)
+    return (
+        <label style={INLINE_LABEL} title={name === 'embeddedLanguageFormatting' ? EMBEDDED_HINTS[mode] : control.title}>
+            <input type="checkbox" checked={checked} onChange={e => onChange(name, toValue(e.target.checked))} />
+            {control.label}
+        </label>
+    )
+}
 
 // ---------------------------------------------------------------- page
 
@@ -415,11 +589,14 @@ export default function Formatters() {
     const queryId = useId()
     const [prefs, setPrefs] = useLocalStorage('vt-formatters-prefs', DEFAULT_PREFS)
     const settingsPrefs = { ...DEFAULT_PREFS, ...(prefs && typeof prefs === 'object' ? prefs : null) }
-    const { live } = settingsPrefs
     // Stored values are validated so a stale preference can't break formatting
+    const live = typeof settingsPrefs.live === 'boolean' ? settingsPrefs.live : DEFAULT_PREFS.live
     const indent = INDENTS.some(o => o.value === settingsPrefs.indent) ? settingsPrefs.indent : DEFAULT_PREFS.indent
     const dialect = SQL_DIALECTS.some(d => d.value === settingsPrefs.dialect) ? settingsPrefs.dialect : DEFAULT_PREFS.dialect
     const keywordCase = KEYWORD_CASES.some(k => k.value === settingsPrefs.keywordCase) ? settingsPrefs.keywordCase : DEFAULT_PREFS.keywordCase
+    const prettierOptions = readPrettierOptions(settingsPrefs)
+    // A string, so the Prettier request below only changes when an option does
+    const prettierKey = JSON.stringify(prettierOptions)
     const setPref = (key, value) => setPrefs(prev => ({ ...DEFAULT_PREFS, ...(prev && typeof prev === 'object' ? prev : null), [key]: value }))
 
     const [mode, setModeState] = useState('json')
@@ -430,10 +607,20 @@ export default function Formatters() {
     // input (debounced); Format, paste, injection and option changes set it now.
     const [source, setSource] = useState('')
     const [view, setView] = useState('code')
+    // Bumped by "Try again" after Prettier failed to download
+    const [attempt, setAttempt] = useState(0)
+    // The latest finished Prettier run: { request, result }
+    const [prettierRun, setPrettierRun] = useState({ request: null, result: EMPTY_RESULT })
+
+    const info = MODE_INFO[mode]
+    const usesPrettier = isPrettierLanguage(mode)
+    const effectiveAction = canMinify(mode) ? action : 'pretty'
+    const liveLimit = info.liveLimit
 
     const debouncedQuery = useDebouncedValue(query, 300)
     const inputRef = useRef(input)
     const liveRef = useRef(live)
+    const liveLimitRef = useRef(liveLimit)
     const timerRef = useRef(null)
     const editorRef = useRef(null)
     const monacoRef = useRef(null)
@@ -441,15 +628,47 @@ export default function Formatters() {
     useEffect(() => {
         inputRef.current = input
         liveRef.current = live
+        liveLimitRef.current = liveLimit
     })
     useEffect(() => () => clearTimeout(timerRef.current), [])
 
-    const result = useMemo(
-        () => runFormat(source, { mode, action, indent, dialect, keywordCase, query: debouncedQuery }),
-        [source, mode, action, indent, dialect, keywordCase, debouncedQuery]
+    const syncResult = useMemo(
+        () => (usesPrettier ? null : runFormat(source, { mode, action: effectiveAction, indent, dialect, keywordCase, query: debouncedQuery })),
+        [usesPrettier, source, mode, effectiveAction, indent, dialect, keywordCase, debouncedQuery]
     )
+
+    // Prettier runs asynchronously; a run whose request is no longer current
+    // is ignored when it finishes.
+    const prettierRequest = useMemo(
+        () => (usesPrettier && source.trim()
+            ? { source, mode, action: effectiveAction, indent, options: JSON.parse(prettierKey), attempt }
+            : null),
+        [usesPrettier, source, mode, effectiveAction, indent, prettierKey, attempt]
+    )
+    useEffect(() => {
+        if (!prettierRequest) return undefined
+        let current = true
+        runPrettier(prettierRequest).then((result) => {
+            if (current) setPrettierRun({ request: prettierRequest, result })
+        })
+        return () => {
+            current = false
+        }
+    }, [prettierRequest])
+
+    const prettierDone = prettierRun.request === prettierRequest
+    const formatting = Boolean(prettierRequest) && !prettierDone
+    const loadingFormatter = formatting && !isFormatterLoaded(mode)
+    // While a run is in progress the previous output for the same language
+    // stays (no flicker while typing); another language's output doesn't.
+    const result = !usesPrettier
+        ? syncResult
+        : !prettierRequest
+            ? EMPTY_RESULT
+            : prettierDone || prettierRun.request?.mode === mode
+                ? prettierRun.result
+                : EMPTY_RESULT
     const { output, error, queryError, notices } = result
-    const liveLimit = LIVE_LIMIT[mode]
     const tooBigForLive = input.length > liveLimit
     const stale = source !== input && (!live || tooBigForLive) && Boolean(source || output)
 
@@ -477,7 +696,8 @@ export default function Formatters() {
     }
 
     const loadText = (text, nextMode) => {
-        if (nextMode && MODE_IDS.includes(nextMode)) setModeState(nextMode)
+        const known = normalizeMode(nextMode)
+        if (known) setModeState(known)
         setInput(text)
         inputRef.current = text
         commit(text)
@@ -489,14 +709,15 @@ export default function Formatters() {
                 if (typeof value === 'string') setInput(value)
             },
             mode: (value) => {
-                if (MODE_IDS.includes(value)) setModeState(value)
+                const known = normalizeMode(value)
+                if (known) setModeState(known)
             },
         },
         {
             onInject: (values) => {
                 if (typeof values.input !== 'string') return
-                const guessed = values.mode ? null : guessMode(values.input)
-                loadText(values.input, values.mode ?? guessed)
+                const known = normalizeMode(values.mode)
+                loadText(values.input, known ?? guessMode(values.input))
             },
         }
     )
@@ -504,11 +725,7 @@ export default function Formatters() {
     useRegisterAIContext({
         tool: 'Code Formatters',
         getContext: () => ({ input, output }),
-        suggestedPrompts: mode === 'sql'
-            ? ['What does this SQL query do?', 'How can I optimize this query?', 'Are there any bugs in this query?']
-            : mode === 'xml'
-                ? ['Summarize what this XML represents', 'Is this XML well-formed?', 'Write an XPath to select the items']
-                : ['Explain the structure of this JSON', 'Write a JMESPath query to extract the ids', 'Are there any issues with this data?'],
+        suggestedPrompts: PROMPTS[mode],
     })
 
     // Option changes re-run on the latest input
@@ -528,34 +745,47 @@ export default function Formatters() {
     const applyAction = (act) => {
         if (act?.mode) changeMode(act.mode)
         if (act?.dialect) changePref('dialect', act.dialect)
+        if (act?.retry) setAttempt(n => n + 1)
     }
 
     // Error position markers in the input editor (Monaco validates JSON itself)
+    const resultSource = result.source
     useEffect(() => {
         const editor = editorRef.current
         const m = monacoRef.current
         const model = editor?.getModel?.()
         if (!model || !m) return
         const loc = error?.location
-        const markers = loc && mode !== 'json' && source === model.getValue()
+        const markers = loc && mode !== 'json' && resultSource === model.getValue()
             ? [{
                 startLineNumber: loc.line,
                 startColumn: Math.max(1, loc.column),
-                endLineNumber: loc.line,
-                endColumn: Math.max(2, loc.column + 1),
+                endLineNumber: loc.endLine ?? loc.line,
+                endColumn: loc.endLine ? loc.endColumn : Math.max(2, loc.column + 1),
                 message: error.message,
                 severity: m.MarkerSeverity.Error,
             }]
             : []
         m.editor.setModelMarkers(model, 'formatter', markers)
-    }, [error, mode, source])
+    }, [error, mode, resultSource])
+
+    // Puts the cursor on the error and scrolls to it
+    const goToError = (loc) => {
+        const editor = editorRef.current
+        if (!editor) return
+        const position = { lineNumber: loc.line, column: Math.max(1, loc.column) }
+        editor.setPosition(position)
+        editor.revealPositionInCenterIfOutsideViewport(position)
+        editor.focus()
+    }
 
     const handleEditorMount = (editor, m) => {
         editorRef.current = editor
         monacoRef.current = m
         editor.addCommand(m.KeyMod.CtrlCmd | m.KeyCode.Enter, () => commitRef.current(editor.getValue()))
         editor.onDidPaste(() => {
-            if (liveRef.current) commitRef.current(editor.getValue())
+            const value = editor.getValue()
+            if (liveRef.current && value.length <= liveLimitRef.current) commitRef.current(value)
         })
     }
 
@@ -567,8 +797,7 @@ export default function Formatters() {
     }
 
     const download = () => {
-        const { ext, mime } = FILE_TYPES[mode]
-        downloadText(output, `formatted.${ext}`, mime)
+        downloadText(output, `formatted.${info.ext}`, info.mime)
     }
 
     const diffSource = useMemo(() => (view === 'diff' ? source.replace(/\r\n?/g, '\n') : ''), [view, source])
@@ -577,7 +806,16 @@ export default function Formatters() {
     const outputBytes = useMemo(() => new Blob([output]).size, [output])
     const shortcut = isMacPlatform ? '⌘↵' : 'Ctrl+Enter'
 
-    const selectStyle = { width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }
+    // YAML can't be indented with tabs, so it offers (and gets) spaces only
+    const indentChoices = mode === 'yaml' ? INDENTS.filter(o => o.value !== 'tab') : INDENTS
+    const indentValue = mode === 'yaml' && indent === 'tab' ? '2' : indent
+    const showPrettierOptions = usesPrettier && effectiveAction === 'pretty'
+    const optionNames = showPrettierOptions ? LANGUAGE_OPTIONS[mode].filter(name => name !== 'printWidth') : []
+    const changedOptions = optionNames.filter(name => prettierOptions[name] !== PRETTIER_DEFAULTS[name]).length
+    const optionControls = optionNames.map(name => (
+        <PrettierOption key={name} name={name} mode={mode} value={prettierOptions[name]} onChange={changePref} />
+    ))
+    const progress = loadingFormatter ? `Loading the ${info.label} formatter…` : 'Formatting…'
 
     return (
         <div className="page page-wide page-formatters">
@@ -585,42 +823,62 @@ export default function Formatters() {
 
             <section className="card card-compact" aria-label="Formatting options">
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-sm) var(--space-md)' }}>
-                    <SegmentedControl ariaLabel="Language" options={MODES} value={mode} onChange={changeMode} />
-                    {mode !== 'sql' && (
+                    <InlineSelect label="Language" value={mode} onChange={changeMode}>
+                        {MODE_GROUPS.map(g => (
+                            <optgroup key={g.group} label={g.group}>
+                                {g.modes.map(m => <option key={m.value} value={m.value}>{m.option ?? m.label}</option>)}
+                            </optgroup>
+                        ))}
+                    </InlineSelect>
+                    {canMinify(mode) && (
                         <SegmentedControl ariaLabel="Output style" options={ACTIONS} value={action} onChange={changeAction} />
                     )}
-                    {(mode === 'sql' || action === 'pretty') && (
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            Indent
-                            <select value={indent} onChange={e => changePref('indent', e.target.value)} style={selectStyle}>
-                                {INDENTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                            </select>
-                        </label>
+                    {(mode === 'sql' || effectiveAction === 'pretty') && (
+                        <InlineSelect label="Indent" value={indentValue} onChange={value => changePref('indent', value)}>
+                            {indentChoices.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </InlineSelect>
+                    )}
+                    {showPrettierOptions && (
+                        <InlineSelect
+                            label="Print width"
+                            title="Prettier wraps lines that are longer than this"
+                            value={prettierOptions.printWidth}
+                            onChange={value => changePref('printWidth', Number(value))}
+                        >
+                            {PRINT_WIDTHS.map(width => <option key={width} value={width}>{width}</option>)}
+                        </InlineSelect>
                     )}
                     {mode === 'sql' && (
                         <>
-                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                Dialect
-                                <select value={dialect} onChange={e => changePref('dialect', e.target.value)} style={selectStyle}>
-                                    {SQL_DIALECTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                                </select>
-                            </label>
-                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                Keywords
-                                <select value={keywordCase} onChange={e => changePref('keywordCase', e.target.value)} style={selectStyle}>
-                                    {KEYWORD_CASES.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
-                                </select>
-                            </label>
+                            <InlineSelect label="Dialect" value={dialect} onChange={value => changePref('dialect', value)}>
+                                {SQL_DIALECTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                            </InlineSelect>
+                            <InlineSelect label="Keywords" value={keywordCase} onChange={value => changePref('keywordCase', value)}>
+                                {KEYWORD_CASES.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+                            </InlineSelect>
                         </>
                     )}
-                    <label
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: 'auto' }}
-                        title="Format as you type or paste"
-                    >
+                    <label style={{ ...INLINE_LABEL, marginLeft: 'auto' }} title="Format as you type or paste">
                         <input type="checkbox" checked={live} onChange={e => changePref('live', e.target.checked)} />
                         Live format
                     </label>
                 </div>
+
+                {optionNames.length > 0 && (pane.size === 'sm' ? (
+                    // On a phone-width pane the style options fold away
+                    <details style={OPTIONS_BOX}>
+                        <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            Style options ({changedOptions ? `${changedOptions} changed` : 'defaults'})
+                        </summary>
+                        <div role="group" aria-label={`${info.label} style`} style={{ ...OPTIONS_ROW, marginTop: 'var(--space-sm)' }}>
+                            {optionControls}
+                        </div>
+                    </details>
+                ) : (
+                    <div role="group" aria-label={`${info.label} style`} style={{ ...OPTIONS_ROW, ...OPTIONS_BOX }}>
+                        {optionControls}
+                    </div>
+                ))}
 
                 {mode === 'json' && (
                     <Field
@@ -663,8 +921,8 @@ export default function Formatters() {
                         value={input}
                         onChange={handleInputChange}
                         language={mode}
-                        ariaLabel={`${mode.toUpperCase()} input`}
-                        placeholder={`Paste or type ${mode.toUpperCase()} here…`}
+                        ariaLabel={`${info.label} input`}
+                        placeholder={`Paste or type ${info.label} here…`}
                         onMount={handleEditorMount}
                         options={{ tabSize: indent === '4' ? 4 : 2 }}
                     />
@@ -702,8 +960,18 @@ export default function Formatters() {
                                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyAction(error.action)}>{error.action.label}</button>
                             ) : null}
                         >
-                            <span className="mono" style={{ fontSize: '0.82rem' }}>{error.message}</span>
+                            {error.plain ? error.message : <span className="mono" style={{ fontSize: '0.82rem' }}>{error.message}</span>}
                             {error.hint && <div style={{ marginTop: 4 }}>{error.hint}</div>}
+                            {error.location && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ marginTop: 'var(--space-xs)' }}
+                                    onClick={() => goToError(error.location)}
+                                >
+                                    Go to line {error.location.line}
+                                </button>
+                            )}
                         </StatusBanner>
                     )}
                     {notices.map((n) => (
@@ -743,14 +1011,18 @@ export default function Formatters() {
                             value={output}
                             language={mode}
                             readOnly
-                            ariaLabel={`Formatted ${mode.toUpperCase()} output`}
-                            placeholder={error ? '' : 'Formatted output appears here'}
+                            ariaLabel={`Formatted ${info.label} output`}
+                            placeholder={error ? '' : formatting ? progress : 'Formatted output appears here'}
                             options={{ tabSize: indent === '4' ? 4 : 2 }}
                         />
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-                        <span className="field-hint" style={{ marginTop: 0 }}>
-                            {output && !error ? `${outputLines.toLocaleString()} line${outputLines === 1 ? '' : 's'} · ${formatBytes(outputBytes)}` : ''}
+                        <span className="field-hint" style={{ marginTop: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            {formatting ? (
+                                <><Loader2 size={12} className="spin" aria-hidden="true" /> {progress}</>
+                            ) : output && !error ? (
+                                `${outputLines.toLocaleString()} line${outputLines === 1 ? '' : 's'} · ${formatBytes(outputBytes)}`
+                            ) : ''}
                         </span>
                         <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
                             <PipelineSend dataToSend={output} disabled={!!error} />

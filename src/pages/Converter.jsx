@@ -7,12 +7,16 @@ import CodeBlock from '../components/ui/CodeBlock'
 import CopyButton from '../components/ui/CopyButton'
 import StatusBanner from '../components/ui/StatusBanner'
 import EmptyState from '../components/ui/EmptyState'
+import ShareButton from '../components/ui/ShareButton'
 import { PipelineRead, PipelineSend } from '../components/PipelineFeature'
+import { useToast } from '../components/ToastProvider'
 import { useSmartInput } from '../hooks/useSmartInput'
 import { useRegisterAIContext } from '../hooks/useRegisterAIContext'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { useSharedState } from '../hooks/useSharedState'
 import { parseXml } from '../utils/xml'
 import { downloadText } from '../utils/download'
+import { field, ignoredFieldsMessage, readSharedFields } from '../utils/shareFields'
 
 const FORMATS = [
     { value: 'json', label: 'JSON', ext: 'json', mime: 'application/json', prism: 'json' },
@@ -22,6 +26,15 @@ const FORMATS = [
 ]
 const FORMAT_IDS = FORMATS.map(f => f.value)
 const formatInfo = (id) => FORMATS.find(f => f.value === id) ?? FORMATS[0]
+
+// What a shared link may set
+const SHARE_FIELDS = {
+    input: field.string(),
+    from: field.oneOf(FORMAT_IDS),
+    to: field.oneOf(FORMAT_IDS),
+    indent: field.oneOf([2, 4]),
+    inferXml: field.boolean(),
+}
 
 const SAMPLES = {
     json: `{
@@ -494,12 +507,26 @@ export default function Converter() {
     const fromId = useId()
     const toId = useId()
     const inputId = useId()
+    const toast = useToast()
     const [input, setInput] = useState('')
     const [from, setFrom] = useState('json')
     const [to, setTo] = useState('yaml')
     const [indent, setIndent] = useState(2)
     const [inferXml, setInferXml] = useState(true)
     const [manual, setManual] = useState('')
+
+    useSharedState((data) => {
+        const { values, ignored } = readSharedFields(data, SHARE_FIELDS)
+        if ('input' in values) {
+            setInput(values.input)
+            setManual(values.input) // converts right away, even above the live-conversion limit
+        }
+        if ('from' in values) setFrom(values.from)
+        if ('to' in values) setTo(values.to)
+        if ('indent' in values) setIndent(values.indent)
+        if ('inferXml' in values) setInferXml(values.inferXml)
+        if (ignored.length) toast.warning(ignoredFieldsMessage(ignored), 6000)
+    })
 
     const large = input.length > LIVE_LIMIT
     const debounced = useDebouncedValue(input, input.length > 200_000 ? 600 : 200)
@@ -586,6 +613,13 @@ export default function Converter() {
                         Detect numbers and booleans
                     </label>
                 )}
+                <div style={{ marginLeft: 'auto' }}>
+                    <ShareButton
+                        className="btn btn-ghost btn-sm"
+                        disabled={!input}
+                        getState={() => ({ input, from, to, indent, inferXml })}
+                    />
+                </div>
             </section>
 
             <div className="split-pane">

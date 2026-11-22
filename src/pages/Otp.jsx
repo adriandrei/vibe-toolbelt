@@ -63,7 +63,7 @@ function CodePanel({ totp, period, digits }) {
             <button
                 type="button"
                 onClick={() => copy(code, { key: 'code' })}
-                aria-label={`Copy code ${code}`}
+                aria-label={`Copy code ${groupCode(code)}`}
                 title="Copy code"
                 className="mono"
                 style={{
